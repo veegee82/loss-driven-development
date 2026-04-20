@@ -43,37 +43,42 @@ Aggregate `Δloss_bundle` now computed across **all 11 skills** (10 reactive + 1
 
 Raw artifacts for every pair in `fixtures/<skill>/runs/<timestamp>/` (v0.2 new-skill runs at `20260420T155048Z`, v0.1 re-measured runs at `20260420T161500Z`, clean-API for `docs-as-definition-of-done` at `20260420T165000Z-clean`, clean-API for `architect-mode` at `20260420T190302Z-clean`).
 
-### Per-skill absolute Δloss
+### Per-skill normalized Δloss (primary form, v0.3.2 canonical)
 
-| Skill | Rubric max | RED violations | GREEN violations | Δloss | Relative | Status |
-|---|---:|---:|---:|---:|---:|---|
-| `root-cause-by-layer` | 8 | 6 | 0 | **+6** | 0.750 | clean |
-| `loss-backprop-lens` | 6 | 3 | 0 | **+3** | 0.500 | clean (re-measured) |
-| `reproducibility-first` | 6 | 2 | 0 | **+2** | 0.333 | clean |
-| `e2e-driven-iteration` | 5 | 3 | 0 | **+3** | 0.600 | clean |
-| `dialectical-reasoning` | 6 | 3 | 0 | **+3** | 0.500 | partial contamination |
-| `iterative-refinement` | 6 | 3 | 0 | **+3** | 0.500 | clean |
-| `method-evolution` | 7 | 4 | 0 | **+4** | 0.571 | clean |
-| `drift-detection` | 6 | 5 | 0 | **+5** | 0.833 | clean |
-| `loop-driven-engineering` | 8 | 2 | 0 | **+2** | 0.250 | partial contamination |
-| `docs-as-definition-of-done` | 6 | 2 | 0 | **+2** | 0.333 | clean (direct API) |
-| `architect-mode` (opt-in) | 10 | 10 | 0 | **+10** | 1.000 | clean (direct API) |
-| **Total (n=11)** | **74** | **43** | **0** | **+43** | **0.561 (mean)** | |
+| Skill | Δloss (normalized) | Raw | Rubric max | Status |
+|---|---:|---:|---:|---|
+| `root-cause-by-layer` | **0.750** | 6/8 | 8 | clean |
+| `loss-backprop-lens` | **0.500** | 3/6 | 6 | clean (re-measured) |
+| `reproducibility-first` | **0.333** | 2/6 | 6 | clean |
+| `e2e-driven-iteration` | **0.600** | 3/5 | 5 | clean |
+| `dialectical-reasoning` | **0.500** | 3/6 | 6 | partial contamination |
+| `iterative-refinement` | **0.500** | 3/6 | 6 | clean |
+| `method-evolution` | **0.571** | 4/7 | 7 | clean |
+| `drift-detection` | **0.833** | 5/6 | 6 | clean |
+| `loop-driven-engineering` | **0.250** | 2/8 | 8 | partial contamination |
+| `docs-as-definition-of-done` | **0.333** | 2/6 | 6 | clean (direct API) |
+| `architect-mode` (opt-in) | **1.000** | 10/10 | 10 | clean (direct API) |
+| **Bundle mean (n=11)** | **0.561** | — | — | |
+
+All GREEN runs score 0 violations, so `Δloss (normalized) = RED_violations / rubric_max`.
 
 ### Bundle-wide metric (n=11)
 
 ```
-Δloss_bundle (absolute, mean per skill) = 43 / 11  = 3.91
-Δloss_bundle (relative, mean)            = 0.561    (≈ 56 % of rubric violations removed)
+Δloss_bundle = mean(Δloss_normalized per skill)
+             = (0.750 + 0.500 + 0.333 + 0.600 + 0.500 + 0.500 + 0.571 + 0.833 + 0.250 + 0.333 + 1.000) / 11
+             = 0.561
 ```
 
-Target from [`../evaluation.md`](../evaluation.md): `Δloss_bundle ≥ 2.0` (absolute, mean per skill). **Measured: 3.91 — target met with margin across all 11 skills.**
+Target from [`../evaluation.md`](../evaluation.md): `Δloss_bundle ≥ 0.30` (each skill, on average, removes ≥ 30 % of rubric violations that appear without it). **Measured 0.561 — target met with margin across all 11 skills.**
 
-`architect-mode` is the largest effect-size skill in the bundle (**+10 / 10, 100 % of rubric items flipped** between RED and GREEN). Consistent with its role — the gap between "agent invents whatever design feels right" and "agent runs a rigid 5-phase discipline with explicit 10-item rubric" is structurally larger than any reactive-mode skill's gap. `architect-mode` is also the only **opt-in** skill; it activates only when the user signals design intent via `LDD[mode=architect]:`, `/ldd-architect`, or a matching trigger phrase — so its contribution to the bundle-wide mean applies only in architect sessions, not every session.
+`architect-mode` is the largest effect-size skill in the bundle (**normalized 1.000, 100 % of rubric items flipped** between RED and GREEN). Consistent with its role — the gap between "agent invents whatever design feels right" and "agent runs a rigid 5-phase discipline with explicit 10-item rubric" is structurally larger than any reactive-mode skill's gap. `architect-mode` is also the only **opt-in** skill; it activates only when the user signals design intent via `LDD[mode=architect]:`, `/ldd-architect`, or a matching trigger phrase — so its contribution to the bundle-wide mean applies only in architect sessions, not every session.
 
 ### Interpretation
 
-Absolute per-skill Δloss ranges from +2 (partially-contaminated skills where baselines already show strong discipline) to +6 (`root-cause-by-layer` — the largest clean gap). The lower-bound character of the partially-contaminated measurements is explicit in their per-skill `baseline-notes.md`; their real Δloss is likely higher than recorded.
+Per-skill normalized Δloss ranges from 0.250 (partially-contaminated skills where baselines already show strong discipline) to 1.000 (`architect-mode` standard — every rubric item flipped). The lower-bound character of the partially-contaminated measurements is explicit in their per-skill `baseline-notes.md`; their real Δloss is likely higher than recorded.
+
+The previous v0.3.1 absolute-mean form (`Δloss_bundle = 3.91`) is retained in git history but no longer cited — it was three overlapping numbers (per-skill absolute + bundle absolute + bundle relative) where one normalized mean is clearer.
 
 ### How the clean-baseline script unblocks adopter contributions
 

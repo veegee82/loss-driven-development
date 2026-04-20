@@ -148,7 +148,17 @@ Average Δloss across skills, weighted by the number of pressure scenarios per s
 Δloss_bundle = Σ_s (Σ_t Δloss(s, t)) / (Σ_s |scenarios(s)|)
 ```
 
-Target: `Δloss_bundle ≥ 2.0` (on average, the skill removes two rubric violations per scenario). **Current measured value: 3.91 (absolute, mean per skill) across all 11 skills — target met with margin.** `docs-as-definition-of-done` and `architect-mode` were both captured via direct API (see [`scripts/capture-clean-baseline.py`](./scripts/capture-clean-baseline.py)), which sidesteps the subagent-harness contamination problem. `architect-mode` shows the largest effect size in the bundle (+10/10, 100 % of rubric items flipped). See [`tests/README.md`](./tests/README.md#current-measurements) for per-skill numbers and caveats.
+**Target** (v0.3.2, normalized): `Δloss_bundle ≥ 0.30` — on average, each skill removes at least 30 % of the rubric violations that appear without it. This replaces the v0.3.1 absolute target (`≥ 2.0 mean violations removed`) which was not comparable across skills with different rubric-maxes.
+
+**Current measured value: `Δloss_bundle = 0.561`** across all 11 skills — target met with margin. The raw absolute mean (v0.3.1 form) was 3.91; dividing by each skill's rubric-max and averaging gives the normalized 0.561 — which is now the canonical aggregate.
+
+Per-skill normalized `Δloss = violations_removed / rubric_max` ranges from **0.250** (`loop-driven-engineering`) to **1.000** (`architect-mode` standard). `docs-as-definition-of-done` and `architect-mode` were both captured via direct API (see [`scripts/capture-clean-baseline.py`](./scripts/capture-clean-baseline.py)) which sidesteps subagent-harness contamination. `architect-mode` shows the largest effect size in the bundle (normalized +1.000, 100 % of rubric items flipped). See [`tests/README.md`](./tests/README.md#current-measurements) for per-skill numbers and caveats.
+
+### Why normalized is the canonical form
+
+- **Cross-skill comparability.** Skills have different rubric-maxes: `e2e-driven-iteration` has 5 items, `architect-mode` has 10. `Δloss = +3 (e2e) vs Δloss = +6 (arch)` was apples-to-oranges; `0.60 vs 0.60` makes them immediately comparable.
+- **Single aggregate number.** Per-skill absolute Δloss + bundle-wide absolute mean + bundle-wide relative mean was three overlapping numbers. Normalized per-skill gives one unified scale.
+- **Actionable at the raw level.** Every normalized value is always shown with its raw `(N/max violations)` denominator in parens — the user still sees "3 of 8 items remain" for concrete fix-prioritization.
 
 ## E2E — what a real end-to-end run looks like
 

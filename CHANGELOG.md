@@ -2,6 +2,55 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] — 2026-04-20
+
+### Changed — normalized loss as canonical trace form
+
+Every LDD loss value in the trace block and `.ldd/trace.log` now displays as **normalized [0, 1] primary + raw `(N/max)` secondary**. Replaces the v0.3.1 absolute-integer form (`loss_0 = 3`, `Δloss = +3`) with `loss_0 = 0.375  (3/8 violations)`.
+
+**Why.** Skills have different rubric-maxes: `e2e-driven-iteration` has 5 items, `architect-mode` has 10. Comparing `Δloss = +3` (e2e) to `Δloss = +6` (architect) was apples-to-oranges; `0.600` vs. `0.600` is directly comparable. The raw `(N/max)` in parens keeps actionability — the user still sees "3 of 8 items remain open."
+
+**Three display modes**, chosen per task by the shape of the measurement, named on a new `Loss-type` header line:
+
+- `normalized-rubric` — `loss = violations / rubric_max` → float in [0, 1] plus raw in parens (default for most skills)
+- `rate` — signal already in [0, 1] (flake rate, coverage) → single float, no re-normalization
+- `absolute-<unit>` — unbounded continuous signal (latency, throughput) → absolute value with unit, no normalization (normalizing an unbounded value invents a denominator and produces fake precision)
+
+**Anti-patterns now spelled out explicitly in `skills/using-ldd/SKILL.md`:**
+
+- Never display a normalized float without the raw denominator in parens — `loss_0 = 0.375` alone hides that it's `3/8`
+- Never normalize a count that has no natural max (latency, commit counts, token usage) — those stay `absolute-<unit>`
+
+### Changed — aggregate target simplified
+
+`Δloss_bundle` target moves from absolute (`≥ 2.0 mean violations removed per skill`) to **normalized (`≥ 0.30`** — each skill removes ≥ 30 % of rubric violations that appear without it). Current measured: **`Δloss_bundle = 0.561`** across all 11 skills — target met with margin. Raw absolute mean (3.91, v0.3.1 form) retained in git history but no longer cited.
+
+Per-skill normalized Δloss ranges from 0.250 (`loop-driven-engineering`, partial-contamination baseline) to 1.000 (`architect-mode`). `tests/README.md` now leads with the normalized column; raw `(N/max)` kept for audit.
+
+### Plugin-reference conformance — final audit
+
+Full audit against `https://code.claude.com/docs/en/plugins-reference`:
+
+- **Manifest** — `name` required field present. All recommended optional fields present: `version`, `description`, `author` (with `url`), `homepage`, `repository`, `license`, `keywords`.
+- **Marketplace** — `$schema`, `name`, `description`, `owner` (with `url`), `plugins` array with per-entry `name`, `description`, `version`, `source`, `category`, `homepage`, `author`. Matches the shape used by plugins already accepted in `claude-plugins-official`.
+- **Skills** — 12 `skills/<name>/SKILL.md` files, each with `name` + `description` frontmatter; directory name matches `name` field in every case (verified via script).
+- **Commands** — 7 `commands/*.md` files, each with `description` frontmatter.
+- **Structure** — `.claude-plugin/` contains only `plugin.json` and `marketplace.json`; all component dirs at plugin root. Zero violations of the "components at root, not inside `.claude-plugin/`" rule.
+- **No agents / hooks / MCP / LSP / monitors** — none needed for this plugin; fields omitted cleanly (all optional per reference).
+
+### Updated
+
+- `skills/using-ldd/SKILL.md` — trace-block spec rewritten for normalized loss + `Loss-type` header line + 3-mode spec + anti-patterns
+- `skills/architect-mode/SKILL.md` — trace example updated; Phase 4 scoring cells now show `0.778 (14/18)` form
+- `evaluation.md` — target reformulated to `≥ 0.30` normalized; measured `0.561`; "why normalized" section added
+- `tests/README.md` — per-skill table leads with normalized Δloss column; raw `(N/max)` kept for audit
+- `docs/ldd/convergence.md` — new §5 "Loss display" explaining the three modes
+- `README.md` — hero badge updated to `Δloss_bundle = 0.561 (normalized)`; measured-section reframed
+- `.claude-plugin/plugin.json` — `description` updated; version 0.3.1 → 0.3.2
+- `.claude-plugin/marketplace.json` + `gemini-extension.json` — version 0.3.2
+
+No breaking changes. Existing traces in `tests/e2e/v031-runs/` are historical artifacts and retain the old absolute display; all new traces emit the normalized form.
+
 ## [0.3.1] — 2026-04-20
 
 ### Added — creativity levels for architect-mode

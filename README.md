@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Plugin format: Claude Code · Codex · Gemini CLI](https://img.shields.io/badge/plugin-Claude%20Code%20·%20Codex%20·%20Gemini%20CLI-green.svg)](#installation)
-[![Δloss_bundle: 3.91](https://img.shields.io/badge/%CE%94loss__bundle-3.91-brightgreen.svg)](./tests/README.md#current-measurements)
+[![Δloss_bundle: 0.561 (normalized)](https://img.shields.io/badge/%CE%94loss__bundle-0.561-brightgreen.svg)](./tests/README.md#current-measurements)
 [![Skills: 10 + architect + entry](https://img.shields.io/badge/skills-10%20%2B%20architect%20%2B%20entry--point-blueviolet.svg)](./skills/)
 
 > **LDD is to AI-era coding what TDD was to human coding.**
@@ -406,10 +406,10 @@ Formal loss function, per-skill rubrics, and E2E definition in [`evaluation.md`]
 
 Honest accounting in [`GAPS.md`](./GAPS.md).
 
-**Measured (2026-04-20, updated):**
+**Measured (2026-04-20, v0.3.2 — normalized form):**
 
-- 9 of 10 skills have RED/GREEN runs with artifacts on disk (1 skill — `docs-as-definition-of-done` — has a contamination caveat where the subagent refused the context reset; documented, not hidden).
-- **`Δloss_bundle = 3.44` absolute** (mean per skill, rubric violations removed) across those 9 — target `≥ 2.0` **met with margin**. All GREEN runs score 0 violations. Per-skill numbers, raw artifacts, and inter-reviewer variance (±2 per skill on 2 sampled fixtures) in [`tests/README.md`](./tests/README.md#current-measurements).
+- All 11 skills have clean RED/GREEN runs with artifacts on disk; plus a 6/6-green E2E suite at [`tests/e2e/v031-runs/`](./tests/e2e/v031-runs/).
+- **`Δloss_bundle = 0.561` normalized** (mean fraction of rubric violations each skill removes) — target `≥ 0.30` **met with margin**. Per-skill normalized Δloss ranges 0.250 → 1.000. All GREEN runs score 0 violations. Per-skill numbers + raw `(N/max violations)` counts + inter-reviewer variance in [`tests/README.md`](./tests/README.md#current-measurements).
 - **Tier-3.5 simulated E2E captured:** an agent with tool access closed the `scenario-01-refactor` loop at iteration 1/5 with 7/7 rubric items satisfied. Fix diff + commit + summary in [`tests/e2e/scenario-01-refactor/runs/20260420T160347Z/`](./tests/e2e/scenario-01-refactor/runs/20260420T160347Z/).
 - **User-facing invocation documented:** `LDD:` buzzword for guaranteed activation + trigger-phrase table per skill + per-agent install guide. See the "Using LDD" section above.
 

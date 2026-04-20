@@ -97,29 +97,54 @@ For every non-trivial LDD task, emit a **visible trace block** inline in your re
 
 ```
 ╭─ LDD trace ─────────────────────────────────────────╮
-│ Task   : <one-line description of what the user asked>
-│ Loop   : inner | refinement | outer
-│ Budget : k=<current>/K_MAX=<max>     (inner loop)
-│                                                     
-│ Iteration 1:                                        
-│   *Invoking <skill-name-1>*                         
+│ Task      : <one-line description of what the user asked>
+│ Loop      : inner | refinement | outer
+│ Loss-type : <see "Loss-types" below — primary is normalized [0,1]>
+│ Budget    : k=<current>/K_MAX=<max>     (inner loop)
+│
+│ Iteration 1:
+│   *Invoking <skill-name-1>*
 │     <1-line result — branch chosen, layer named, verdict>
-│   *Invoking <skill-name-2>*                         
-│     <1-line result>                                 
-│   loss_1: <count of failing items / rubric rejections>
-│                                                     
-│ Iteration 2 (if applicable):                        
-│   ...                                               
-│   loss_2: <...>      Δloss_1→2: +X (progress) | 0 (no-op) | -X (regression)
-│                                                     
-│ Close:                                              
+│   *Invoking <skill-name-2>*
+│     <1-line result>
+│   loss_1 = 0.000  (0/<max> violations)
+│
+│ Iteration 2 (if applicable):
+│   ...
+│   loss_2 = 0.125  (1/8 violations)
+│   Δloss_1→2 = −0.125  (regression — revert before next edit)
+│
+│ Close:
 │   Fix at layer: <4: structural-name, 5: conceptual-name>
-│   Docs synced : yes | N/A | no (BLOCKED)            
+│   Docs synced : yes | N/A | no (BLOCKED)
 │   Terminal   : complete | partial | failed | aborted
 ╰─────────────────────────────────────────────────────╯
 ```
 
 Keep it compact. The goal is **one screenful** the user can eyeball. If the trace grows beyond ~25 lines (many iterations), collapse older iterations to one summary line each.
+
+### Loss-types — how to display the loss number
+
+Three display modes, chosen per task by the nature of the measurement. Pick one, name it on the `Loss-type` header line, use it consistently for the whole trace block.
+
+| Loss-type | When it applies | Display format | Example |
+|---|---|---|---|
+| **`normalized [0,1] (violations / rubric_max)`** | Binary rubric items (the default for most LDD skills): count violations, divide by rubric max | **Primary:** float in [0, 1] with 3 decimals. **Secondary:** raw `(N/max violations)` in parens | `loss_0 = 0.375  (3/8 violations)` |
+| **`rate (already in [0,1])`** | Ratio signals already bounded: flake rate, passing-test fraction, coverage | Single float, secondary raw optional | `loss_0 = 0.333  (3/9 runs failed)` |
+| **`absolute (continuous, no natural max)`** | Unbounded signals: latency / throughput / queue depth | Absolute value **with unit**, NO normalization attempt | `loss_0 = 45.0 ms  (p99 regression)` |
+
+**Normalization rule (primary Loss-type):**
+
+```
+loss_normalized = violations / rubric_max
+Δloss           = loss_{k-1} − loss_k    # positive = progress, negative = regression
+```
+
+Normalization makes Δloss **comparable across skills** (drift-detection with 6 rubric items vs. architect-mode with 10 items become apples-to-apples). The raw `(N/max)` in parens keeps it **actionable** — the user still sees exactly which items are still open.
+
+**Anti-pattern:** never display a normalized float without the raw denominator in parens. "`loss_0 = 0.375`" alone implies a measurement precision that isn't there — it hides the fact that it's `3/8`. Show both; the normalized form is for comparison, the raw form is for action.
+
+**Anti-pattern:** never compute a normalized float from a count that has no natural max (commit counts, latency, token usage). Those stay absolute with units — trying to normalize them invents a denominator and produces fake precision.
 
 ### Architect-mode variant of the trace block
 
@@ -131,21 +156,24 @@ When `mode=architect` is active, the trace uses **phases** instead of iterations
 │ Loop       : architect (5-phase protocol)
 │ Budget     : phase <k>/5, no K_MAX (phases are sequential, not iterative)
 │ Loss-fn    : L = rubric_violations  (standard baseline; λ=0)
+│ Loss-type  : normalized [0,1] (violations / 10)
 │
 │ Phase 1 — Constraints  : 7 requirements named; 2 uncertainties flagged
 │ Phase 2 — Non-goals    : 3 concrete non-goals
 │ Phase 3 — Candidates   : 3/3 on load-bearing axis (monolith / CQRS / event-driven)
-│ Phase 4 — Scoring      : CQRS wins 14/18, dialectical antithesis passed
+│ Phase 4 — Scoring      : CQRS wins, 0.778 (14/18); antithesis passed
 │ Phase 5 — Deliverable  : arch.md + scaffold + 6 failing tests
 │
-│ Rubric     : 10/10 (no known gaps) | 9/10 ("evolution paths" thin — noted)
-│ Hand-off   : next: default LDD inner loop, loss_0 = 6 failing tests
+│ Final loss : 0.000  (0/10 violations — no known gaps)
+│ Hand-off   : next: default LDD inner loop, loss_0 (inner) = 0.857  (6/7 integration tests failing)
 ╰─────────────────────────────────────────────────────╯
 ```
 
-Header shows `mode: architect` and `creativity: <level>` explicitly. The `Loss-fn` line names the objective being minimized so the user can audit that the right loss function is in effect.
+Header shows `mode: architect` and `creativity: <level>` explicitly. The `Loss-fn` line names the objective being minimized; the `Loss-type` line names how the loss is displayed (which of the three display modes applies for this run).
 
-For `creativity: conservative` the `Loss-fn` line reads: `L = rubric_violations + λ · novelty_penalty`. For `creativity: inventive` it reads: `L = rubric_violations_reduced + λ · prior_art_overlap_penalty`.
+For `creativity: conservative` the `Loss-fn` line reads: `L = rubric_violations + λ · novelty_penalty`. The rubric max becomes 11 (standard 10 + novelty-penalty #11); `Loss-type : normalized [0,1] (weighted violations / 11)`. Scoring cells in Phase 4 are displayed as normalized floats too: `A: 0.667 (20.0/30.0)` instead of raw `A: 20.0/30.0` alone.
+
+For `creativity: inventive` the `Loss-fn` line reads: `L = rubric_violations_reduced + λ · prior_art_overlap_penalty`. The inventive rubric has 7 items (1–4 retained, 5–8 replaced by #I1–#I3) plus 9 and 10 always applied — so the denominator is 9; `Loss-type : normalized [0,1] (violations / 9)`.
 
 Phase completion is reported as it happens (the block grows as the task progresses). On close, rubric score and hand-off line are added. If `inventive` was activated, also emit a line `Acknowledgment : accepted @ <timestamp>` or `downgraded to standard (not acknowledged)` so the user can verify what ran.
 
@@ -161,12 +189,12 @@ Phase completion is reported as it happens (the block grows as the task progress
 When you are operating in a project directory (as opposed to answering an abstract question), also append a compact single-line trace entry to `.ldd/trace.log` at the project root. Create the directory if needed. Format:
 
 ```
-2026-04-20T17:32:10Z  inner  k=1  skill=reproducibility-first    verdict=deterministic    loss_0=1
-2026-04-20T17:32:45Z  inner  k=1  skill=root-cause-by-layer      layer4=domain-boundary   loss_0=1
-2026-04-20T17:33:22Z  inner  k=1  close                          terminal=complete        loss_1=0   Δloss=+1
+2026-04-20T17:32:10Z  inner  k=1  skill=reproducibility-first    verdict=deterministic    loss_norm=0.375  raw=3/8  loss_type=normalized-rubric
+2026-04-20T17:32:45Z  inner  k=1  skill=root-cause-by-layer      layer4=domain-boundary   loss_norm=0.375  raw=3/8  loss_type=normalized-rubric
+2026-04-20T17:33:22Z  inner  k=1  close                          terminal=complete        loss_norm=0.000  raw=0/8  Δloss_norm=+0.375
 ```
 
-One line per skill invocation or close event. ISO-8601 UTC timestamp first. Space-separated key=value pairs. The user can `tail -f .ldd/trace.log` in a second terminal to watch the loop in real time, or grep the file for post-hoc audit.
+One line per skill invocation or close event. ISO-8601 UTC timestamp first. Space-separated key=value pairs. `loss_norm` is the primary normalized [0,1] value; `raw` keeps the underlying count for action. `loss_type` is one of `normalized-rubric`, `rate`, `absolute-<unit>`. The user can `tail -f .ldd/trace.log` in a second terminal to watch the loop in real time, or grep the file for post-hoc audit.
 
 **If `.ldd/` cannot be written** (read-only filesystem, no project root), skip the persistence but still emit the inline block.
 

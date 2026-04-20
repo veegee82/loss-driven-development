@@ -136,6 +136,18 @@ A converging project shows **monotonic-or-flat** loss at each tier over time —
 
 A diverging project shows **rising test loss despite falling training loss** — the classic overfitting signature. LDD's job is to make this visible early and give the operator the tools (refinement, method-evolution, drift-detection) to correct course without starting over.
 
+### Loss display — normalized [0, 1], primary; raw `(N/max)` secondary (v0.3.2)
+
+Every measurable loss in LDD is displayed in one of three forms, named on the trace-block `Loss-type` line:
+
+- **`normalized-rubric`**: `loss = violations / rubric_max`, shown as a float in [0, 1] with the raw count in parens. Example: `loss_0 = 0.375  (3/8 violations)`. This is the default for the binary rubrics used by most skills.
+- **`rate`**: the underlying signal is already a rate in [0, 1] (flake rate, pass fraction, coverage). Shown as a float; no re-normalization.
+- **`absolute-<unit>`**: continuous unbounded signal (latency, throughput, queue depth). Shown with its unit, no normalization — normalizing an unbounded signal invents a denominator and produces fake precision.
+
+Normalizing per-skill violations to [0, 1] makes Δloss **comparable across skills** (drift-detection's 6-item rubric and architect-mode's 10-item rubric become apples-to-apples). The raw `(N/max)` in parens keeps it **actionable** — the user still sees exactly which items are still open. Never display a normalized float without the raw denominator in parens; the combined display is the honest form.
+
+Full per-type spec in [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § "Loss-types — how to display the loss number".
+
 ## 6. Practical reading order for a new contributor
 
 1. `README.md` — what LDD is for.

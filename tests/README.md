@@ -1,6 +1,6 @@
 # Tests
 
-Reproducible pressure scenarios for evaluating the five skills. See [`../evaluation.md`](../evaluation.md) for the formal loss function and E2E definition.
+Reproducible pressure scenarios for evaluating the ten skills. See [`../evaluation.md`](../evaluation.md) for the formal loss function and E2E definition.
 
 ## Directory layout
 

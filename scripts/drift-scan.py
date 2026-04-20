@@ -9,7 +9,11 @@ This is a best-effort heuristic scanner, not a static-analysis tool. It finds
 candidates for human review; it does not prove drift.
 
 Usage:
-    python scripts/drift-scan.py [--repo PATH] [--out REPORT.md]
+    python scripts/drift-scan.py [--repo PATH] [--out REPORT.md] [--exclude DIR...]
+
+By default, excludes common virtualenv / build / cache dirs AND this bundle's
+own scripts/ directory (so the scanner's own synonym lists don't show up as
+"identifier drift" findings).
 
 See skills/drift-detection/SKILL.md for the conceptual spec.
 """
@@ -79,9 +83,17 @@ def iter_doc_files(root: Path) -> Iterable[Path]:
     yield from root.rglob("*.md")
 
 
-def skip_path(p: Path) -> bool:
+_DEFAULT_EXCLUDES = {
+    ".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build",
+    "target", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "vendor",
+    "scripts",  # avoid false positives where the scanner finds its own heuristic lists
+}
+
+
+def skip_path(p: Path, extra: set[str] | None = None) -> bool:
     parts = set(p.parts)
-    return bool(parts & {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", "target"})
+    excludes = _DEFAULT_EXCLUDES | (extra or set())
+    return bool(parts & excludes)
 
 
 # ---------- Indicator 1: identifier drift ----------
@@ -193,12 +205,35 @@ def check_doc_model_drift(report: Report, root: Path) -> None:
     if not readme.exists():
         return
     text = readme.read_text(errors="replace")
-    # Heuristic: README mentions a service/module list; compare with actual dirs.
-    top_dirs = {p.name for p in root.iterdir() if p.is_dir() and not p.name.startswith(".") and not skip_path(p)}
-    mentioned = set(re.findall(r"`([a-z][a-z0-9_-]{2,})/`", text))
+    # Actual top-level directories — for doc-model check we include all dirs, even
+    # those excluded from code scanning (e.g. scripts/). We only skip git / cache /
+    # hidden dirs so dotfile directories don't pollute the comparison.
+    hidden_or_cache = {".git", ".github", "node_modules", "__pycache__", ".venv", "venv",
+                        ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "dist", "build"}
+    top_dirs = {
+        p.name for p in root.iterdir()
+        if p.is_dir() and not p.name.startswith(".") and p.name not in hidden_or_cache
+    }
+    # Match LOCAL path references only. Three conservative forms:
+    #   (1) ](./name/...) — relative markdown link target
+    #   (2) `name/`       — bare directory in backticks (trailing slash)
+    #   (3) `name/file.ext` — path to a recognised source/doc file in backticks
+    # This avoids matching GitHub URLs, `try/except`, `.github/*`, or
+    # repo handles like `obra/superpowers` which don't match any of the three.
+    file_exts = r"(?:md|py|sh|dot|svg|json|yaml|yml|toml|ts|tsx|js|jsx|go|rs)"
+    path_patterns = [
+        r"\]\(\./([a-z][a-z0-9_-]{1,})/",                    # (1)
+        r"(?<![A-Za-z0-9_])`([a-z][a-z0-9_-]{1,})/`",        # (2)
+        rf"(?<![A-Za-z0-9_])`([a-z][a-z0-9_-]{{1,}})/[^`]+\.{file_exts}`",  # (3) path to a source/doc file
+        r"(?<![A-Za-z0-9_])`([a-z][a-z0-9_-]{1,})/\*`",      # (4) bare glob: `name/*`
+    ]
+    mentioned: set[str] = set()
+    for pat in path_patterns:
+        mentioned.update(re.findall(pat, text))
     if mentioned and (missing := mentioned - top_dirs):
         report.add("Doc-model drift", f"README mentions directories not present: {', '.join(sorted(missing))}")
-    if top_dirs - {"skills", "tests", "docs", "diagrams", "scripts"} and mentioned and (unmentioned := top_dirs - mentioned - {"skills", "tests", "docs", "diagrams", "scripts", ".claude-plugin"}):
+    unmentioned = top_dirs - mentioned
+    if unmentioned:
         report.add("Doc-model drift", f"Top-level dirs not mentioned in README: {', '.join(sorted(unmentioned))}")
 
 
@@ -272,12 +307,18 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=".", help="Repository root to scan")
     ap.add_argument("--out", default=None, help="Output file (default: stdout)")
+    ap.add_argument("--exclude", action="append", default=[], metavar="DIR",
+                    help="Extra directory name to exclude (can repeat). "
+                         "Defaults already exclude common vendor/build/cache dirs and scripts/.")
     args = ap.parse_args()
 
     root = Path(args.repo).resolve()
     if not root.exists():
         print(f"error: repo path not found: {root}", file=sys.stderr)
         return 2
+
+    # Merge user-supplied excludes into the module default so every scanner honors them.
+    _DEFAULT_EXCLUDES.update(args.exclude)
 
     report = Report()
     check_identifier_drift(report, root)

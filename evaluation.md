@@ -116,7 +116,7 @@ Target: `Δloss_bundle ≥ 2.0` (on average, the skill removes two rubric violat
 A proper E2E is **not** "the agent wrote the right text in response to a prompt." It is:
 
 1. **Fresh project, fresh agent.** New directory, no `CLAUDE.md`, no prior conversation state.
-2. **Unseen multi-step task.** A task not present in any skill's example section. Must require ≥ 2 of the 5 skills to solve well.
+2. **Unseen multi-step task.** A task not present in any skill's example section. Must require ≥ 2 of the 10 skills to solve well.
 3. **Real tool use.** The agent must actually edit files, run tests, inspect diffs — not just describe what it would do.
 4. **Artifacts persisted.** The run produces a directory: transcript, proposed diff, test output, any new files. These are inspected post-hoc.
 5. **Rubric scored against the artifacts.** Not against the transcript alone. Did the diff actually land at the right layer? Did docs actually get updated? Did the commit message reflect LDD reasoning?

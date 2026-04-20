@@ -24,30 +24,7 @@ Every code change is an SGD step. Most agents optimize training loss (the visibl
 
 ## The 10 skills
 
-```
-              loop-driven-engineering  ←— dach / entry point
-                    |
-          ┌─────────┼─────────┐
-          |         |         |
-       INNER    REFINEMENT   OUTER
-       LOOP      LOOP        LOOP
-       (code)   (deliverable) (skill)
-          |         |         |
-  ┌───────┴───┐     |         |
-  reproducibility-first       |
-  root-cause-by-layer         |
-  loss-backprop-lens          |
-  e2e-driven-iteration        |
-  dialectical-reasoning       |
-                              |
-                    iterative-refinement
-                              |
-                              method-evolution
-                              |
-                              drift-detection
-  ─────────────┴──────────────┴──────────────
-                docs-as-definition-of-done (closes every loop)
-```
+![LDD skills overview — ten skills across three optimization loops, connected to the loop-driven-engineering entry-point and closed by docs-as-definition-of-done](./diagrams/skills-overview.svg)
 
 | Skill | Type | What it catches |
 |---|---|---|
@@ -93,24 +70,50 @@ Skill content (`skills/*/SKILL.md`) is identical across platforms. Only the dist
 
 ### Claude Code (primary target)
 
-```bash
-# Register the local dir as a marketplace (one-time)
-/plugin marketplace add /path/to/loss-driven-development
+Two install paths depending on your Claude Code version:
 
-# Install the plugin
+**Option A — via the marketplace command** (works with any version that supports `/plugin marketplace add`):
+
+```bash
+# Inside a Claude Code session:
+/plugin marketplace add https://github.com/veegee82/loss-driven-development.git
+
+# Then install from the newly-registered marketplace:
 /plugin install loss-driven-development@loss-driven-development-dev
 ```
 
-Skills appear as `loss-driven-development:<name>` and trigger automatically when their `description` matches the task, or via explicit `/loss-driven-development:<skill>`. Or drop `skills/*` into `~/.claude/skills/` for a personal install.
+Skills appear as `loss-driven-development:<name>` and trigger automatically when their `description` matches the current task. Explicit invocation: `/loss-driven-development:<skill-name>`.
+
+**Option B — personal install, no plugin mechanism** (works in every Claude Code version):
+
+```bash
+# In your shell:
+git clone https://github.com/veegee82/loss-driven-development.git
+mkdir -p ~/.claude/skills
+cp -r loss-driven-development/skills/* ~/.claude/skills/
+```
+
+Skills now appear in every Claude Code session, any project. No namespace prefix.
 
 ### Codex (OpenAI)
 
-Codex reads `AGENTS.md` at the project root. Copy this repo (or just `AGENTS.md` + `skills/`) into your project. For a global install, place `skills/` into your Codex personal-skills directory.
+Codex reads `AGENTS.md` at the project root:
+
+```bash
+git clone https://github.com/veegee82/loss-driven-development.git
+# Per-project install — copy AGENTS.md + skills/ into your project root:
+cp -r loss-driven-development/AGENTS.md loss-driven-development/skills your-project/
+
+# OR global install — if your Codex version supports a personal skills dir:
+mkdir -p ~/.agents/skills
+cp -r loss-driven-development/skills/* ~/.agents/skills/
+```
 
 ### Gemini CLI
 
 ```bash
-gemini extensions install /path/to/loss-driven-development
+git clone https://github.com/veegee82/loss-driven-development.git
+gemini extensions install ./loss-driven-development
 ```
 
 `gemini-extension.json` registers the extension; `GEMINI.md` `@`-imports the ten skills.

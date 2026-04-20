@@ -1,0 +1,87 @@
+digraph skills_overview {
+  rankdir=TB;
+  compound=true;
+  node [fontname="Helvetica", shape=box, style="rounded,filled", fontsize=11];
+  edge [fontname="Helvetica", fontsize=10, color="#888888"];
+  labelloc="t";
+  label=<<b>LDD — ten skills across three optimization loops</b>>;
+  fontname="Helvetica";
+  fontsize=14;
+
+  // Entry point
+  lde [
+    label=<<b>loop-driven-engineering</b><br/><font point-size="9">dach / entry-point<br/>chooses loop, dispatches specialists</font>>,
+    fillcolor="#e8f4fd", color="#1f77b4", shape=box, style="rounded,filled,bold"
+  ];
+
+  // Close of loop
+  ddod [
+    label=<<b>docs-as-definition-of-done</b><br/><font point-size="9">closes every loop<br/>code + tests + docs in one commit</font>>,
+    fillcolor="#cfe3fa", color="#1f77b4"
+  ];
+
+  // Inner loop cluster
+  subgraph cluster_inner {
+    label=<<b>INNER LOOP</b> — θ = code<br/><font point-size="9">K_MAX = 5 iterations per task</font>>;
+    style="rounded,filled"; fillcolor="#e6fbe6"; color="#2ca02c"; fontsize=12;
+
+    rf [label=<<b>reproducibility-first</b><br/><font point-size="9">no update on a single sample</font>>, fillcolor="#ffffff"];
+    rcbl [label=<<b>root-cause-by-layer</b><br/><font point-size="9">5-Why ladder to layer 4 / 5</font>>, fillcolor="#ffffff"];
+    lbl [label=<<b>loss-backprop-lens</b><br/><font point-size="9">step size matches loss pattern</font>>, fillcolor="#ffffff"];
+    edi [label=<<b>e2e-driven-iteration</b><br/><font point-size="9">measure Δloss every iteration</font>>, fillcolor="#ffffff"];
+
+    rf -> rcbl [label="real signal?"];
+    rcbl -> lbl [label="how big an edit?"];
+    lbl -> edi [label="run the loop"];
+    edi -> rf [label="next iter"];
+  }
+
+  // Refinement loop cluster
+  subgraph cluster_refine {
+    label=<<b>REFINEMENT LOOP</b> — θ = deliverable (y-axis)<br/><font point-size="9">budget halves per iteration</font>>;
+    style="rounded,filled"; fillcolor="#fef4ea"; color="#ff7f0e"; fontsize=12;
+
+    ir [
+      label=<<b>iterative-refinement</b><br/><font point-size="9">polish with a structured gradient<br/>stop on regression / plateau / time</font>>,
+      fillcolor="#ffffff"
+    ];
+  }
+
+  // Outer loop cluster
+  subgraph cluster_outer {
+    label=<<b>OUTER LOOP</b> — θ = skills / rubrics (θ-axis)<br/><font point-size="9">rollback on regression</font>>;
+    style="rounded,filled"; fillcolor="#f5ebfd"; color="#9467bd"; fontsize=12;
+
+    me [
+      label=<<b>method-evolution</b><br/><font point-size="9">pattern across 3+ tasks<br/>→ evolve the skill itself</font>>,
+      fillcolor="#ffffff"
+    ];
+    dd [
+      label=<<b>drift-detection</b><br/><font point-size="9">periodic 7-indicator scan<br/>finds cumulative drift</font>>,
+      fillcolor="#ffffff"
+    ];
+    dd -> me [label="pattern found?"];
+  }
+
+  // Cross-cutting
+  subgraph cluster_cross {
+    label=<<b>CROSS-CUTTING</b><br/><font point-size="9">used by every loop</font>>;
+    style="rounded,filled"; fillcolor="#fff9e6"; color="#d4a017"; fontsize=12;
+
+    dr [
+      label=<<b>dialectical-reasoning</b><br/><font point-size="9">thesis → antithesis → synthesis<br/>before any non-trivial recommendation</font>>,
+      fillcolor="#ffffff"
+    ];
+  }
+
+  // Wiring from entry-point
+  lde -> rf [lhead=cluster_inner, label="fix a bug /\nclose a test"];
+  lde -> ir [lhead=cluster_refine, label="polish a\ndeliverable"];
+  lde -> dd [lhead=cluster_outer, label="periodic /\npattern in 3+ tasks"];
+  lde -> dr [lhead=cluster_cross, label="plan / review"];
+
+  // Close — every loop ends in ddod
+  rcbl -> ddod [style=dashed, label="close", ltail=cluster_inner];
+  ir -> ddod [style=dashed, label="close", ltail=cluster_refine];
+  me -> ddod [style=dashed, label="close", ltail=cluster_outer];
+}

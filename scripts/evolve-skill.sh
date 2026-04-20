@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
 # evolve-skill.sh — RED/GREEN rerun helper for the method-evolution skill.
 #
+# Platform note: this script is agent-agnostic in what it produces (plain
+# prompts on stdout, plain responses on stdin) but assumes YOU have access to
+# a subagent / session you can paste prompts into. It works with any coding
+# agent that supports a fresh conversational session: Claude Code, Codex,
+# Gemini CLI, a bare Anthropic/OpenAI API playground, etc.
+#
 # Usage:
 #   ./scripts/evolve-skill.sh <skill-name>
 #
 # What it does:
 #   1. Prints the RED prompt (baseline: skill NOT loaded) from the fixture's
-#      scenario.md and the rubric.md — for you to paste into a fresh subagent
-#      session.
+#      scenario.md — for you to paste into a fresh session.
 #   2. Waits for you to paste the response, saves it as red.md.
 #   3. Prints the GREEN prompt (skill loaded) — the skill's SKILL.md prepended
 #      to the same scenario.md.
 #   4. Waits for you to paste the response, saves it as green.md.
-#   5. Prints a placeholder for Δloss: you read both responses against the
-#      rubric, count violations per side, compute the delta. The script is
-#      a scaffolder, not a scorer.
+#   5. Prints instructions for scoring against rubric.md. Scoring is
+#      reviewer-done — the script does NOT call an LLM API.
 #
-# This script does NOT call an LLM API. It's a terminal-based workflow helper.
-# The evaluation remains reviewer-scored (see tests/README.md for why).
+# Requirements: bash, nothing else. No Python, no API key.
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then

@@ -22,12 +22,13 @@ Every code change is an SGD step. Most agents optimize training loss (the visibl
 | Same rubric violation across tasks; nobody notices | Outer-loop `method-evolution`: the skill itself is the bug |
 | README describes a system that no longer exists | Periodic `drift-detection` scan finds it before onboarding does |
 
-## The 10 skills
+## The 10 skills (+ `using-ldd` entry-point)
 
 ![LDD skills overview — ten skills across three optimization loops, connected to the loop-driven-engineering entry-point and closed by docs-as-definition-of-done](./diagrams/skills-overview.svg)
 
 | Skill | Type | What it catches |
 |---|---|---|
+| **using-ldd** | entry-point | Bootstraps the bundle and dispatches the 10 below via trigger-phrase table; fires on `LDD:` prefix or any trigger match |
 | **loop-driven-engineering** | pattern (dach) | "Just start coding" without a plan or a budget |
 | **reproducibility-first** | discipline | Updates on a single noisy sample |
 | **root-cause-by-layer** | discipline | Symptom patches (try/except, shims, xfail, …) |
@@ -116,7 +117,7 @@ git clone https://github.com/veegee82/loss-driven-development.git
 gemini extensions install ./loss-driven-development
 ```
 
-`gemini-extension.json` registers the extension; `GEMINI.md` `@`-imports the ten skills.
+`gemini-extension.json` registers the extension; `GEMINI.md` `@`-imports the eleven skills (the `using-ldd` entry-point first).
 
 ### Aider · Cursor · Copilot CLI · Continue.dev · generic
 

@@ -1,6 +1,6 @@
-# engineering-loop — Skills for any coding agent
+# Loss-Driven Development (LDD) — Skills for any coding agent
 
-Five composable skills for loss-driven engineering discipline. Platform-agnostic content; multiple distribution formats so the same skills work in Claude Code, Codex, Gemini CLI, Aider, Cursor, Copilot CLI, and any agent that reads project-level instruction files.
+Five composable skills for **loss-driven development** — the AI-era counterpart of TDD. Platform-agnostic content; multiple distribution formats so the same skills work in Claude Code, Codex, Gemini CLI, Aider, Cursor, Copilot CLI, and any agent that reads project-level instruction files.
 
 ## What this is
 
@@ -14,13 +14,13 @@ Because the content is markdown, any agent that can load instructions from files
 
 ```bash
 # Register as local marketplace
-/plugin marketplace add /path/to/engineering-loop
+/plugin marketplace add /path/to/loss-driven-development
 
 # Install
-/plugin install engineering-loop@engineering-loop-dev
+/plugin install loss-driven-development@loss-driven-development-dev
 ```
 
-Skills appear as `engineering-loop:<name>` and can be invoked via the `Skill` tool or triggered automatically when their `description` matches the task.
+Skills appear as `loss-driven-development:<name>` and can be invoked via the `Skill` tool or triggered automatically when their `description` matches the task.
 
 ### Codex (OpenAI)
 
@@ -34,7 +34,7 @@ Codex reads `AGENTS.md` at the project root and applies it to the session. Two o
 Install as an extension:
 
 ```bash
-gemini extensions install /path/to/engineering-loop
+gemini extensions install /path/to/loss-driven-development
 ```
 
 `gemini-extension.json` declares the extension and points at `GEMINI.md`, which `@`-imports the five `SKILL.md` files.

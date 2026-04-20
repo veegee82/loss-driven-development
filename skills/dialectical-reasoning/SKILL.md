@@ -118,11 +118,13 @@ Do not perform the dialectic for its own sake. The output is a sharper decision,
 | "Devil's advocate feels performative" | Performative antithesis (weak attacks) IS the failure mode. Attack hard. A real antithesis changes the synthesis. |
 | "I can hold both sides in my head" | Maybe. But you can't prove you did unless you write them. Reviewers cannot audit a private dialectic. |
 
-## Real-World Baseline
+## The failure mode this skill prevents
 
-Without this skill, on a "should we add retries to this flaky API call?" question, the typical answer reads as a one-sided analysis — substantive but mono-directional. It misses the explicit "thesis / but / therefore" shape that lets the reader verify both sides were considered.
+Without an enforced dialectical shape, a response on a high-stakes design question (retries for a flaky API, dedup of user records, service split) tends to come out mono-directional — substantive but one-sided, missing the explicit "thesis / but / therefore" auditability. The hidden assumption goes unchallenged; the reviewer has no way to verify both sides were actually considered.
 
-With this skill: the reply explicitly frames the proposal, attacks it (retry storms under correlated failure, idempotency-key discipline, rate-limit amplification), then synthesizes a narrower version ("ship it with jitter + circuit breaker + explicit idempotency key, otherwise no"). The synthesis is **strictly stronger** than the thesis.
+With this skill: the reply labels thesis, attacks ≥ 3 vectors in the antithesis (hidden assumptions, edge cases, contracts under strain, irreversibility, asymmetric risk), and produces a synthesis that is *strictly stronger* than the thesis — narrower scope, sharper conditions, or reframed problem.
+
+Scenario + rubric + measured behavior: `tests/fixtures/dialectical-reasoning/`.
 
 ## Related
 

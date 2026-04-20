@@ -121,16 +121,13 @@ Example: changing a function from synchronous to async changes the *mental model
 | "No one reads the docs" | *You* read the docs when you load them as context for the next feature. So does the next LLM. Stale docs poison future decisions. |
 | "The change is internal, no public-facing doc references it" | Grep first. If the grep really is empty, you're right — this is why "When Not to Use" exists. |
 
-## Real-World Baseline
+## The failure mode this skill prevents
 
-Without this skill, under release-freeze pressure, an agent ships:
-- Code + tests committed and pushed
-- A TODO comment saying "update README"
-- A follow-up ticket that never gets worked on
+Under release-freeze pressure, the textbook failure is: ship code + tests, leave a `TODO: update README` comment, file a follow-up ticket that never closes. Two weeks later a reader trusts a now-false safety claim and makes a decision against the stale model. The cost of the stale line is paid by the reader, not the author.
 
-Two weeks later a reader trusts the README safety claim ("there is no dry-run mode") and makes a decision against the stale model. The original author has moved on; the cost of the stale line is paid by the reader.
+With this skill: one commit, code + tests + docs synced. The 30 seconds of `grep + edit` saved a compounding readability cost.
 
-With this skill: one commit, code + tests + docs, all synced. The 30 seconds of `grep + edit` saved the two-week compounding cost.
+Measured behavior change for this skill is documented in `tests/fixtures/docs-as-definition-of-done/` alongside the scenario used to test it.
 
 ## Related
 

@@ -1,14 +1,14 @@
 {
-  "name": "engineering-loop-dev",
-  "description": "Local marketplace for the engineering-loop skills plugin.",
+  "name": "loss-driven-development-dev",
+  "description": "Local marketplace for the loss-driven-development skills plugin.",
   "owner": {
     "name": "Silvio Jurk",
     "email": "silvio.jurk@googlemail.com"
   },
   "plugins": [
     {
-      "name": "engineering-loop",
-      "description": "Loss-driven engineering discipline: 5-Why-by-Layer root-cause analysis, gradient-descent lens on code changes, dialectical reasoning, docs-as-definition-of-done, and a budget-bounded work loop.",
+      "name": "loss-driven-development",
+      "description": "LDD — loss-driven development for the AI-era coding loop. Five portable skills for any coding agent.",
       "version": "0.1.0",
       "source": "./",
       "author": {

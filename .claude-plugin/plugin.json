@@ -1,6 +1,6 @@
 {
-  "name": "engineering-loop",
-  "description": "Loss-driven engineering discipline: 5-Why-by-Layer root-cause analysis, gradient-descent lens on code changes, dialectical reasoning, docs-as-definition-of-done, and a budget-bounded work loop that composes them.",
+  "name": "loss-driven-development",
+  "description": "LDD — loss-driven development for the AI-era coding loop. Five portable skills: root-cause-by-layer, loss-backprop-lens, dialectical-reasoning, docs-as-definition-of-done, loop-driven-engineering.",
   "version": "0.1.0",
   "author": {
     "name": "Silvio Jurk",
@@ -9,6 +9,9 @@
   "license": "MIT",
   "keywords": [
     "skills",
+    "tdd",
+    "ldd",
+    "loss-driven-development",
     "debugging",
     "root-cause",
     "discipline",
@@ -16,6 +19,9 @@
     "methodology",
     "dialectical",
     "documentation",
-    "test-driven"
+    "coding-agent",
+    "claude-code",
+    "codex",
+    "gemini-cli"
   ]
 }

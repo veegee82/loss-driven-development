@@ -91,14 +91,16 @@ When one fires: stop, re-enter at layer 2, walk up.
 | "Smaller diff is safer" | A 1-line symptom patch is usually a 3–5 line structural fix. Measure diffs in **future bugs prevented**, not in lines changed today. |
 | "The test is wrong" | Sometimes true — but then write the *correct* test before you touch the code. Never delete a failing test without a replacement. |
 
-## Real-World Baseline
+## Measured failure mode
 
-Without this skill, given one `TypeError` and 15-minute pressure, an unbiased agent produces:
+On the fixture `tests/fixtures/root-cause-by-layer/` (a contract-boundary `TypeError` under 15-minute deadline pressure), a subagent without this skill ships:
 
 ```python
 email = user.email if hasattr(user, "email") else user["email"]
 ```
 
-…labeled "tolerant," tagged as "Interims-Fix to be cleaned up later." Two implicit contracts, one masked boundary, one deferred cleanup that never happens. Canonical symptom patch.
+…labeled "tolerant," tagged as an "interim fix to be cleaned up later." Two implicit contracts, one masked boundary, one deferred cleanup that never happens — the canonical symptom patch.
 
-With this skill: name the layer (integration/domain boundary), name the concept (implicit contract between `notifier` and `workflow`), pick one shape, fix at the boundary. One explicit edit, no shim, no `try/except`, no TODO.
+With this skill loaded, the same subagent names layer 4 (domain ↔ integration boundary leak) and layer 5 (implicit-contract violation / separation-of-concerns), then fixes at the boundary by making the transport-layer signature explicit (`email: str`) and moving the extraction to the caller. No shim, no `try/except`, no deferred cleanup.
+
+Δloss ≈ 6 rubric violations removed. Full baseline and GREEN artifacts in the fixture directory.

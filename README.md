@@ -346,13 +346,16 @@ If you see none of these in an interaction where you expected them, LDD is insta
 
 ## Optional Claude-Code tooling
 
-`scripts/` contains three optional helpers (not required, not part of the skills):
+`scripts/` contains four optional helpers (not required, not part of the skills):
 
 - `scripts/drift-scan.py` — runs the seven drift indicators over a repo, produces a Markdown report
-- `scripts/evolve-skill.sh` — scaffolds a RED/GREEN re-run for a skill against its fixture
+- `scripts/capture-clean-baseline.py` — captures RED/GREEN baselines via direct LLM API (no agent harness) for any fixture
+- `scripts/evolve-skill.sh` — scaffolds a RED/GREEN re-run for a skill against its fixture (terminal-driven)
 - `scripts/render-diagrams.sh` — regenerates SVGs from the `.dot` sources
 
 Run them manually, wire them into CI, or ignore them. The skills don't depend on them.
+
+Also ships: [`commands/`](./commands/) — six Claude-Code slash commands (`/loss-driven-development:ldd-trace`, `ldd-status`, `ldd-explain`, `ldd-config`, `ldd-set`, `ldd-reset`, `ldd-architect`) for trace inspection, session-level hyperparameter overrides, and architect-mode activation. See the "Using LDD" and "Architect mode" sections above.
 
 ## Relation to `superpowers`
 

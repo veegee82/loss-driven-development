@@ -1,0 +1,4 @@
+2026-04-20T19:53:00Z  refinement  k=0  skill=iterative-refinement  event=gradient_built       defects=7  gates=0  eval_gap=7
+2026-04-20T19:53:30Z  refinement  k=1  skill=iterative-refinement  event=iteration_applied    closed=D1,D2,D3,D4,D5,D6,D7  loss_1=0  dloss=+7
+2026-04-20T19:53:45Z  refinement  k=2  skill=iterative-refinement  event=stop_check           condition=empty_gradient  decision=terminate
+2026-04-20T19:53:50Z  refinement  k=1  close                       terminal=complete          loss_final=0  best_iter=1

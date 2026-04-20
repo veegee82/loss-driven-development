@@ -30,6 +30,19 @@ Methodology text now lives in exactly one place: [`docs/ldd/`](./docs/ldd/). Tas
 
 ## ⚠️ Still open (honestly)
 
+### Tier-3.9 E2E suite captured for v0.3.1 — 6/6 scenarios green
+
+Six subagent-dispatched runs with real tool access (file IO, Bash, git) on fictional /tmp projects captured in [`tests/e2e/v031-runs/20260420T195255Z/`](./tests/e2e/v031-runs/20260420T195255Z/):
+
+1. Inner-loop failing test → 5-skill cascade, layer-4/5 fix, 1 commit
+2. Refinement of C+ doc → 7-defect gradient, empty-gradient stop at iter 2
+3a. Architect **conservative** → 11/11 rubric, novelty ≤ 1, existing-stack scaffold
+3b. Architect **standard** → 10/10 rubric, baseline behavior (unchanged from v0.3.0)
+3c. Architect **inventive** → acknowledgment flow fired, 2-candidate relaxation, PRIOR_ART.md + EXPERIMENT.md + fallback, 7/7 inventive rubric
+4. Negative (inventive-in-config) → warning emitted, no ack flow, downgraded to standard, 10/10 standard rubric
+
+All observed behaviors matched specified behaviors. See [`tests/e2e/v031-runs/20260420T195255Z/README.md`](./tests/e2e/v031-runs/20260420T195255Z/README.md) for per-scenario artifact paths.
+
 ### Real tier-4 plugin-install E2E still pending
 
 The tier-3.9 run showed that the subagent's `Skill` tool in my build environment does not auto-discover `~/.claude/skills/`. Whether this is a subagent-harness limitation or a general-adopter issue is **not yet known**. Real tier-4 requires `/plugin install` in a live Claude Code session, which can only be tested by an adopter.

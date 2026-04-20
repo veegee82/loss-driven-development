@@ -1,0 +1,1 @@
+fatal: Kein Git-Repository (oder irgendeines der Elternverzeichnisse): .git

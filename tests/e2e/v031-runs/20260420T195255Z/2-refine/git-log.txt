@@ -1,0 +1,1 @@
+fatal: Ihr aktueller Branch 'master' hat noch keine Commits.

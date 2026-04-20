@@ -1,0 +1,7 @@
+2026-04-20T19:57:58Z  inner  k=1  skill=reproducibility-first  verdict=deterministic  reruns=2/2  loss_0=1
+2026-04-20T19:57:58Z  inner  k=1  skill=root-cause-by-layer    layer4=domain-integration-boundary-leak  layer5=separation-of-concerns+explicit-over-implicit  loss_0=1
+2026-04-20T19:57:58Z  inner  k=1  skill=dialectical-reasoning  thesis=explicit-transport-signature  antithesis=read-domain-attrs-in-notifier  synthesis=primitive-params-extract-at-caller
+2026-04-20T19:57:58Z  inner  k=1  skill=e2e-driven-iteration   step=measure-loss_0  tier=unit  loss_0=1
+2026-04-20T19:58:32Z  inner  k=1  skill=e2e-driven-iteration  step=measure-loss_1  tier=unit  loss_1=0  delta=+1
+2026-04-20T19:58:32Z  inner  k=1  skill=docs-as-definition-of-done  docs=N/A  docstring_updated=yes
+2026-04-20T19:58:32Z  inner  k=1  close                       terminal=complete  fix_layer4=domain-integration-boundary  fix_layer5=explicit-over-implicit  loss_1=0  delta=+1

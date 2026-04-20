@@ -1,6 +1,6 @@
 ---
 name: using-ldd
-description: Use at the start of any conversation, and whenever the user mentions LDD, loss-driven development, loss, gradient, SGD on code, drift, refinement loop, outer loop, inner loop, method evolution, or says "LDD:" / "apply LDD". Establishes how to dispatch the ten LDD skills and when each fires. Must be the first skill considered in any coding task where LDD is available.
+description: Use whenever the user prefixes a message with "LDD:" or mentions LDD, loss-driven development, loss, gradient, SGD on code, drift, refinement loop, outer loop, inner loop, method evolution, or "apply LDD". Bootstrap / entry-point skill that explains how to dispatch the other LDD skills and the trigger-phrase table they respond to.
 ---
 
 # Using LDD — the bundle entry-point

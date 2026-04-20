@@ -4,8 +4,11 @@
   "version": "0.3.1",
   "author": {
     "name": "Silvio Jurk",
-    "email": "silvio.jurk@googlemail.com"
+    "email": "silvio.jurk@googlemail.com",
+    "url": "https://github.com/veegee82"
   },
+  "homepage": "https://github.com/veegee82/loss-driven-development",
+  "repository": "https://github.com/veegee82/loss-driven-development",
   "license": "MIT",
   "keywords": [
     "skills",

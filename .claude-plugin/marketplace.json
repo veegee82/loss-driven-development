@@ -1,9 +1,11 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "loss-driven-development-dev",
   "description": "Local marketplace for the loss-driven-development skills plugin.",
   "owner": {
     "name": "Silvio Jurk",
-    "email": "silvio.jurk@googlemail.com"
+    "email": "silvio.jurk@googlemail.com",
+    "url": "https://github.com/veegee82"
   },
   "plugins": [
     {
@@ -11,6 +13,8 @@
       "description": "LDD — loss-driven development for the AI-era coding loop. Twelve portable skills across three reactive loops (inner/refinement/outer) plus opt-in architect-mode for greenfield design.",
       "version": "0.3.1",
       "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/veegee82/loss-driven-development",
       "author": {
         "name": "Silvio Jurk",
         "email": "silvio.jurk@googlemail.com"

@@ -1,0 +1,6 @@
+{
+  "name": "engineering-loop",
+  "description": "Loss-driven engineering discipline: 5-Why-by-Layer root-cause analysis, gradient-descent lens on code changes, dialectical reasoning, docs-as-definition-of-done, and a budget-bounded work loop.",
+  "version": "0.1.0",
+  "contextFileName": "GEMINI.md"
+}

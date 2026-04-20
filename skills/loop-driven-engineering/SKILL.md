@@ -83,21 +83,21 @@ Run gates in order of cost. Only escalate when the current tier is green.
 
 ## Sub-Skill Dispatch
 
-This is a composition skill. Use these at the specific moments below:
+This is a composition skill. Use these at the specific moments below. Entries marked **+optional** point at common process-skill names that may be available in your environment (e.g. the `superpowers` plugin on Claude Code, or the agent's built-in equivalents). If they are not available, apply the principle inline — the loop does not require an external plugin.
 
 | Moment in the loop | Sub-skill | Why |
 |---|---|---|
-| Planning or making a non-trivial recommendation | `superpowers:brainstorming` or `dialectical-reasoning` | Force the counter-case before committing to an approach |
-| Designing a multi-step plan on paper | `superpowers:writing-plans` | Externalize the plan so the loop has a shape |
-| Writing a test before the code | `superpowers:test-driven-development` | Red → green discipline for implementation work |
+| Planning or making a non-trivial recommendation | `dialectical-reasoning` (+optional: `brainstorming`) | Force the counter-case before committing to an approach |
+| Designing a multi-step plan on paper | +optional: `writing-plans` | Externalize the plan so the loop has a shape |
+| Writing a test before the code | +optional: `test-driven-development` | Red → green discipline for implementation work |
 | Debugging a failing gate / test / run | `root-cause-by-layer` | Find the structural origin, not the surface symptom |
 | Deciding whether one failure is signal, or whether to refactor vs. local-fix | `loss-backprop-lens` | Signal-vs-noise, step-size calibration |
 | Asking "is this the right approach?" before shipping | `dialectical-reasoning` | Surface load-bearing assumptions |
 | Before committing / pushing / declaring done | `docs-as-definition-of-done` | Sync docs to current behavior |
-| Before declaring "success" / "it's fixed" | `superpowers:verification-before-completion` | Evidence before assertion |
-| Before merging | `superpowers:requesting-code-review` | Second set of eyes |
+| Before declaring "success" / "it's fixed" | +optional: `verification-before-completion` | Evidence before assertion |
+| Before merging | +optional: `requesting-code-review` | Second set of eyes |
 
-You are **not** required to invoke all of them on every task. Pick what the loop actually needs at this step. But you **are** required to invoke the right one at the right moment — skipping `root-cause-by-layer` on a debug, or skipping `docs-as-definition-of-done` on a behavior change, is a process failure.
+You are **not** required to invoke all of them on every task. Pick what the loop actually needs at this step. But you **are** required to invoke the right one at the right moment — skipping `root-cause-by-layer` on a debug, or skipping `docs-as-definition-of-done` on a behavior change, is a process failure. When an optional sub-skill is not available, write the equivalent work into the conversation inline (e.g. draft the plan here instead of loading a plan-writing skill).
 
 ## Red Flags — STOP, the loop is broken
 
@@ -125,10 +125,10 @@ A well-escalated non-convergence beats a silently-limping sixth iteration every 
 ## How to Apply — checklist
 
 1. **Context read** — only what the task needs. If the project has a `CLAUDE.md` / `AGENTS.md`, load it. Load the relevant docs. Do **not** read the whole repo.
-2. **Plan** — one paragraph, run it through `dialectical-reasoning` if non-trivial. For multi-step work, write it out (`superpowers:writing-plans`).
+2. **Plan** — one paragraph, run it through `dialectical-reasoning` if non-trivial. For multi-step work, write it out (use a plan-writing skill if available, otherwise draft the plan in the conversation).
 3. **Enter loop.** k = 0, K_MAX = 5.
 4. **For each iteration:** smallest coherent code change → fast gates → diagnose failures via sub-skills → decide step size.
-5. **Close** — run docs-as-definition-of-done, verify completion (`superpowers:verification-before-completion`), commit as one logical unit.
+5. **Close** — run docs-as-definition-of-done, verify completion with a verification skill if available, commit as one logical unit.
 6. **If K_MAX hit** — escalate with the checklist above.
 
 ## Counter-Examples — when this skill is overkill
@@ -154,12 +154,15 @@ Bad loop (same task, no discipline):
 
 ## Related / Composed
 
+**In this plugin (always available):**
 - **`root-cause-by-layer`** — for debugging (the structural 5-layer ladder)
 - **`loss-backprop-lens`** — for edit-size calibration and signal-vs-noise
 - **`dialectical-reasoning`** — for planning and recommendations
 - **`docs-as-definition-of-done`** — for the close of the loop
-- **`superpowers:brainstorming`** — for open-ended problem framing
-- **`superpowers:writing-plans`** — for externalized multi-step plans
-- **`superpowers:test-driven-development`** — for red-green discipline when writing code
-- **`superpowers:verification-before-completion`** — for evidence before success claims
-- **`superpowers:systematic-debugging`** — overlaps with root-cause-by-layer; prefer root-cause-by-layer for the explicit 5-layer ladder, use systematic-debugging when you need the broader investigation framing
+
+**Optional companions** (Claude Code `superpowers` plugin, Codex built-ins, or equivalent):
+- **`brainstorming`** — for open-ended problem framing
+- **`writing-plans`** — for externalized multi-step plans
+- **`test-driven-development`** — for red-green discipline when writing code
+- **`verification-before-completion`** — for evidence before success claims
+- **`systematic-debugging`** — overlaps with `root-cause-by-layer`; prefer the 5-layer ladder for the explicit discipline, the broader investigation framing when you need to *find* the bug rather than diagnose one already localized

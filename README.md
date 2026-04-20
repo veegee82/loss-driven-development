@@ -1,7 +1,25 @@
 # Loss-Driven Development (LDD)
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Plugin format: Claude Code · Codex · Gemini CLI](https://img.shields.io/badge/plugin-Claude%20Code%20·%20Codex%20·%20Gemini%20CLI-green.svg)](#installation)
+[![Δloss_bundle: 3.30](https://img.shields.io/badge/%CE%94loss__bundle-3.30-brightgreen.svg)](./tests/README.md#current-measurements)
+[![Skills: 10 + entry-point](https://img.shields.io/badge/skills-10%20%2B%20entry--point-blueviolet.svg)](./skills/)
+
 > **LDD is to AI-era coding what TDD was to human coding.**
-> Ten portable skills for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured* discipline where symptom patches, local-minimum traps, and silent code drift can't hide.
+> Ten portable skills (+ bootstrap entry-point) for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured* discipline where symptom patches, local-minimum traps, and silent code drift can't hide.
+
+### Install in 30 seconds (Claude Code)
+
+```bash
+/plugin marketplace add https://github.com/veegee82/loss-driven-development.git
+/plugin install loss-driven-development@loss-driven-development-dev
+```
+
+Then prefix any message with `LDD:` — the agent announces which skill it's invoking:
+
+> *Invoking `root-cause-by-layer`*: symptom is a `TypeError`; walking the 5-layer ladder before the fix.
+
+Full install for other agents (Codex · Gemini CLI · Aider · Cursor · …) below.
 
 > 📦 **Where this came from:** distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) ([`pip install awp-agents`](https://pypi.org/project/awp-agents/)), an open standard for multi-agent orchestration where all three LDD loops — inner, refinement, outer — are implemented as live SGD code, not metaphor. See [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one mapping, a concrete debugging case study, and how to try the framework itself.
 

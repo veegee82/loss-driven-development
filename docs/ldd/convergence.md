@@ -146,6 +146,27 @@ A diverging project shows **rising test loss despite falling training loss** —
 6. The remaining skills as the work requires them.
 7. `evaluation.md` + `tests/` — when you're ready to measure.
 
-## 7. What this document does not do
+## 7. Architect mode — a fourth invocation path with per-task loss-function selection
 
-It does not prove convergence. It specifies the conditions under which convergence is expected and names the divergence patterns a practitioner will actually see. The proof would require formalizing each skill's rubric, running a large task suite, and measuring `Δloss_bundle` trajectories — the outer-loop work of a future paper, not this v0.2.
+The three loops above all minimize `L = rubric_violations` (with layer-specific rubric items). [`architect-mode`](../../skills/architect-mode/SKILL.md) adds a fourth invocation path where the loss function itself is **task-configurable** via the `creativity` sub-parameter:
+
+```
+creativity=conservative  →  L = rubric_violations + λ · novelty_penalty
+creativity=standard      →  L = rubric_violations                                   (default)
+creativity=inventive     →  L = rubric_violations_reduced + λ · prior_art_overlap_penalty
+```
+
+This is not a fourth loop — architect mode still closes by producing a failing scaffold that hands off to the inner loop. What changes is **which objective the optimizer minimizes over the design space**, for that single task.
+
+Key constraints that keep this from being a moving-target-loss escape hatch:
+
+- **Discrete, named levels only.** No continuous `creativity=0.7`. Picking a level is a design decision committed to before the run starts, not a tuning knob.
+- **No level-switching mid-task.** Mixing two loss functions in one gradient descent is incoherent optimization; the skill refuses and requires a restart.
+- **`inventive` requires per-task user acknowledgment.** Cannot be project-level default. Prevents silent drift into novelty-prioritized work without conscious opt-in.
+- **Default stays `standard`.** The other two levels are opt-in; absence of an explicit creativity signal means architect-mode uses the same loss function as the rest of LDD.
+
+The ML-lens framing holds: every work session is still gradient descent on code. Architect-mode with creativity levels just exposes the **choice of `L`** as a first-class parameter for one specific case (design from requirements), with the choice being one of three discrete, named alternatives — not a free parameter.
+
+## 8. What this document does not do
+
+It does not prove convergence. It specifies the conditions under which convergence is expected and names the divergence patterns a practitioner will actually see. The proof would require formalizing each skill's rubric, running a large task suite, and measuring `Δloss_bundle` trajectories under each creativity level — the outer-loop work of a future paper, not this v0.3.

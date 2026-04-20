@@ -1,18 +1,44 @@
 ---
-description: Switch LDD into architect mode for the next task. Runs the 5-phase protocol (Constraints → Non-goals → 3 Candidates → Scoring+Dialectical → Deliverable) from skills/architect-mode/SKILL.md. Opt-in, not default.
+description: Switch LDD into architect mode for the next task. Runs the 5-phase protocol (Constraints → Non-goals → 3 Candidates → Scoring+Dialectical → Deliverable) from skills/architect-mode/SKILL.md. Opt-in, not default. Accepts optional creativity argument — /ldd-architect [conservative|standard|inventive].
 ---
 
-Activate `mode=architect` for the next user request in this session. Announce:
+Parse any argument after the command name. Accepted forms:
 
-> *Architect mode active.* The next task will run under the 5-phase protocol from `skills/architect-mode/SKILL.md`. Default reactive LDD resumes after hand-off.
+- **no argument** → `creativity=standard` (default)
+- **`conservative`** | **`standard`** | **`inventive`** (positional) → set creativity level
+- **`creativity=<level>`** (named form) → set creativity level
 
-Wait for the user's next message describing the design task (greenfield system, new module, decomposition request). When it arrives:
+Reject any other value (e.g. `creativity=experimental`, `creativity=5`) with one line pointing at `docs/ldd/hyperparameters.md` § knob 5. Do not silently clamp.
 
-1. Apply the 5-phase protocol strictly (Phase 1 Constraints → Phase 2 Non-goals ≥ 3 → Phase 3 exactly 3 candidates on a load-bearing axis → Phase 4 scoring table + dialectical on winner → Phase 5 deliverable commit).
-2. Emit the architect-variant of the LDD trace block (phases, not iterations; `mode: architect` in header).
-3. Score the final output against the 10-item rubric from `skills/architect-mode/SKILL.md`.
-4. Hand off at the end — announce rubric score, `loss_0` count from failing tests, and drop back to `mode=reactive`.
+Activate `mode=architect` + the chosen `creativity` level for the next user request in this session. Announce:
 
-If the user's next message is NOT an architect-suitable task (it's a bug fix, refactor, review), do not force architect mode — explain briefly and revert to default reactive mode. Do not silently run the reactive flow under the architect label; that's a trace-integrity violation.
+> *Architect mode active* with **`creativity=<level>`**.
+> Loss function for this run: `<see architect-mode skill § Creativity levels for the exact form>`.
+> The next task will run under the 5-phase protocol. Default reactive LDD resumes after hand-off.
 
-Architect mode is **single-task scope**. After hand-off, `mode` reverts to whatever the user's persistent config + session overrides dictate.
+### If `creativity=inventive`, run the acknowledgment flow BEFORE waiting for the task
+
+Emit this literal block:
+
+> `creativity=inventive` is opt-in for research-grade work. Confirming:
+>  - Prior-art overlap is *penalized* in the objective; novelty is rewarded (if validation path is explicit)
+>  - Rubric coverage items 1–2 (full constraint table, uncertainty naming) may be relaxed when the problem is under-specified by design
+>  - Items 5–8 are replaced with invention-specific criteria (differentiation from prior art, experiment validation path, fallback to baseline)
+>  - **Output is NOT production-ready by default.** Deliverable is a research prototype + a named fallback-to-standard path
+>
+> Reply `acknowledged` to proceed. Any other reply downgrades this run to `creativity=standard` and the downgrade is logged in the trace header.
+
+Only after receiving literal "acknowledged" (case-insensitive) does the agent wait for the architect task under `creativity=inventive`. On any other reply, downgrade silently to `standard` and log the downgrade.
+
+### When the task arrives
+
+1. Apply the 5-phase protocol strictly (Phase 1 Constraints → Phase 2 Non-goals ≥ 3 → Phase 3 candidates → Phase 4 scoring table + dialectical on winner → Phase 5 deliverable commit). Phase 3 candidate count and Phase 4 scoring weights follow the chosen creativity level per `skills/architect-mode/SKILL.md` § Creativity levels.
+2. Emit the architect-variant of the LDD trace block — header shows `mode: architect, creativity: <level>`, the `Loss-fn` line names the objective, and Phase completion is reported as it happens.
+3. Score the final output against the rubric variant for the active creativity level (items 1–10 for standard; 1–11 with novelty-penalty item for conservative; items 1–4 + #I1–#I3 invention items for inventive).
+4. Hand off at the end — announce rubric score, `loss_0` count from failing tests, and drop back to `mode=reactive` + `creativity=standard`.
+
+### Guards
+
+- If the user's next message is NOT an architect-suitable task (bug fix, refactor, review), do not force architect mode — explain briefly and revert to default reactive mode without silently running the reactive flow under the architect label (trace-integrity violation).
+- If the user, mid-task, says "switch to conservative" (or any other creativity change), refuse per the level-switch prohibition in `skills/architect-mode/SKILL.md`. Restart-or-don't-restart is the only valid response.
+- Architect mode is **single-task scope**. After hand-off, `mode` reverts to whatever the persistent config + session overrides dictate, and `creativity` reverts to `standard`.

@@ -1,19 +1,100 @@
 ---
 name: architect-mode
-description: Use when the user wants an architecture, design, or structure invented from requirements — greenfield service, new module, system decomposition, or the conceptual/structural layer "between X and Y" where X is the problem and Y is the delivered system. NOT the default mode. Opt-in via `LDD[mode=architect]:` prefix, the `/ldd-architect` command, or phrases like "design", "architect", "from scratch", "greenfield", "how should I structure".
+description: Use when the user wants an architecture, design, or structure invented from requirements — greenfield service, new module, system decomposition, or the conceptual/structural layer "between X and Y" where X is the problem and Y is the delivered system. NOT the default mode. Opt-in via `LDD[mode=architect]:` prefix, the `/ldd-architect` command, or phrases like "design", "architect", "from scratch", "greenfield", "how should I structure". Supports three creativity levels (`conservative` | `standard` | `inventive`) that change the loss function, not the amount of structure.
 ---
 
 # Architect Mode
 
 ## Overview
 
-LDD's default nine-skill stack is **reactive**: it measures loss on existing code and drives a gradient-descent fix-loop. Architect mode **inverts** this — the loss is computed over the **space of possible designs** for a stated problem, not over an existing artifact. The agent's role shifts from pathologist to constructor.
+LDD's default stack is **reactive**: it measures loss on existing code and drives a gradient-descent fix-loop. Architect mode **inverts** this — the loss is computed over the **space of possible designs** for a stated problem, not over an existing artifact. The agent's role shifts from pathologist to constructor.
 
-**Core principle:** architecture is not invented freely. It is invented under **explicit quality constraints** and delivered with **explicit non-goals**. A "free-form design doc" produced without a rubric is exactly the moving-target loss that LDD rejects everywhere else — architect mode fences this in with a 10-item rubric and a forced 3-candidate comparison.
+**Core principle:** architecture is not invented freely. It is invented under **explicit quality constraints** and delivered with **explicit non-goals**. A "free-form design doc" produced without a rubric is exactly the moving-target loss that LDD rejects everywhere else — architect mode fences this in with a phased protocol and a rubric. The rubric's **shape** depends on the chosen creativity level (see below); the discipline itself is never optional.
 
-**This is an opt-in mode.** LDD default treats the presence of code as the signal to iterate. When there is no code yet (or the existing code is scaffold-level and the user is asking "what should this system BE?"), the default mode would degrade into freewheeling. Architect mode replaces it for that one task.
+**This is an opt-in mode.** LDD default treats the presence of code as the signal to iterate. When there is no code yet — or the existing code is scaffold-level and the user is asking "what should this system BE?" — the default mode would degrade into freewheeling. Architect mode replaces it for that one task.
 
-## When to use
+## The neural-code-network framing — creativity as loss-function choice
+
+LDD's core framing (see [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md)) treats every work session as gradient descent on code:
+
+```
+θ_{k+1} = θ_k  −  η · ∇L(θ_k)  +  regularizer(θ_k)
+```
+
+**Architect-mode creativity levels are three discrete choices of `L` — not three amounts of optimization.** The optimizer is the same; the *objective* changes. This framing matters because it prevents the "freedom dial" from being a moving-target: you don't tune continuously between levels, you commit to one objective per task.
+
+| Level | Loss function (informal) | Regularizer | Rubric shape |
+|---|---|---|---|
+| `conservative` | `L = rubric_violations + λ · novelty_penalty` | Novelty itself is a cost | Standard 10 items + `team-familiarity` weighted 2× in scoring; all 3 candidates must be battle-tested |
+| `standard` (default) | `L = rubric_violations` | Contracts + layer boundaries | Standard 10 items as-is; 3 candidates on a load-bearing axis |
+| `inventive` | `L = rubric_violations_reduced + λ · prior_art_overlap_penalty` | Novelty is *rewarded*, prior-art overlap is penalized — but an experiment-validation path is mandatory | Items 1–2 may be relaxed; items 5–8 replaced with invention-specific criteria (novelty, fallback path, validation experiment) |
+
+**Consequences of this framing:**
+
+1. **No "grade 7" or "grade 3.5"** — the levels are discrete and named. Integers tempt tuning-until-it-feels-right, which is the exact drift pattern LDD fights.
+2. **Level-switch is task-scoped.** You cannot drop from `inventive` to `standard` halfway through a task — that would mix two loss functions into one gradient, which is incoherent optimization. Start over if you need a different level.
+3. **Each level has its own Pass/Fail criteria.** A `conservative` run that invents a new pattern fails rubric item #11 (novelty-penalty). An `inventive` run that produces a boring well-known design fails rubric item #I3 (differentiation from prior art). Levels are not ranked "less strict → more strict" — they're orthogonal objectives.
+4. **Default stays `standard`.** `conservative` and `inventive` require explicit opt-in. `inventive` additionally requires a user acknowledgment (see below).
+
+## Creativity levels — detailed behavior
+
+### Level 1: `conservative`
+
+**When to pick it.** Enterprise repos with strict "no new tech" policy. Team has shallow experience with unfamiliar patterns. Risk tolerance is near zero. Production ship is weeks away on a small team. Regulatory or on-call context makes convention-breaks expensive.
+
+**What it changes:**
+- **Phase 2 non-goals** must include ≥ 1 explicit "not a new pattern / language / framework" declaration
+- **Phase 3 candidates** must all be patterns with ≥ 5 years of track record in the user's domain. Cosmetic variants are even more tightly rejected — all three differ on proven axes (monolith / modular-monolith / service-decomposition, not "novel CRDT variants")
+- **Phase 4 scoring** weighting: `team-familiarity` dimension weighted **2×**; `evolution-paths` weighted **0.5×** (far-future optionality is deprioritized)
+- **Phase 5 scaffold** must use the stack the user's codebase already uses (or explicitly names). Introducing a new language / framework / database fails the rubric
+- **Extra rubric item #11:** `novelty-penalty` — any component scoring > 1 on an internal novelty scale (0 = existing in codebase, 1 = new-but-standard, 2 = new-for-team, 3+ = new-for-industry) triggers rubric violation. Target: zero components above 1
+
+### Level 2: `standard` (default)
+
+**When to pick it.** Any architect-mode task without a specific reason for one of the other two levels. This IS the default architect behavior — the current 10-item rubric, 3 candidates on a load-bearing axis, dialectical pass on the winner, 9-section deliverable. No behavior change from the v0.3.0 architect-mode.
+
+**This level is the neutral objective** — `L = rubric_violations` with no extra regularizer beyond LDD's baseline (contracts / layer boundaries / docs-as-DoD).
+
+### Level 3: `inventive`
+
+**When to pick it.** Research contexts. Greenfield with no legacy constraint. Prototype / proof-of-concept. User explicitly wants a novel paradigm or pattern. Problem is one where known solutions demonstrably do not fit.
+
+**Requires explicit user acknowledgment before architecture work begins.** The agent asks, exactly once:
+
+> `creativity=inventive` is opt-in for research-grade work. Confirming:
+>  - Prior-art overlap is *penalized* in the objective; novelty is rewarded (if validation path is explicit)
+>  - Rubric coverage items 1–2 (full constraint table, uncertainty naming) may be relaxed when the problem is under-specified by design
+>  - Items 5–8 are replaced with invention-specific criteria (see below)
+>  - **Output is NOT production-ready by default.** Deliverable is a research prototype + fallback-to-baseline path
+>
+> Reply `acknowledged` to proceed. Otherwise the run downgrades to `standard`.
+
+Without the literal acknowledgment, the agent silently downgrades to `standard` and announces the downgrade in the trace.
+
+**What it changes on acknowledgment:**
+- **Phase 2 non-goals** may declare "not necessarily following existing industry patterns"; explicit "known unknowns" section replaces full uncertainty-naming
+- **Phase 3 candidates** may be 2 instead of 3: one baseline (the `standard`-equivalent answer, serving as fallback) + one invention. A third candidate is optional, not required
+- **Phase 4 scoring** new dimensions replacing items 5–8: `differentiation from prior art` (how new is this really?), `experiment-validation path` (how do we know it works before production?), `failure-mode-acceptable` (what breaks if the invention fails? what's the cost of the fallback?)
+- **Phase 5 deliverable** scaffold may be a prototype (not production-grade code). Must include: a `PRIOR_ART.md` section listing what the design deliberately rejects and why; an `EXPERIMENT.md` validation plan; a pointer to the baseline fallback
+- **Rubric items #I1–#I3** replace items #5–#8: differentiation from prior art, validation-path explicit, fallback-to-baseline path named
+
+**Default target: 0 violations.** But `inventive` explicitly tolerates known-unknowns in the constraint table — so rubric items 1 and 2 may score 1/1 and still not be failures if the "known unknowns" section is present and honest.
+
+## Level-switch prohibition
+
+**You cannot change creativity levels during a single architect task.** The levels are three different objective functions; mixing them mid-gradient produces incoherent optimization.
+
+If the user, mid-task, says "actually, switch to conservative", the agent responds:
+
+> Creativity level is task-scoped and cannot be changed mid-run — doing so would mix two loss functions into the same gradient descent. To run this task under a different level, acknowledge this run as aborted and re-submit the task with the new level.
+
+Aborting and restarting is the only valid path. This is not about user friction; it is about preventing the exact moving-target-loss failure that the level-discretization was designed to prevent.
+
+## Project-level config restriction
+
+`.ldd/config.yaml` may set `creativity: conservative` or `creativity: standard` as the project-wide default (for repos that are entirely one or the other). **It may NOT set `creativity: inventive`** — research-grade work must be a per-task acknowledgment, not a persistent default. If a config file contains `creativity: inventive`, the agent ignores it and logs a warning in the trace header.
+
+## When to use architect mode (any level)
 
 Invoke when **all** of:
 
@@ -23,9 +104,10 @@ Invoke when **all** of:
 
 Signals that trigger this mode:
 
-- `LDD[mode=architect]:` prefix
-- `/loss-driven-development:ldd-architect` command
+- `LDD[mode=architect]:` or `LDD[mode=architect, creativity=<level>]:` prefix
+- `/loss-driven-development:ldd-architect` command (accepts optional `creativity` arg)
 - Phrases: "design", "architect", "from scratch", "greenfield", "how should I structure", "propose an architecture", "decompose this", "what's the right shape for X"
+- Additional auto-trigger for `inventive`: "invent", "novel paradigm", "research", "experiment", "prototype a new" — the agent asks for acknowledgment per the inventive-level spec before proceeding
 
 **Do not use** for:
 

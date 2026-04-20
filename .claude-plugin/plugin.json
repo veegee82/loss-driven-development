@@ -1,7 +1,7 @@
 {
   "name": "loss-driven-development",
   "description": "LDD — loss-driven development for the AI-era coding loop. Twelve portable skills: ten reactive disciplines across three optimization loops (inner/code, refinement/deliverable, outer/method) + one opt-in architect-mode for greenfield design + the using-ldd entry-point. Measured Δloss_bundle = 3.91 across all 11 measurable skills.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "Silvio Jurk",
     "email": "silvio.jurk@googlemail.com"

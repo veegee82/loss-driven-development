@@ -246,9 +246,34 @@ After Phase 5 closes, architect-mode **hands off explicitly** to default LDD —
 
 **Measured effect size**: largest in the bundle. Δloss = +10 / 10, 100 % of rubric items flipped between RED (base LLM produces plausibly-good but audit-failing design doc) and GREEN (all 5 phases completed, all 10 rubric items satisfied). Raw RED + GREEN + score in [`tests/fixtures/architect-mode/runs/20260420T190302Z-clean/`](./tests/fixtures/architect-mode/runs/20260420T190302Z-clean/).
 
-### Hyperparameters — three ways to tune
+#### Creativity — three loss functions, not a freedom dial
 
-Three knobs are exposed, deliberately few. See [`docs/ldd/hyperparameters.md`](./docs/ldd/hyperparameters.md) for the rationale (and for the list of parameters we **don't** expose and why — moving-target-loss is the anti-pattern we're avoiding).
+Architect mode supports three discrete creativity levels. Per LDD's neural-code-network framing, they are **three different loss functions**, not three amounts of freedom:
+
+| Level | Loss function | When to pick |
+|---|---|---|
+| `conservative` | `L = rubric_violations + λ · novelty_penalty` | Enterprise / no-new-tech / near-zero risk tolerance. All 3 candidates must be battle-tested. Component novelty is penalized. Team-familiarity weighted 2× in scoring. |
+| `standard` (default) | `L = rubric_violations` | 95 % of architect runs. Current 10-item rubric, 3 candidates on a load-bearing axis. |
+| `inventive` | `L = rubric_violations_reduced + λ · prior_art_overlap_penalty` | Research / prototype. Novelty rewarded, prior-art overlap penalized — but explicit experiment-validation path + fallback-to-standard baseline required. Not production-ready by default. Requires per-task user acknowledgment. |
+
+```text
+LDD[mode=architect, creativity=conservative]: design the billing service — stack-only, no new tech
+LDD[mode=architect, creativity=standard]:     design a billing service for 50M users
+LDD[mode=architect, creativity=inventive]:    prototype a new consistency protocol for this use case
+```
+
+Or via slash command: `/loss-driven-development:ldd-architect conservative`.
+
+**Hard rules** (keep the feature from becoming a moving-target-loss escape hatch):
+- No integer levels. Three discrete named alternatives only — "dial up until creative" is exactly the anti-pattern LDD fights.
+- No mid-task switching. Mixing loss functions mid-gradient is incoherent; restart the task if you need a different level.
+- `inventive` cannot be set as project-level default in `.ldd/config.yaml`. Research-grade opt-in is per-task with explicit acknowledgment.
+
+Full per-level spec (how Phase 3 candidates, Phase 4 scoring weights, Phase 5 deliverable constraints, and the rubric change per level) in [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) § Creativity levels. ML-lens framing in [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) § 7.
+
+### Hyperparameters — four ways to tune
+
+Four knobs are exposed, deliberately few. See [`docs/ldd/hyperparameters.md`](./docs/ldd/hyperparameters.md) for the rationale (and for the list of parameters we **don't** expose and why — moving-target-loss is the anti-pattern we're avoiding).
 
 | Knob | Default | Values / Range | Controls |
 |---|---|---|---|
@@ -256,6 +281,7 @@ Three knobs are exposed, deliberately few. See [`docs/ldd/hyperparameters.md`](.
 | `reproduce_runs` | `2` | 0–10 | Additional reruns in `reproducibility-first` Branch A |
 | `max_refinement_iterations` | `3` | 1–10 | Refinement y-axis hard cap |
 | `mode` | `reactive` | `reactive` \| `architect` | Reactive debugging mode (default) vs. opt-in architect-mode for greenfield design |
+| `creativity` *(architect-mode only)* | `standard` | `conservative` \| `standard` \| `inventive` | Which loss function architect-mode minimizes. Three discrete objectives, not a continuous dial. `inventive` requires per-task acknowledgment and cannot be set project-level. |
 
 Three ways to set them, in precedence order (highest first):
 

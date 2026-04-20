@@ -4,7 +4,11 @@ LDD exposes a **deliberately small** set of hyperparameters. Every knob we add i
 
 > **Warning — anti-pattern:** the easiest way to make LDD look good on your current task is to tune hyperparameters until the rubric passes. That is **moving-target loss** (`skills/method-evolution/SKILL.md` §"Red Flags"). Changing a knob to fit the current run is drift, not optimization. If you find yourself repeatedly tweaking `K_MAX` upward because "this task is complex," the problem is the task decomposition, not the budget.
 
-## The three exposed knobs
+## The exposed knobs (four core + one architect-mode sub-parameter)
+
+The bundle deliberately exposes **four core knobs** that apply to every LDD run (`k_max`, `reproduce_runs`, `max_refinement_iterations`, `mode`) plus **one architect-mode-only sub-parameter** (`creativity`). Adding more opens the moving-target-loss surface that every skill here is built to resist.
+
+## The core knobs
 
 ### 1. `k_max` — inner loop iteration budget
 
@@ -45,6 +49,28 @@ LDD exposes a **deliberately small** set of hyperparameters. Every knob we add i
   - Stay on `reactive` for bug fixes, feature additions, refactors, incident response — the default 95 % of the time
   - Architect mode is strictly opt-in; an auto-trigger on phrases like "design" / "architect" / "greenfield" / "from scratch" flips it temporarily for that one task, then reverts. The agent reports the mode in the trace header so you always see what's active.
 
+### 5. `creativity` — architect-mode loss-function selection
+
+**Only meaningful when `mode=architect`.** Ignored otherwise.
+
+- **Default:** `standard`
+- **Values:** `conservative` | `standard` | `inventive`
+- **What it controls:** which **loss function** the architect optimizer minimizes over the space of designs. Levels are **three discrete objectives**, not a continuous freedom dial. Each has its own rubric shape and its own Pass/Fail criteria — they are orthogonal, not ranked.
+
+| Level | Informal loss | Use when |
+|---|---|---|
+| `conservative` | `L = rubric_violations + λ · novelty_penalty` | Enterprise with "no new tech", small team, near-zero risk tolerance, production ship soon |
+| `standard` | `L = rubric_violations` (LDD baseline) | Every architect task without a specific reason for one of the others — 95 % of architect runs |
+| `inventive` | `L = rubric_violations_reduced + λ · prior_art_overlap_penalty` | Research / prototype; known patterns demonstrably don't fit; user explicitly wants novelty |
+
+**Restrictions:**
+- **Cannot be integer-tuned.** No "creativity=5" — three named levels only. Discrete objectives prevent moving-target-loss ("turn it up until the output feels creative" is exactly the anti-pattern).
+- **Cannot switch mid-task.** Changing mid-gradient mixes loss functions into incoherent optimization. Agent refuses; restart the task if you want a different level.
+- **`inventive` requires per-task user acknowledgment.** Cannot be set as project-level default in `.ldd/config.yaml` — if found there, the agent ignores it and downgrades to `standard` with a trace warning. This forces research-grade work to be consciously re-opted-into each time.
+- **Auto-trigger on "invent" / "novel" / "research" / "experimental" / "paradigm"** flips level to `inventive`, but then the acknowledgment flow still runs.
+
+Full per-level spec (what changes in Phase 2 non-goals / Phase 3 candidates / Phase 4 scoring / Phase 5 deliverable) lives in [`../../skills/architect-mode/SKILL.md`](../../skills/architect-mode/SKILL.md) § Creativity levels.
+
 ## What is NOT exposed (by design)
 
 | Knob we considered | Why not exposed |
@@ -76,6 +102,7 @@ Syntax:
 - `no-reproduce` — shortcut for `reproduce=0` with the explicit caveat that you are asserting Branch-B-level evidence
 - `mode=architect` — switch to architect mode for this task (see architect-mode skill)
 - `mode=reactive` — force reactive mode even if the task description looks architect-flavored (override auto-trigger)
+- `creativity=conservative|standard|inventive` — architect-mode sub-parameter selecting the loss function for this task. `inventive` triggers an acknowledgment flow before architecture work begins.
 
 Multiple flags comma-separated. Agent echoes the applied values in the trace block (`Budget : k=3/K_MAX=3 (override)`).
 

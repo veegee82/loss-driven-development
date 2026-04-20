@@ -38,3 +38,18 @@ refinement:
 # /loss-driven-development:ldd-architect command.
 # See skills/architect-mode/SKILL.md for the 5-phase protocol.
 mode: reactive
+
+# creativity: conservative | standard | inventive  (architect-mode only)
+# The loss function architect-mode minimizes over design space.
+# - conservative: L = rubric_violations + λ · novelty_penalty
+#     (Enterprise / no-new-tech / small team / low risk tolerance)
+# - standard:    L = rubric_violations  (default architect behavior)
+# - inventive:   L = rubric_violations_reduced + λ · prior_art_overlap_penalty
+#     (Research / prototype / known patterns demonstrably don't fit)
+#
+# RESTRICTION: `creativity: inventive` is NOT allowed at project level.
+# Research-grade work must be opted into per task, with explicit
+# acknowledgment — the agent ignores an 'inventive' value here and
+# downgrades to 'standard' with a trace warning. Use
+# `LDD[creativity=inventive]:` or `/ldd-architect inventive` instead.
+creativity: standard

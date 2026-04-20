@@ -101,7 +101,10 @@ Each rubric is a small fixed set of checks encoded in [`tests/fixtures/`](./test
 5. Scan history logged (even when report is short)?
 6. Trend over time tracked (drift shrinking / stable / growing)?
 
-**`architect-mode`** (rubric: `R_arch`) — applies only when `mode=architect` is active
+**`architect-mode`** — three rubric variants, one per `creativity` level. Applies only when `mode=architect` is active. See [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) § Creativity levels for the full per-level spec.
+
+### `R_arch_standard` (default — 10 items)
+
 1. All stated requirements covered in the Phase 1 constraint table?
 2. Uncertainties in the user's ask named, not silently invented?
 3. ≥ 3 concrete, scope-bounding non-goals declared (Phase 2)?
@@ -112,6 +115,30 @@ Each rubric is a small fixed set of checks encoded in [`tests/fixtures/`](./test
 8. Scaffold compiles / imports cleanly (not pseudocode)?
 9. ≥ 1 failing test per component in the scaffold?
 10. Measurable success metric per requirement, with numeric target?
+
+### `R_arch_conservative` (11 items — standard 10 plus #11)
+
+Same 10 items as `R_arch_standard`, with modified scoring weights in Phase 4 (team-familiarity 2×, evolution-paths 0.5×), *plus*:
+
+11. **Novelty penalty.** Every component scores on an internal novelty scale (0 = in existing codebase, 1 = new-but-standard-for-domain, 2 = new-for-team, 3+ = new-for-industry). Target: all components ≤ 1. Any component > 1 is a rubric violation. This is the regularizer term that turns `L = rubric_violations` into `L = rubric_violations + λ · novelty_penalty`.
+
+Phase 3 candidates must all be patterns with ≥ 5 years of track record in the user's domain. Phase 5 scaffold must use the stack already present in the user's codebase (no new language / framework / database).
+
+### `R_arch_inventive` (7 items — relaxed standard + invention-specific)
+
+Items 1, 2, 3, 4 retained (may score 1/1 for items 1–2 without failure if a "known unknowns" section is explicitly present). Items 5–8 of `R_arch_standard` are **replaced** by:
+
+- **#I1.** Differentiation from prior art: a `PRIOR_ART.md` or equivalent section names what the design deliberately rejects vs. existing solutions and why. Not just "ours is different" — the rejection has to cite specific prior work.
+- **#I2.** Experiment validation path: an `EXPERIMENT.md` or equivalent describes how the invention will be validated before production — what measurement, what threshold, what counts as "it works."
+- **#I3.** Fallback-to-baseline path: the `standard`-equivalent baseline design (the one that would ship if the invention fails) is named and accessible. Invention is opt-in on top of a safe fallback, never a bet-the-business exclusive path.
+
+Plus items 9, 10 retained as-is: failing tests (now for the prototype not production code) + measurable success metrics per requirement.
+
+**Inventive total: 7 items.** Lower bar on coverage, higher bar on novelty honesty. Cannot ship at > 1 violation without explicit acknowledgment in a "known research debts" section.
+
+### Aggregate target
+
+Per [`tests/README.md`](./tests/README.md#current-measurements), the measured Δloss for `architect-mode` is computed on `R_arch_standard` (the default). Variant runs (`conservative`, `inventive`) have been **specified but not yet measured**; when measured, each should produce its own per-variant Δloss. Aggregate bundle Δloss uses only `R_arch_standard` until variant baselines are captured (documented adopter task in [`GAPS.md`](./GAPS.md)).
 
 ## Loss (bundle-wide)
 

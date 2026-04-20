@@ -64,6 +64,24 @@ Then the agent announces to the user: *"architect-mode complete. To start implem
 
 **Do not auto-resume.** User must explicitly trigger the next task. Prevents architect-mode from silently consuming inner-loop budget on its own output.
 
+## Creativity levels — three loss functions
+
+Architect mode has three creativity levels that select **different loss functions**, not amounts of freedom. Per LDD's neural-code-network framing (see [`convergence.md`](./convergence.md)), the optimizer is the same — the **objective** changes.
+
+| Level | Informal loss | When to pick |
+|---|---|---|
+| `conservative` | `L = rubric_violations + λ · novelty_penalty` | No-new-tech policy / small team / near-zero risk tolerance / production imminent. All 3 candidates must be battle-tested patterns. Component novelty is penalized. |
+| `standard` (default) | `L = rubric_violations` | 95 % of architect runs. Current 10-item rubric, 3 candidates on a load-bearing axis, dialectical pass on winner. |
+| `inventive` | `L = rubric_violations_reduced + λ · prior_art_overlap_penalty` | Research / prototype / novelty genuinely required. Prior-art overlap is penalized; novelty rewarded IF validation path is explicit. Requires user acknowledgment before running. |
+
+Hard rules:
+
+- **Cannot be integer-tuned.** Only the three named levels. Integers would tempt moving-target-loss ("dial up until output feels creative") — the exact drift pattern LDD fights elsewhere.
+- **Cannot switch mid-task.** Mixing loss functions mid-gradient is incoherent optimization. Restart the task if you need a different level.
+- **`inventive` requires per-task acknowledgment**, cannot be set project-level default in `.ldd/config.yaml`.
+
+Full per-level spec: [`../../skills/architect-mode/SKILL.md`](../../skills/architect-mode/SKILL.md) § Creativity levels. Per-level rubric variants: [`../../evaluation.md`](../../evaluation.md) § `architect-mode`.
+
 ## Activation
 
 Three opt-in paths (precedence: inline > session > project-config):

@@ -43,6 +43,69 @@ Example:
 > User: `LDD: the checkout test is failing and I need to ship in an hour`
 > You: "Invoking `reproducibility-first` first to check whether this is a real gradient or noise. [runs check] Confirmed reproducible — invoking `root-cause-by-layer` next to diagnose at layer 4/5 before editing."
 
+## The LDD trace — mandatory visible output
+
+For every non-trivial LDD task, emit a **visible trace block** inline in your reply so the user can see what discipline is running, how the loss is moving, and which skill fired. The user wants to audit this in real-time; the block is part of the deliverable, not an internal monologue.
+
+**Emit ONE block per task** (not per skill invocation — that would clutter). Update it as the loop progresses; if the task spans multiple messages, re-emit the current state of the trace at the end of each message.
+
+### Trace block format
+
+```
+╭─ LDD trace ─────────────────────────────────────────╮
+│ Task   : <one-line description of what the user asked>
+│ Loop   : inner | refinement | outer
+│ Budget : k=<current>/K_MAX=<max>     (inner loop)
+│                                                     
+│ Iteration 1:                                        
+│   *Invoking <skill-name-1>*                         
+│     <1-line result — branch chosen, layer named, verdict>
+│   *Invoking <skill-name-2>*                         
+│     <1-line result>                                 
+│   loss_1: <count of failing items / rubric rejections>
+│                                                     
+│ Iteration 2 (if applicable):                        
+│   ...                                               
+│   loss_2: <...>      Δloss_1→2: +X (progress) | 0 (no-op) | -X (regression)
+│                                                     
+│ Close:                                              
+│   Fix at layer: <4: structural-name, 5: conceptual-name>
+│   Docs synced : yes | N/A | no (BLOCKED)            
+│   Terminal   : complete | partial | failed | aborted
+╰─────────────────────────────────────────────────────╯
+```
+
+Keep it compact. The goal is **one screenful** the user can eyeball. If the trace grows beyond ~25 lines (many iterations), collapse older iterations to one summary line each.
+
+### When to emit
+
+- **Always** on any invocation triggered by `LDD:` prefix or any trigger-phrase match
+- **Always** when closing a loop (final block with terminal status)
+- **On request** when the user types the `/ldd-trace` command or asks for the current state
+- **Not** for trivial one-shot replies (file read, single grep, typo fix) where no skill fires
+
+### Persisted trace at `.ldd/trace.log`
+
+When you are operating in a project directory (as opposed to answering an abstract question), also append a compact single-line trace entry to `.ldd/trace.log` at the project root. Create the directory if needed. Format:
+
+```
+2026-04-20T17:32:10Z  inner  k=1  skill=reproducibility-first    verdict=deterministic    loss_0=1
+2026-04-20T17:32:45Z  inner  k=1  skill=root-cause-by-layer      layer4=domain-boundary   loss_0=1
+2026-04-20T17:33:22Z  inner  k=1  close                          terminal=complete        loss_1=0   Δloss=+1
+```
+
+One line per skill invocation or close event. ISO-8601 UTC timestamp first. Space-separated key=value pairs. The user can `tail -f .ldd/trace.log` in a second terminal to watch the loop in real time, or grep the file for post-hoc audit.
+
+**If `.ldd/` cannot be written** (read-only filesystem, no project root), skip the persistence but still emit the inline block.
+
+### When NOT to emit the trace block
+
+- Pure lookups ("what does this function do") — answer directly, no trace
+- Rename / typo / one-line formatting edits — no skill fires, no trace
+- The user explicitly says `--no-trace` or equivalent
+
+The trace is a **loss-visibility tool**, not a template to apply mechanically. Empty or contentless traces ("Loop: unknown, k=?") are worse than no trace — they signal LDD is not actually active.
+
 ## Announcing skill invocation
 
 Every time you invoke an LDD skill — whether auto-triggered or via `LDD:` — **say which skill you are invoking, in one sentence, before applying it**. This is non-negotiable; it lets the user verify which discipline is in effect and override you if you picked wrong.

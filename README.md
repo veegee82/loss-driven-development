@@ -216,6 +216,49 @@ Use root-cause-by-layer on this bug.
 - **Gemini CLI** — `gemini-extension.json` registers the bundle; `@`-imports in `GEMINI.md` put the skills in context. Prefix messages with `LDD:`.
 - **Aider · Cursor · Copilot CLI** — reference the skills from your agent's instruction file; the buzzword still works once the skills are loaded.
 
+### Live trace — see the loop happen in real time
+
+Every non-trivial LDD task emits a **visible trace block** inline in the chat so you can audit what's running without reading the agent's mind:
+
+```
+╭─ LDD trace ─────────────────────────────────────────╮
+│ Task   : checkout test is failing
+│ Loop   : inner
+│ Budget : k=1/5
+│
+│ Iteration 1:
+│   *Invoking reproducibility-first*
+│     Branch A → reproduced 2/2, deterministic
+│   *Invoking root-cause-by-layer*
+│     Layer 4: domain↔transport boundary leak
+│     Layer 5: implicit-over-explicit contract
+│   loss_1: 0 (E2E green)
+│
+│ Close:
+│   Fix at layer: 4 (transport signature made explicit)
+│   Docs synced : yes (README §usage updated)
+│   Terminal    : complete
+╰─────────────────────────────────────────────────────╯
+```
+
+In project directories, LDD also appends one line per skill invocation to `.ldd/trace.log`:
+
+```
+2026-04-20T17:32:10Z  inner  k=1  skill=reproducibility-first   verdict=deterministic    loss_0=1
+2026-04-20T17:32:45Z  inner  k=1  skill=root-cause-by-layer     layer4=domain-boundary   loss_0=1
+2026-04-20T17:33:22Z  inner  k=1  close                         terminal=complete        loss_1=0  Δloss=+1
+```
+
+You can `tail -f .ldd/trace.log` in a second terminal to watch the loop happen live, or grep it for post-hoc audit.
+
+Three slash commands surface the trace on demand:
+
+| Command | What it shows |
+|---|---|
+| `/loss-driven-development:ldd-trace` | Current task's trace block + last 5 entries from `.ldd/trace.log` |
+| `/loss-driven-development:ldd-status` | One-paragraph: active loop / last skill / current loss / what's next |
+| `/loss-driven-development:ldd-explain` | Why the last skill fired — with the user's trigger phrase quoted from the dispatch table |
+
 ### Verifying LDD is active
 
 A session with LDD active shows at least one of:

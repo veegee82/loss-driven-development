@@ -18,5 +18,8 @@ Thumbs.db
 # Drift-scan reports (generated, not committed)
 drift-report-*.md
 
+# Per-project LDD trace logs (generated at runtime in user projects)
+.ldd/
+
 # Note: tests/fixtures/*/runs/ IS committed — those are the measurement
 # artefacts (RED/GREEN/score/independent-judge) that back GAPS.md claims.

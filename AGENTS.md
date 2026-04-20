@@ -48,13 +48,20 @@ These agents read ambient instruction files (`.cursorrules`, `.github/copilot-in
 
 ## Skill directory
 
-| Skill | Type | Fires when |
-|---|---|---|
-| `root-cause-by-layer` | discipline | Any bug / failing test / unexpected behavior |
-| `loss-backprop-lens` | pattern | Deciding whether/how-big an edit, or whether a fix generalizes |
-| `dialectical-reasoning` | discipline | Non-trivial recommendation, plan, trade-off, review note |
-| `docs-as-definition-of-done` | discipline | Before committing any behavior / API / CLI / config change |
-| `loop-driven-engineering` | pattern (dach) | Start of any non-trivial engineering task |
+Ten skills across three optimization loops (see [`docs/convergence.md`](./docs/convergence.md)).
+
+| Skill | Loop | Type | Fires when |
+|---|---|---|---|
+| `loop-driven-engineering` | (dach) | pattern | Start of any non-trivial engineering task |
+| `reproducibility-first` | inner | discipline | Failing test / flaky run / surprising log before treating as gradient |
+| `root-cause-by-layer` | inner | discipline | Any bug / failing test / unexpected behavior |
+| `loss-backprop-lens` | inner | pattern | Deciding whether/how-big an edit, or whether a fix generalizes |
+| `e2e-driven-iteration` | inner | discipline | Inside a fix-loop — every iteration runs E2E and measures Δloss |
+| `dialectical-reasoning` | all | discipline | Non-trivial recommendation, plan, trade-off, review note |
+| `iterative-refinement` | refinement | pattern | A complete deliverable that's "good enough not great" |
+| `method-evolution` | outer | pattern | Same rubric violation in 3+ distinct tasks |
+| `drift-detection` | outer | pattern | Periodic full-repo scan for cumulative drift |
+| `docs-as-definition-of-done` | closes every loop | discipline | Before committing any behavior / API / CLI / config change |
 
 ## Principle — one page
 
@@ -62,7 +69,7 @@ Engineering is **gradient descent on code**. Tests are forward passes. The delta
 
 Docs are the **regularizer** — they pin the conceptual model; drift raises generalization loss silently.
 
-The five skills implement this: `root-cause-by-layer` computes the gradient, `loss-backprop-lens` picks the step size, `dialectical-reasoning` checks the direction, `docs-as-definition-of-done` applies the regularizer, `loop-driven-engineering` runs the optimizer with a budget and an escape hatch.
+LDD separates three optimization loops: **inner** (θ = code), **refinement** (θ = deliverable, y-axis), **outer** (θ = skills / rubrics, θ-axis). Mixing them is the single biggest cause of "iterative work that never converges." Full mental model in [`docs/convergence.md`](./docs/convergence.md); pictures in [`diagrams/`](./diagrams/).
 
 ## Methodology
 

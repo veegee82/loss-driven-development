@@ -1,0 +1,50 @@
+digraph code_drift_mechanism {
+  rankdir=LR;
+  node [fontname="Helvetica", shape=box, style="rounded,filled", fillcolor="#ffffff"];
+  edge [fontname="Helvetica", fontsize=10];
+  labelloc="t";
+  label=<<b>Code drift — many locally-optimal commits composing into global incoherence</b>>;
+  fontname="Helvetica";
+
+  subgraph cluster_t0 {
+    label=<<b>t0 — coherent system</b>>;
+    style="rounded,filled"; fillcolor="#e6fbe6"; color="#2ca02c";
+    t0_ui [label="UI\ntypes: UserView"];
+    t0_svc [label="Service\ntypes: UserView"];
+    t0_db [label="DB\ntypes: UserView"];
+    t0_doc [label="README\nmental model:\nUserView everywhere"];
+    t0_ui -> t0_svc -> t0_db;
+    t0_doc -> t0_svc [style=dashed, label="describes"];
+  }
+
+  subgraph cluster_t1 {
+    label=<<b>t1 — commit A: UI uses UserDTO for perf</b>>;
+    style="rounded,filled"; fillcolor="#fef4ea"; color="#ff7f0e";
+    t1_ui [label="UI\ntypes: UserDTO"];
+    t1_svc [label="Service\ntypes: UserView\n(adapter added)"];
+    t1_db [label="DB\ntypes: UserView"];
+    t1_ui -> t1_svc -> t1_db;
+    t1_note [label="Each commit\nlocally OK.\nDocs still say\n\"UserView everywhere\"\n(not yet wrong,\njust incomplete)", shape=note, fillcolor="#fff9e6"];
+  }
+
+  subgraph cluster_t2 {
+    label=<<b>t2–t10 — many commits later</b>>;
+    style="rounded,filled"; fillcolor="#fdeaea"; color="#d62728";
+    t2_ui [label="UI\ntypes: UserDTO"];
+    t2_svc [label="Service\ntypes: UserBO\n(migrated 3 commits ago)"];
+    t2_db [label="DB\ntypes: UserRow\n(migrated last week)"];
+    t2_doc [label="README\nmental model:\nUserView everywhere\n(stale)"];
+    t2_ui -> t2_svc -> t2_db;
+    t2_doc -> t2_svc [style=dashed, color=red, label="LIES"];
+  }
+
+  subgraph cluster_catches {
+    label=<<b>What would have caught this</b>>;
+    style="rounded,filled"; fillcolor="#e8f4fd"; color="#1f77b4";
+    per_commit [label="docs-as-definition-of-done\nper commit A,\nREADME renaming would fire", shape=note, fillcolor="#ffffff"];
+    periodic [label="drift-detection\nperiodic scan\nwould flag UserView/UserBO/UserRow\nas 3 names for 1 concept", shape=note, fillcolor="#ffffff"];
+  }
+
+  t0_doc -> t1_ui [style=invis];
+  t1_ui -> t2_ui [style=invis];
+}

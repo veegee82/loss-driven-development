@@ -1,0 +1,46 @@
+digraph convergence_vs_divergence {
+  rankdir=TB;
+  compound=true;
+  node [fontname="Helvetica", shape=box, style="rounded,filled"];
+  edge [fontname="Helvetica", fontsize=10];
+  labelloc="t";
+  label=<<b>Two paths through loss-space: same start, different disciplines</b>>;
+  fontname="Helvetica";
+
+  subgraph cluster_converge {
+    label=<<b>Converging path (LDD discipline enforced)</b><br/><font point-size="9">all 5 convergence conditions held</font>>;
+    style="rounded,filled"; fillcolor="#e6fbe6"; color="#2ca02c";
+    c0 [label="Iter 0\ndiagnose: layer 4/5 named\ngradient: honest", fillcolor="#ffffff"];
+    c1 [label="Iter 1\nfix at named layer\ndocs synced", fillcolor="#ffffff"];
+    c2 [label="Iter 2\nregularizers hold\nE2E passes", fillcolor="#ffffff"];
+    c3 [label="Iter 3\nrubric stable\ntest-loss ↓", fillcolor="#ffffff"];
+    c_done [label="Closed\ncommit = code+tests+docs\ndrift-scan clean", fillcolor="#b4ecb4"];
+    c0 -> c1 [label="Δloss = -4"];
+    c1 -> c2 [label="Δloss = -3"];
+    c2 -> c3 [label="Δloss = -1"];
+    c3 -> c_done [label="Δloss = 0 (done)"];
+  }
+
+  subgraph cluster_diverge {
+    label=<<b>Diverging path (discipline skipped)</b><br/><font point-size="9">at least one convergence condition dropped each step</font>>;
+    style="rounded,filled"; fillcolor="#fdeaea"; color="#d62728";
+    d0 [label="Iter 0\nsymptom patched\nno layer named", fillcolor="#ffffff"];
+    d1 [label="Iter 1\ntry/except added\ncontract violated", fillcolor="#ffffff"];
+    d2 [label="Iter 2\nfix-A broke-B\nlocal minimum trap", fillcolor="#ffffff"];
+    d3 [label="Iter 3\nretry loop added\nfor flakiness", fillcolor="#ffffff"];
+    d4 [label="Iter 4\nrubric widened\nto fit code", fillcolor="#ffffff"];
+    d5 [label="Iter 5\nxfail applied\n K_MAX hit, ignored", fillcolor="#ffffff"];
+    d_incident [label="2 weeks later\nproduction incident\nroot cause = Iter 0", fillcolor="#f5a5a5"];
+    d0 -> d1 [label="Δloss_train = -1\nΔloss_test = +2"];
+    d1 -> d2 [label="Δloss_train = -1\nΔloss_test = +3"];
+    d2 -> d3 [label="oscillation"];
+    d3 -> d4 [label="moving target"];
+    d4 -> d5 [label="silent"];
+    d5 -> d_incident [label="accumulated drift"];
+  }
+
+  legend [
+    label=<<b>Reading the labels</b><br/>Δloss_train = change in loss on the <i>currently visible</i> test<br/>Δloss_test = change in loss on <i>unseen</i> inputs<br/><br/>A symptom patch has Δloss_train &lt; 0 but Δloss_test &gt; 0.<br/>That is <b>overfitting</b>. LDD rejects it even when the test is green.>,
+    shape=note, fillcolor="#fff9e6", color="#d4a017"
+  ];
+}

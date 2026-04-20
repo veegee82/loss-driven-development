@@ -1,0 +1,68 @@
+digraph mental_model_ldd {
+  rankdir=LR;
+  node [fontname="Helvetica", shape=box, style="rounded,filled"];
+  edge [fontname="Helvetica", fontsize=10];
+  labelloc="t";
+  label=<<b>LDD mental model — gradient descent on code</b><br/><font point-size="10">One page: what is θ, what is the loss, what regularizes, what budgets.</font>>;
+  fontname="Helvetica";
+
+  subgraph cluster_core {
+    label="core equation";
+    style="rounded,filled"; fillcolor="#f5f5f5"; color="#333333";
+    eq [label="θ_{k+1} = θ_k  −  η · ∇L(θ_k)  +  regularizer(θ_k)", fillcolor="#ffffff", shape=box, fontname="Courier"];
+  }
+
+  subgraph cluster_theta {
+    label=<<b>θ (what changes)</b>>;
+    style="rounded,filled"; fillcolor="#e8f4fd"; color="#1f77b4";
+    theta_code [label="Inner:\ncode of current task"];
+    theta_deliv [label="Refinement:\ndeliverable of a run"];
+    theta_skill [label="Outer:\nskills / prompts / rubrics"];
+  }
+
+  subgraph cluster_loss {
+    label=<<b>L (loss)</b>>;
+    style="rounded,filled"; fillcolor="#fef4ea"; color="#ff7f0e";
+    loss_inner [label="failing test,\ngate rejection,\nrubric violation"];
+    loss_refine [label="critique defects\n+ gate rejections\n+ eval deltas"];
+    loss_outer [label="mean_loss across\na task suite"];
+  }
+
+  subgraph cluster_grad {
+    label=<<b>∇L (gradient)</b>>;
+    style="rounded,filled"; fillcolor="#e6fbe6"; color="#2ca02c";
+    grad_how [label="5-why-by-layer:\nsymptom → mechanism →\ncontract → structural →\nconceptual origin"];
+    grad_guard [label="reproducibility-first:\n≥2 reproductions\nor unambiguous log"];
+  }
+
+  subgraph cluster_eta {
+    label=<<b>η (learning rate)</b>>;
+    style="rounded,filled"; fillcolor="#fdeaea"; color="#d62728";
+    eta_small [label="small:\nlocal tweak\nat named boundary"];
+    eta_large [label="large:\narchitectural edit\nwhen same defect\nrecurs 3×"];
+  }
+
+  subgraph cluster_reg {
+    label=<<b>regularizer</b>>;
+    style="rounded,filled"; fillcolor="#f5ebfd"; color="#9467bd";
+    reg_contract [label="contracts\n(explicit types,\nsignatures,\ninvariants)"];
+    reg_layer [label="layer boundaries\n(domain ≠ transport\n≠ persistence)"];
+    reg_docs [label="docs as single\nsource of truth\n(docs-as-definition-of-done)"];
+    reg_drift [label="periodic\ndrift-detection"];
+  }
+
+  subgraph cluster_budget {
+    label=<<b>budgets</b>>;
+    style="rounded,filled"; fillcolor="#fff9e6"; color="#d4a017";
+    b_inner [label="Inner: K_MAX = 5"];
+    b_refine [label="Refinement:\nhalve per iter,\nstop on regression/plateau"];
+    b_outer [label="Outer: N epochs,\nrollback on regression"];
+  }
+
+  eq -> theta_code [style=invis];
+  eq -> loss_inner [style=invis];
+  eq -> grad_how [style=invis];
+  eq -> eta_small [style=invis];
+  eq -> reg_contract [style=invis];
+  eq -> b_inner [style=invis];
+}

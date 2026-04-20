@@ -59,6 +59,47 @@ Each rubric is a small fixed set of checks encoded in [`tests/fixtures/`](./test
 3. Sub-skill dispatch — ≥ 2 sub-skills invoked at correct moments?
 4. K_MAX escalation plan present and has the required shape (what tried / what failed / layer-4-5 diagnosis / step-size / explicit ask)?
 5. Close with docs-as-DoD referenced?
+6. Correct loop (inner vs refinement vs outer) chosen for the task?
+
+**`reproducibility-first`** (rubric: `R_rf`)
+1. Original observation logged verbatim (error, log, environment)?
+2. Branch explicitly chosen (A = reproduce, B = unambiguous-log shortcut) with justification?
+3. If Branch A: ≥ 2 additional runs executed before proposing an edit?
+4. If Branch B: all three criteria (deterministic cause, complete explanation, contract match) explicitly checked?
+5. No retry loop / `@flaky` / defensive `try/except` proposed as a first response to a single failure?
+6. If transient (2/2 pass): no code edit proposed; incident logged and closed?
+
+**`e2e-driven-iteration`** (rubric: `R_edi`)
+1. E2E run at the *start* of each iteration (not only at the end)?
+2. Loss per iteration captured as a concrete number / list of failing items?
+3. Δloss compared to previous iteration and interpreted (down = progress, zero = rethink, up = revert)?
+4. Pyramid respected (cheap tier used when it can reproduce, E2E only when warranted)?
+5. Multiple edits batched into one iteration without re-running the E2E per edit? (violation)
+6. Close gated on E2E green AND regularizers (contracts / docs) honored?
+
+**`iterative-refinement`** (rubric: `R_ir`)
+1. Scope verified: deliverable complete, "good-enough-not-great," re-run would waste?
+2. Gradient built from concrete sources (named defects, gate rejections, eval deltas) — not "make it better"?
+3. Budget explicit (max iterations ≤ 10, halving per iter, wall-time cap)?
+4. Stop conditions named (regression / plateau / wall-time / empty-gradient)?
+5. Winning iteration preserved (not just last iteration) on regression?
+6. Did the skill get invoked when the right loop was refinement (not inner loop, not re-plan)?
+
+**`method-evolution`** (rubric: `R_me`)
+1. Pattern observed across ≥ 3 distinct tasks before invoking (not 1 or 2)?
+2. Proposed change is ONE thing (not a rewrite)?
+3. Task suite used to measure `Δloss_method`?
+4. `Δloss_method > 0` on motivating case AND `≥ 0` on all others, or rollback?
+5. Commit message has the canonical shape (pattern / change / Δloss / regressions)?
+6. No moving-target loss (rubric edited to fit current code without Δloss justification)?
+
+**`drift-detection`** (rubric: `R_dd`)
+1. Scan run on a periodic cadence (not reactively when something broke)?
+2. All seven indicators checked?
+3. Report produced as a fixable list, not a "health score"?
+4. Each finding triaged (immediate fix vs method-evolution candidate)?
+5. Scan history logged (even when report is short)?
+6. Trend over time tracked (drift shrinking / stable / growing)?
 
 ## Loss (bundle-wide)
 

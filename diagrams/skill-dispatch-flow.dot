@@ -1,0 +1,47 @@
+digraph skill_dispatch_flow {
+  rankdir=TB;
+  node [fontname="Helvetica", style="rounded,filled"];
+  edge [fontname="Helvetica", fontsize=10];
+  labelloc="t";
+  label=<<b>Skill dispatch — which skill fires at which point</b>>;
+  fontname="Helvetica";
+
+  start [label="Non-trivial task arrives", shape=ellipse, fillcolor="#ffffff"];
+  lde [label="loop-driven-engineering\n(dach / entry-point)", fillcolor="#e8f4fd", shape=box];
+  plan [label="Plan the approach", shape=diamond, fillcolor="#ffffff"];
+  dr1 [label="dialectical-reasoning\nthesis → antithesis → synthesis", fillcolor="#f5ebfd"];
+  code [label="Code\n(smallest coherent change)", shape=box, fillcolor="#ffffff"];
+  signal [label="Signal observed\n(failing test / gate / symptom)", shape=diamond, fillcolor="#ffffff"];
+  repro [label="reproducibility-first\nreproduce before gradient", fillcolor="#fef4ea"];
+  rcbl [label="root-cause-by-layer\n5-layer ladder", fillcolor="#e6fbe6"];
+  lbl [label="loss-backprop-lens\nstep size + generalization", fillcolor="#fef4ea"];
+  e2e [label="e2e-driven-iteration\nE2E → loss → fix → E2E", fillcolor="#e6fbe6"];
+  refine [label="iterative-refinement\n(y-axis: polish a good-enough deliverable)", fillcolor="#fef4ea"];
+  meta [label="method-evolution\n(θ-axis: same pattern 3× → evolve the skill)", fillcolor="#f5ebfd"];
+  close [label="Close the loop", shape=diamond, fillcolor="#ffffff"];
+  ddod [label="docs-as-definition-of-done\ncommit code+tests+docs", fillcolor="#e8f4fd"];
+  drift [label="drift-detection\n(periodic, not per commit)", fillcolor="#fdeaea"];
+  done [label="Done", shape=ellipse, fillcolor="#b4ecb4"];
+
+  start -> lde;
+  lde -> plan;
+  plan -> dr1 [label="non-trivial\nrecommendation?"];
+  dr1 -> code;
+  plan -> code [label="mechanical"];
+  code -> signal;
+  signal -> repro [label="failure?"];
+  repro -> rcbl [label="reproduced\n(or unambiguous log)"];
+  repro -> lde [label="noise,\ndon't edit", style=dashed];
+  rcbl -> lbl;
+  lbl -> e2e [label="next iteration"];
+  e2e -> code [label="loop"];
+  signal -> refine [label="deliverable\ngood-enough?"];
+  refine -> close;
+  e2e -> meta [label="same defect\n3+ tasks?", style=dashed];
+  meta -> lde [label="skill evolved,\nresume", style=dashed];
+  signal -> close [label="green"];
+  close -> ddod;
+  ddod -> drift [label="release candidate?", style=dashed];
+  ddod -> done;
+  drift -> done;
+}

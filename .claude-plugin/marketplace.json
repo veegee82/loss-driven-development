@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "loss-driven-development",
-      "description": "LDD — loss-driven development for the AI-era coding loop. Five portable skills for any coding agent.",
-      "version": "0.1.0",
+      "description": "LDD — loss-driven development for the AI-era coding loop. Ten portable skills across three optimization loops for any coding agent.",
+      "version": "0.2.0",
       "source": "./",
       "author": {
         "name": "Silvio Jurk",

@@ -1,52 +1,109 @@
 # Loss-Driven Development (LDD)
 
-> **LDD is to AI-era coding what TDD is to human coding.** Five portable skills for any coding agent (Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev).
+> **LDD is to AI-era coding what TDD was to human coding.**
+> Ten portable skills for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured* discipline where symptom patches, local-minimum traps, and silent code drift can't hide.
 
-In TDD, a red test is your ground truth — no line of code ships without a falsifiable check. In LDD, a **loss signal** (a failing test, a rejected gate, a stale doc, an unreviewed assumption) is the ground truth — and the edit is only admissible if it's an honest step down the gradient, not an overfit to the nearest symptom.
+![Three loops](./diagrams/three-loops.svg)
 
-## The five skills
+## The one-sentence pitch
 
-Each skill was developed via TDD-for-skills (RED → GREEN → REFACTOR) with baseline pressure scenarios run against fresh subagents. See [`evaluation.md`](./evaluation.md) for the formal loss function and E2E definition, and [`tests/`](./tests/) for reproducible pressure scenarios.
+Every code change is an SGD step. Most agents optimize training loss (the visible test) and drive generalization loss (everything else) through the roof. **LDD installs a loss function, a gradient, a step-size rule, and a regularizer — so your agent's iteration converges instead of drifts.**
 
-| Skill | Type | When it fires |
+## Why you want this
+
+| Without LDD | With LDD |
+|---|---|
+| Agent adds `try/except` around the failing line and ships | Agent walks 5 layers of causation and fixes at the boundary |
+| "It was flaky, just retry" | One sample is noise; reproduce before gradient |
+| Five 3-line patches in one function this morning | Step size mismatch detected; architectural edit proposed |
+| "I'll update the docs later" | Code + tests + docs land in one commit, or the work isn't done |
+| Same rubric violation across tasks; nobody notices | Outer-loop `method-evolution`: the skill itself is the bug |
+| README describes a system that no longer exists | Periodic `drift-detection` scan finds it before onboarding does |
+
+## The 10 skills
+
+```
+              loop-driven-engineering  ←— dach / entry point
+                    |
+          ┌─────────┼─────────┐
+          |         |         |
+       INNER    REFINEMENT   OUTER
+       LOOP      LOOP        LOOP
+       (code)   (deliverable) (skill)
+          |         |         |
+  ┌───────┴───┐     |         |
+  reproducibility-first       |
+  root-cause-by-layer         |
+  loss-backprop-lens          |
+  e2e-driven-iteration        |
+  dialectical-reasoning       |
+                              |
+                    iterative-refinement
+                              |
+                              method-evolution
+                              |
+                              drift-detection
+  ─────────────┴──────────────┴──────────────
+                docs-as-definition-of-done (closes every loop)
+```
+
+| Skill | Type | What it catches |
 |---|---|---|
-| **root-cause-by-layer** | discipline (rigid) | Any bug / failing test / unexpected behavior — forbids symptom patches until a 5-layer diagnosis (Symptom → Mechanism → Contract → Structural origin → Conceptual origin) is written out |
-| **loss-backprop-lens** | pattern | Deciding *whether* to edit, *how big* the edit should be, *whether a fix generalizes*. Frames code changes as SGD steps; flags overfitting |
-| **dialectical-reasoning** | discipline (rigid) | Any non-trivial recommendation, plan, trade-off, or review note — enforces thesis → antithesis → synthesis before shipping an opinion |
-| **docs-as-definition-of-done** | discipline (rigid) | Before any commit on a behavior / API / CLI / config change — forbids "I'll update docs later" |
-| **loop-driven-engineering** | pattern (dach) | Start of any non-trivial engineering task — orchestrates plan → code → gate pyramid → diagnose → repeat with a hard K_MAX=5 iteration budget, and dispatches the four skills above at the right moments |
+| **loop-driven-engineering** | pattern (dach) | "Just start coding" without a plan or a budget |
+| **reproducibility-first** | discipline | Updates on a single noisy sample |
+| **root-cause-by-layer** | discipline | Symptom patches (try/except, shims, xfail, …) |
+| **loss-backprop-lens** | pattern | Local-minimum traps, overfitting, wrong step size |
+| **e2e-driven-iteration** | discipline | "I'll run the E2E at the end" — lost gradient |
+| **dialectical-reasoning** | discipline | One-sided recommendations that skip the counter-case |
+| **iterative-refinement** | pattern | Re-running from scratch when refinement is cheaper |
+| **method-evolution** | pattern | Patching individual tasks when the method itself is the bug |
+| **drift-detection** | pattern | Cumulative drift that no single commit introduced |
+| **docs-as-definition-of-done** | discipline | "I'll update docs in a follow-up PR" |
 
-## One-page philosophy
+## The philosophy in 60 seconds
 
 Engineering is **gradient descent on code**:
 
-- A test / CI / E2E run is a **forward pass**.
+- A test / CI / E2E is a **forward pass**.
 - The delta between expected and actual is the **loss**.
-- Every edit is an **SGD step** — many edits are noise, not signal.
-- A symptom patch that turns the current test green but violates a contract or invariant is **overfitting**: low training loss, high generalization loss. **Rejected even when CI is green.**
-- Docs are the **regularizer**: they pin the conceptual model; letting them drift raises generalization loss silently.
+- Every edit is an **SGD step** — most are noise if you don't check them.
+- A symptom patch is **overfitting**: low training loss, high generalization loss. Rejected even when CI is green.
+- Docs are the **regularizer** — keep them in sync or generalization loss rises silently.
+- Budget (`K_MAX=5`) prevents descending past local minima into drift.
 
-The five skills implement this. `root-cause-by-layer` computes the gradient. `loss-backprop-lens` picks the step size. `dialectical-reasoning` checks the direction. `docs-as-definition-of-done` applies the regularizer. `loop-driven-engineering` runs the optimizer with a budget and an escape hatch.
+Full mental model in [`docs/convergence.md`](./docs/convergence.md). The convergence conditions, the five divergence patterns, the drift taxonomy — all formally stated.
+
+## Three loops, not one
+
+Most "iterate on code" advice treats all edits the same. LDD separates three orthogonal optimization axes:
+
+| Loop | You edit | When |
+|---|---|---|
+| **Inner** | The code | Every ordinary bug / feature / refactor |
+| **Refinement** (y-axis) | The deliverable (doc, diff, design) | "Good enough, not great" — polish with a real gradient |
+| **Outer** (θ-axis) | The skills / rubrics themselves | Same rubric violation across 3+ tasks |
+
+Mixing them is the single biggest reason "iterate on the problem" never converges. LDD forces the question *which parameter am I changing*. Pictures in [`diagrams/`](./diagrams/).
 
 ## Installation
 
-The skill content (`skills/*/SKILL.md`) is identical across platforms. Only the distribution format differs.
+Skill content (`skills/*/SKILL.md`) is identical across platforms. Only the distribution format differs.
 
-### Claude Code
+### Claude Code (primary target)
 
 ```bash
-# Register as local marketplace (one-time)
+# Register the local dir as a marketplace (one-time)
 /plugin marketplace add /path/to/loss-driven-development
 
-# Install
+# Install the plugin
 /plugin install loss-driven-development@loss-driven-development-dev
 ```
 
-Skills appear as `loss-driven-development:<name>` and can be invoked via the `Skill` tool or triggered automatically when their `description` matches the task. Or drop `skills/*` into `~/.claude/skills/` for a personal install without the plugin mechanism.
+Skills appear as `loss-driven-development:<name>` and trigger automatically when their `description` matches the task, or via explicit `/loss-driven-development:<skill>`. Or drop `skills/*` into `~/.claude/skills/` for a personal install.
 
 ### Codex (OpenAI)
 
-Codex reads `AGENTS.md` at the project root — copy this repo (or just `AGENTS.md` + `skills/`) into your project. For a global install, place `skills/` into your Codex personal-skills directory.
+Codex reads `AGENTS.md` at the project root. Copy this repo (or just `AGENTS.md` + `skills/`) into your project. For a global install, place `skills/` into your Codex personal-skills directory.
 
 ### Gemini CLI
 
@@ -54,39 +111,51 @@ Codex reads `AGENTS.md` at the project root — copy this repo (or just `AGENTS.
 gemini extensions install /path/to/loss-driven-development
 ```
 
-`gemini-extension.json` registers the extension; `GEMINI.md` `@`-imports the five skill files.
+`gemini-extension.json` registers the extension; `GEMINI.md` `@`-imports the ten skills.
 
 ### Aider · Cursor · Copilot CLI · Continue.dev · generic
 
-These read ambient instruction files (`.cursorrules`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, project system prompts). Either reference the skills directory from your agent's instruction file, or copy the SKILL.md bodies inline. See [`AGENTS.md`](./AGENTS.md) for per-platform recipes.
+Read ambient instruction files (`.cursorrules`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, project system prompts). Either reference the skills directory from your agent's instruction file, or copy the SKILL.md bodies inline. See [`AGENTS.md`](./AGENTS.md) for per-platform recipes.
 
-## How the skills activate
+## Optional Claude-Code tooling
 
-1. **Automatic** — the agent reads each skill's `description` (YAML frontmatter) and invokes when triggers match. Descriptions are written to be discriminating.
-2. **Explicit** — the user names the skill (Claude Code: `/loss-driven-development:root-cause-by-layer`; other agents: point at the file).
+`scripts/` contains three optional helpers (not required, not part of the skills):
 
-`loop-driven-engineering` is the entry point for multi-step work; it composes the others rather than duplicating them.
+- `scripts/drift-scan.py` — runs the seven drift indicators over a repo, produces a Markdown report
+- `scripts/evolve-skill.sh` — scaffolds a RED/GREEN re-run for a skill against its fixture
+- `scripts/render-diagrams.sh` — regenerates SVGs from the `.dot` sources
+
+Run them manually, wire them into CI, or ignore them. The skills don't depend on them.
 
 ## Relation to `superpowers`
 
 Complementary, not a replacement, for [`obra/superpowers`](https://github.com/obra/superpowers):
 
 - `superpowers:brainstorming` / `writing-plans` / `test-driven-development` / `verification-before-completion` — process skills. `loop-driven-engineering` dispatches to these when available.
-- `superpowers:systematic-debugging` overlaps with `root-cause-by-layer`: prefer `root-cause-by-layer` for the explicit 5-layer discipline, `systematic-debugging` for the broader "where do I start" framing.
+- `superpowers:systematic-debugging` overlaps with `root-cause-by-layer`: prefer `root-cause-by-layer` for the explicit 5-layer ladder, `systematic-debugging` for the broader "where do I start looking" framing.
 
 Install both.
 
-## Design notes
+## How the skills were built (TDD-for-skills)
 
-Each skill follows the portable agent-skill format (YAML frontmatter + markdown body). The `description` field is **triggering conditions only**, never a workflow summary — summary-as-description lets agents skip the body.
+Each skill was developed via **RED → GREEN → REFACTOR**:
 
-Rigid discipline skills (`root-cause-by-layer`, `dialectical-reasoning`, `docs-as-definition-of-done`) each include: a spirit-vs-letter clause, a Red Flags list of rationalizations, a Rationalizations → Reality table from real baselines, and an Anti-Pattern catalog.
+1. **RED** — pressure scenario run against a fresh subagent with no skill loaded. Baseline rationalizations captured verbatim.
+2. **GREEN** — skill written to address those specific rationalizations; scenario re-run with the skill loaded to verify compliance.
+3. **REFACTOR** — new rationalizations surfacing in the GREEN run fold back into the skill's Red Flags and Rationalizations tables.
 
-Pattern skills (`loss-backprop-lens`, `loop-driven-engineering`) are mental models with dispatch tables, not procedures.
+Formal loss function, per-skill rubrics, and E2E definition in [`evaluation.md`](./evaluation.md). Reproducible pressure scenarios in [`tests/fixtures/`](./tests/fixtures/). An integration scenario starter in [`tests/e2e/scenario-01-refactor/`](./tests/e2e/scenario-01-refactor/).
 
-## What's tested, what's not
+## What's verified, what isn't
 
-Honestly documented in [`GAPS.md`](./GAPS.md). TL;DR: each skill has a RED-GREEN baseline captured (with caveats on baseline contamination when run from an AWP-instrumented environment). The bundle has **not** been installed into a live Claude Code session end-to-end; that's the Tier-5 gate you close when you try it.
+Honest accounting in [`GAPS.md`](./GAPS.md). TL;DR:
+
+- Each original skill has at least one baseline captured (with caveats on environmental contamination).
+- The 5 new skills from v0.2 have fixtures scaffolded but **no baseline captures yet**.
+- No tier-4 live-install E2E has been run (that's the first thing you do as an early adopter).
+- Word counts exceed `<500`-per-skill guidance; discipline-heavy skills are inherently denser.
+
+Treat this as **v0.2 seed**. If a skill doesn't change your agent's behavior on a real pressure case, open an issue with the scenario + the unhelpful response. That's the baseline data needed for v0.3.
 
 ## License
 
@@ -98,4 +167,4 @@ Silvio Jurk — `silvio.jurk@googlemail.com`.
 
 ## Attribution
 
-Distilled from an in-project `CLAUDE.md` (AWP — Agent Workflow Protocol). The loss/backprop framing and the 5-Why-by-Layer protocol originate there; the generalized, platform-agnostic form is what this bundle ships.
+Distilled from an in-project `CLAUDE.md` (AWP — Agent Workflow Protocol). The loss/backprop framing, the 5-Why-by-Layer protocol, the three-loop model, and refinement mode originate there. The generalized, platform-agnostic form is what this bundle ships.

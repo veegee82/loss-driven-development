@@ -1,0 +1,53 @@
+digraph three_loops {
+  rankdir=LR;
+  node [fontname="Helvetica", shape=box, style="rounded,filled"];
+  edge [fontname="Helvetica", fontsize=10];
+  labelloc="t";
+  label=<<b>LDD — Three orthogonal optimization loops</b><br/><font point-size="10">Each loop optimizes a different parameter; mixing them produces unstable gradients.</font>>;
+  fontname="Helvetica";
+
+  subgraph cluster_inner {
+    label=<<b>Inner Loop</b><br/><font point-size="9">θ = code of current task</font>>;
+    style="rounded,filled"; fillcolor="#e8f4fd"; color="#1f77b4";
+    plan_i [label="plan\n(dialectical)", fillcolor="#ffffff"];
+    code_i [label="code\n(one focused change)", fillcolor="#ffffff"];
+    gate_i [label="fast gates\n→ E2E if warranted", fillcolor="#ffffff"];
+    diag_i [label="diagnose\n(5-why-by-layer)", fillcolor="#ffffff"];
+    plan_i -> code_i -> gate_i -> diag_i -> plan_i [label="K≤5"];
+    budget_i [label="K_MAX = 5\nescalate on non-convergence", shape=note, fillcolor="#fff9e6", color="#d4a017"];
+  }
+
+  subgraph cluster_refine {
+    label=<<b>Refinement (y-axis)</b><br/><font point-size="9">θ = deliverable of a completed run</font>>;
+    style="rounded,filled"; fillcolor="#fef4ea"; color="#ff7f0e";
+    seed_r [label="seed run\n(already complete)", fillcolor="#ffffff"];
+    grad_r [label="gradient =\ncritique defects +\ngate rejections +\neval deltas", fillcolor="#ffffff"];
+    iter_r [label="iteration k\n(budget halved)", fillcolor="#ffffff"];
+    stop_r [label="regression? plateau?\nwall-time?", fillcolor="#ffffff", shape=diamond];
+    seed_r -> grad_r -> iter_r -> stop_r;
+    stop_r -> iter_r [label="no"];
+    stop_r -> best_r [label="yes"];
+    best_r [label="BEST/\n(winning iteration\nhard-linked)", fillcolor="#e6fbe6"];
+  }
+
+  subgraph cluster_outer {
+    label=<<b>Outer Loop (θ-axis)</b><br/><font point-size="9">θ = skills / prompts / rubrics</font>>;
+    style="rounded,filled"; fillcolor="#f5ebfd"; color="#9467bd";
+    suite_o [label="task suite\n(many unseen tasks)", fillcolor="#ffffff"];
+    run_o [label="run each\ncollect loss", fillcolor="#ffffff"];
+    mean_o [label="mean_loss\nacross suite", fillcolor="#ffffff"];
+    prop_o [label="TextGrad proposes\nskill/prompt edit", fillcolor="#ffffff"];
+    apply_o [label="apply, re-run\nsuite", fillcolor="#ffffff"];
+    rb_o [label="regression?", fillcolor="#ffffff", shape=diamond];
+    suite_o -> run_o -> mean_o -> prop_o -> apply_o -> rb_o;
+    rb_o -> suite_o [label="no (next epoch)"];
+    rb_o -> rollback_o [label="yes"];
+    rollback_o [label="rollback last update\nhalve learning rate", fillcolor="#fdeaea"];
+    rollback_o -> suite_o;
+  }
+
+  note_combined [
+    label=<<b>Rule:</b> treat the three axes as independent.<br/>Inner-loop edits on a weak deliverable are over-editing.<br/>Refinement edits on buggy code polish a broken output.<br/>Outer-loop edits without a suite are anecdotal skill drift.>,
+    shape=note, fillcolor="#fff9e6", color="#d4a017"
+  ];
+}

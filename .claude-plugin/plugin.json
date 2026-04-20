@@ -1,7 +1,7 @@
 {
   "name": "loss-driven-development",
-  "description": "LDD — loss-driven development for the AI-era coding loop. Five portable skills: root-cause-by-layer, loss-backprop-lens, dialectical-reasoning, docs-as-definition-of-done, loop-driven-engineering.",
-  "version": "0.1.0",
+  "description": "LDD — loss-driven development for the AI-era coding loop. Ten portable skills across three optimization loops (inner/code, refinement/deliverable, outer/method): root-cause-by-layer, loss-backprop-lens, reproducibility-first, e2e-driven-iteration, dialectical-reasoning, iterative-refinement, method-evolution, drift-detection, docs-as-definition-of-done, loop-driven-engineering.",
+  "version": "0.2.0",
   "author": {
     "name": "Silvio Jurk",
     "email": "silvio.jurk@googlemail.com"

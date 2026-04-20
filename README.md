@@ -2,8 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Plugin format: Claude Code · Codex · Gemini CLI](https://img.shields.io/badge/plugin-Claude%20Code%20·%20Codex%20·%20Gemini%20CLI-green.svg)](#installation)
-[![Δloss_bundle: 3.30](https://img.shields.io/badge/%CE%94loss__bundle-3.30-brightgreen.svg)](./tests/README.md#current-measurements)
-[![Skills: 10 + entry-point](https://img.shields.io/badge/skills-10%20%2B%20entry--point-blueviolet.svg)](./skills/)
+[![Δloss_bundle: 3.91](https://img.shields.io/badge/%CE%94loss__bundle-3.91-brightgreen.svg)](./tests/README.md#current-measurements)
+[![Skills: 10 + architect + entry](https://img.shields.io/badge/skills-10%20%2B%20architect%20%2B%20entry--point-blueviolet.svg)](./skills/)
 
 > **LDD is to AI-era coding what TDD was to human coding.**
 > Ten portable skills (+ bootstrap entry-point) for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured* discipline where symptom patches, local-minimum traps, and silent code drift can't hide.
@@ -40,13 +40,13 @@ Every code change is an SGD step. Most agents optimize training loss (the visibl
 | Same rubric violation across tasks; nobody notices | Outer-loop `method-evolution`: the skill itself is the bug |
 | README describes a system that no longer exists | Periodic `drift-detection` scan finds it before onboarding does |
 
-## The 10 skills (+ `using-ldd` entry-point)
+## The 10 reactive skills (+ architect-mode + `using-ldd` entry-point)
 
 ![LDD skills overview — ten skills across three optimization loops, connected to the loop-driven-engineering entry-point and closed by docs-as-definition-of-done](./diagrams/skills-overview.svg)
 
 | Skill | Type | What it catches |
 |---|---|---|
-| **using-ldd** | entry-point | Bootstraps the bundle and dispatches the 10 below via trigger-phrase table; fires on `LDD:` prefix or any trigger match |
+| **using-ldd** | entry-point | Bootstraps the bundle and dispatches the others via trigger-phrase table; fires on `LDD:` prefix or any trigger match |
 | **loop-driven-engineering** | pattern (dach) | "Just start coding" without a plan or a budget |
 | **reproducibility-first** | discipline | Updates on a single noisy sample |
 | **root-cause-by-layer** | discipline | Symptom patches (try/except, shims, xfail, …) |
@@ -57,6 +57,7 @@ Every code change is an SGD step. Most agents optimize training loss (the visibl
 | **method-evolution** | pattern | Patching individual tasks when the method itself is the bug |
 | **drift-detection** | pattern | Cumulative drift that no single commit introduced |
 | **docs-as-definition-of-done** | discipline | "I'll update docs in a follow-up PR" |
+| **architect-mode** *(opt-in, not default)* | discipline (5-phase) | Free-form "design doc" without constraint table, without non-goals, without 3-candidate comparison, without scoring, without failing-test scaffold. Greenfield design under discipline — **largest Δloss in the bundle (+10/10)**. Activate via `LDD[mode=architect]:` or `/ldd-architect` |
 
 ## The philosophy in 60 seconds
 
@@ -216,15 +217,45 @@ Use root-cause-by-layer on this bug.
 - **Gemini CLI** — `gemini-extension.json` registers the bundle; `@`-imports in `GEMINI.md` put the skills in context. Prefix messages with `LDD:`.
 - **Aider · Cursor · Copilot CLI** — reference the skills from your agent's instruction file; the buzzword still works once the skills are loaded.
 
+### Architect mode — Claude as designer, not just debugger (opt-in)
+
+By default LDD is **reactive**: it debugs, refines, evolves. The methodology assumes code exists and loss signals come out of it. But what about the input-X-to-output-Y space *between* them — the architecture, decomposition, and structural decisions that have to exist before there's any code to debug?
+
+For that, LDD has `architect-mode` — an **opt-in** skill that flips the loss target from "symptoms in existing code" to "quality of invented structure for a stated problem". When active, the agent runs a rigid 5-phase protocol:
+
+1. **Constraint extraction** — every stated requirement into a table, uncertainties flagged explicitly
+2. **Non-goals** — ≥ 3 concrete, scope-bounding declarations before any design work
+3. **3 candidates** — exactly three on a *load-bearing axis*, not cosmetic variants
+4. **Scoring + dialectic** — 3 × 6 matrix (requirements coverage / boundary clarity / evolution paths / dependency explicitness / test strategy / rollback plan) with dialectical pass on the winner
+5. **Deliverable** — architecture doc + compilable scaffold + one failing test per component + measurable success metric per requirement, all in one commit
+
+Activate for a single task:
+
+```text
+LDD[mode=architect]: design a billing service for 50M users with read-heavy workload
+
+# or via slash command:
+/loss-driven-development:ldd-architect
+
+# or natural-language triggers: "design X", "architect Y", "greenfield", "from scratch"
+```
+
+After Phase 5 closes, architect-mode **hands off explicitly** to default LDD — the failing tests in the scaffold become `loss_0` for the regular inner loop, and you resume by saying "LDD: begin implementation".
+
+**Why opt-in**: architect-mode is the right tool for greenfield design (5 % of tasks), overkill for the everyday bug-fix / refactor / incident flow (95 %). Leaving it default would force 5-phase ceremony on trivial work. Full rationale + the 10-item rubric it enforces: [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) and [`docs/ldd/architect.md`](./docs/ldd/architect.md).
+
+**Measured effect size**: largest in the bundle. Δloss = +10 / 10, 100 % of rubric items flipped between RED (base LLM produces plausibly-good but audit-failing design doc) and GREEN (all 5 phases completed, all 10 rubric items satisfied). Raw RED + GREEN + score in [`tests/fixtures/architect-mode/runs/20260420T190302Z-clean/`](./tests/fixtures/architect-mode/runs/20260420T190302Z-clean/).
+
 ### Hyperparameters — three ways to tune
 
 Three knobs are exposed, deliberately few. See [`docs/ldd/hyperparameters.md`](./docs/ldd/hyperparameters.md) for the rationale (and for the list of parameters we **don't** expose and why — moving-target-loss is the anti-pattern we're avoiding).
 
-| Knob | Default | Range | Controls |
+| Knob | Default | Values / Range | Controls |
 |---|---|---|---|
 | `k_max` | `5` | 1–20 | Inner-loop iteration budget |
 | `reproduce_runs` | `2` | 0–10 | Additional reruns in `reproducibility-first` Branch A |
 | `max_refinement_iterations` | `3` | 1–10 | Refinement y-axis hard cap |
+| `mode` | `reactive` | `reactive` \| `architect` | Reactive debugging mode (default) vs. opt-in architect-mode for greenfield design |
 
 Three ways to set them, in precedence order (highest first):
 

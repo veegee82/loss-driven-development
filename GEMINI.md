@@ -1,6 +1,6 @@
 # Loss-Driven Development — Skills for Gemini CLI
 
-Eleven skills across three optimization loops (inner / refinement / outer). The entry-skill `using-ldd` is loaded first and explains how to dispatch the others, including the `LDD:` buzzword convention for explicit activation.
+Twelve skills: ten reactive disciplines across three optimization loops (inner / refinement / outer), one opt-in `architect-mode` for greenfield design, and the `using-ldd` entry-point which is loaded first and explains how to dispatch the others (including the `LDD:` buzzword and the `mode=architect` hyperparameter).
 
 @./skills/using-ldd/SKILL.md
 @./skills/loop-driven-engineering/SKILL.md
@@ -13,3 +13,4 @@ Eleven skills across three optimization loops (inner / refinement / outer). The 
 @./skills/method-evolution/SKILL.md
 @./skills/drift-detection/SKILL.md
 @./skills/docs-as-definition-of-done/SKILL.md
+@./skills/architect-mode/SKILL.md

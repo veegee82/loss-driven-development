@@ -101,6 +101,18 @@ Each rubric is a small fixed set of checks encoded in [`tests/fixtures/`](./test
 5. Scan history logged (even when report is short)?
 6. Trend over time tracked (drift shrinking / stable / growing)?
 
+**`architect-mode`** (rubric: `R_arch`) — applies only when `mode=architect` is active
+1. All stated requirements covered in the Phase 1 constraint table?
+2. Uncertainties in the user's ask named, not silently invented?
+3. ≥ 3 concrete, scope-bounding non-goals declared (Phase 2)?
+4. Exactly 3 candidates on a load-bearing axis, not cosmetic variants (Phase 3)?
+5. Scoring table explicit (rows × 6 dimensions), not narrative (Phase 4)?
+6. Real antithesis against the winning candidate (not a strawman) (Phase 4)?
+7. Architecture doc has all 9 subsections per Phase 5 of the skill?
+8. Scaffold compiles / imports cleanly (not pseudocode)?
+9. ≥ 1 failing test per component in the scaffold?
+10. Measurable success metric per requirement, with numeric target?
+
 ## Loss (bundle-wide)
 
 Average Δloss across skills, weighted by the number of pressure scenarios per skill:
@@ -109,7 +121,7 @@ Average Δloss across skills, weighted by the number of pressure scenarios per s
 Δloss_bundle = Σ_s (Σ_t Δloss(s, t)) / (Σ_s |scenarios(s)|)
 ```
 
-Target: `Δloss_bundle ≥ 2.0` (on average, the skill removes two rubric violations per scenario). **Current measured value: 3.30 (absolute, mean per skill) across all 10 skills — target met with margin.** The previously-blocked `docs-as-definition-of-done` was captured via direct API (see [`scripts/capture-clean-baseline.py`](./scripts/capture-clean-baseline.py)), which sidesteps the subagent-harness contamination problem. See [`tests/README.md`](./tests/README.md#current-measurements) for per-skill numbers and caveats.
+Target: `Δloss_bundle ≥ 2.0` (on average, the skill removes two rubric violations per scenario). **Current measured value: 3.91 (absolute, mean per skill) across all 11 skills — target met with margin.** `docs-as-definition-of-done` and `architect-mode` were both captured via direct API (see [`scripts/capture-clean-baseline.py`](./scripts/capture-clean-baseline.py)), which sidesteps the subagent-harness contamination problem. `architect-mode` shows the largest effect size in the bundle (+10/10, 100 % of rubric items flipped). See [`tests/README.md`](./tests/README.md#current-measurements) for per-skill numbers and caveats.
 
 ## E2E — what a real end-to-end run looks like
 

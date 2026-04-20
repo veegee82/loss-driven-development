@@ -13,6 +13,7 @@ This is the **single source of truth for "which MDs and which skills for which t
 | **Pre-commit / pre-release / pre-merge** | `release.md` | `docs-as-definition-of-done` → `drift-detection` (if release-candidate) | `dialectical-reasoning` (final ship/don't-ship) |
 | **Production incident / fast-path diagnosis** | `incident.md` | `reproducibility-first` → `root-cause-by-layer` (fast-path variant) | `loss-backprop-lens` (avoid incident-fix overfitting) |
 | **Methodology maintenance (a skill isn't working)** | `method-maintenance.md` | `method-evolution` | `drift-detection` (upstream check) |
+| **Architecture / greenfield design** *(opt-in; not default)* | `architect.md` | `architect-mode` (5-phase protocol — Constraints → Non-goals → 3 Candidates → Scoring+Dialectic → Deliverable) | `dialectical-reasoning` (Phase 4 on winner), `iterative-refinement` (polish the doc after Phase 5) |
 | **General / multi-step / unsure** | `overview.md` + `getting-started.md` | `loop-driven-engineering` (entry, dispatches others) | all |
 
 ## Selection rules

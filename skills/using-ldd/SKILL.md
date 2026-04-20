@@ -28,6 +28,7 @@ When the user's message contains any of these patterns, invoke the paired skill.
 | "same thing keeps happening across tasks", "the skill itself might be wrong" | `method-evolution` |
 | "is this codebase healthy", release-candidate review, weekly check | `drift-detection` |
 | "about to commit", "ready to merge", "declaring this done" | `docs-as-definition-of-done` |
+| "design X", "architect Y", "greenfield", "from scratch", "how should I structure", "propose an architecture", "decompose this problem", "what's the right shape for X" | `architect-mode` (opt-in — temporarily flips `mode=architect`; see skill for the 5-phase protocol and the hand-off back to reactive) |
 
 ## The "LDD:" buzzword
 
@@ -60,6 +61,8 @@ Accepted flags (full reference in [`../../docs/ldd/hyperparameters.md`](../../do
 - `reproduce=<N>` — `reproducibility-first` Branch A rerun count (0–10; 0 is allowed but warned)
 - `no-reproduce` — shortcut for `reproduce=0`
 - `max-refinement=<N>` — refinement-loop hard cap (1–10)
+- `mode=architect` — switch to architect mode for this task (invokes the 5-phase architect protocol from `../../skills/architect-mode/SKILL.md`)
+- `mode=reactive` — force reactive mode, override any auto-trigger from architect-phrases in the task description
 
 Multiple flags are comma-separated. Inline flags **beat everything else** (session `/ldd-set`, `.ldd/config.yaml`, bundle defaults). When an override applies, echo it in the trace block header so the user sees what budget is actually active:
 
@@ -116,6 +119,29 @@ For every non-trivial LDD task, emit a **visible trace block** inline in your re
 ```
 
 Keep it compact. The goal is **one screenful** the user can eyeball. If the trace grows beyond ~25 lines (many iterations), collapse older iterations to one summary line each.
+
+### Architect-mode variant of the trace block
+
+When `mode=architect` is active, the trace uses **phases** instead of iterations. The 5 phases are prescribed by the `architect-mode` skill. Example:
+
+```
+╭─ LDD trace (mode: architect) ───────────────────────╮
+│ Task   : design a billing service for 50M users
+│ Loop   : architect (5-phase protocol)
+│ Budget : phase <k>/5, no K_MAX (phases are sequential, not iterative)
+│
+│ Phase 1 — Constraints     : 7 requirements named; 2 uncertainties flagged
+│ Phase 2 — Non-goals       : 3 concrete non-goals
+│ Phase 3 — Candidates      : 3/3 on load-bearing axis (monolith / CQRS / event-driven)
+│ Phase 4 — Scoring         : CQRS wins 14/18, dialectical antithesis passed
+│ Phase 5 — Deliverable     : arch.md + scaffold + 6 failing tests
+│
+│ Rubric    : 10/10 (no known gaps) | 9/10 ("evolution paths" thin — noted)
+│ Hand-off  : next: default LDD inner loop, loss_0 = 6 failing tests
+╰─────────────────────────────────────────────────────╯
+```
+
+Header shows `mode: architect` explicitly. Phase completion is reported as it happens (so the block grows as the task progresses). On close, rubric score and hand-off line are added.
 
 ### When to emit
 

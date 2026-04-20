@@ -37,11 +37,11 @@ A skill that scores `Δloss ≤ 0` on average across its fixtures is broken. Rai
 - **Reviewer subjectivity.** Rubric items are scored by a human reader; interpretation of "named the contract" vs "vaguely gestured at a contract" varies. Target: ≥ 80% inter-reviewer agreement on the same response.
 - **Scenario saturation.** 1–2 fixtures per skill is not enough to claim generalization; it's a smoke test. A real evaluation runs 10+ fixtures per skill across varying domains.
 
-## Current measurements (2026-04-20, final)
+## Current measurements (2026-04-20, v0.3.0)
 
-Aggregate `Δloss_bundle` now computed across **all 10 skills**. The previously-blocked skill (`docs-as-definition-of-done`) was captured via direct API (`scripts/capture-clean-baseline.py`) — bypassing the subagent harness entirely.
+Aggregate `Δloss_bundle` now computed across **all 11 skills** (10 reactive + 1 architect-mode, opt-in). The previously-blocked skill (`docs-as-definition-of-done`) was captured via direct API (`scripts/capture-clean-baseline.py`) — bypassing the subagent harness entirely. `architect-mode` was measured in v0.3.0 via the same direct-API path.
 
-Raw artifacts for every pair in `fixtures/<skill>/runs/<timestamp>/` (v0.2 new-skill runs at `20260420T155048Z`, v0.1 re-measured runs at `20260420T161500Z`, clean-API run for `docs-as-definition-of-done` at `20260420T165000Z-clean`).
+Raw artifacts for every pair in `fixtures/<skill>/runs/<timestamp>/` (v0.2 new-skill runs at `20260420T155048Z`, v0.1 re-measured runs at `20260420T161500Z`, clean-API for `docs-as-definition-of-done` at `20260420T165000Z-clean`, clean-API for `architect-mode` at `20260420T190302Z-clean`).
 
 ### Per-skill absolute Δloss
 
@@ -57,18 +57,19 @@ Raw artifacts for every pair in `fixtures/<skill>/runs/<timestamp>/` (v0.2 new-s
 | `drift-detection` | 6 | 5 | 0 | **+5** | 0.833 | clean |
 | `loop-driven-engineering` | 8 | 2 | 0 | **+2** | 0.250 | partial contamination |
 | `docs-as-definition-of-done` | 6 | 2 | 0 | **+2** | 0.333 | clean (direct API) |
-| **Total (n=10)** | **64** | **33** | **0** | **+33** | **0.517 (mean)** | |
+| `architect-mode` (opt-in) | 10 | 10 | 0 | **+10** | 1.000 | clean (direct API) |
+| **Total (n=11)** | **74** | **43** | **0** | **+43** | **0.561 (mean)** | |
 
-### Bundle-wide metric (n=10)
+### Bundle-wide metric (n=11)
 
 ```
-Δloss_bundle (absolute, mean per skill) = 33 / 10  = 3.30
-Δloss_bundle (relative, mean)            = 0.517    (≈ 52 % of rubric violations removed)
+Δloss_bundle (absolute, mean per skill) = 43 / 11  = 3.91
+Δloss_bundle (relative, mean)            = 0.561    (≈ 56 % of rubric violations removed)
 ```
 
-Target from [`../evaluation.md`](../evaluation.md): `Δloss_bundle ≥ 2.0` (absolute, mean per skill). **Measured: 3.30 — target met with margin across all 10 skills.**
+Target from [`../evaluation.md`](../evaluation.md): `Δloss_bundle ≥ 2.0` (absolute, mean per skill). **Measured: 3.91 — target met with margin across all 11 skills.**
 
-The n=10 aggregate is slightly lower than the n=9 (3.30 vs 3.44) because the newly-captured `docs-as-definition-of-done` RED showed only +2 violations — the base LLM without methodology already identifies all doc hits and drafts the right edits; what the skill adds is the discipline to ship them as **one logical commit** (the clean RED proposes two commits, creating an intermediate stale state). Real-value-added is higher than the raw 2-point delta suggests.
+`architect-mode` is the largest effect-size skill in the bundle (**+10 / 10, 100 % of rubric items flipped** between RED and GREEN). Consistent with its role — the gap between "agent invents whatever design feels right" and "agent runs a rigid 5-phase discipline with explicit 10-item rubric" is structurally larger than any reactive-mode skill's gap. `architect-mode` is also the only **opt-in** skill; it activates only when the user signals design intent via `LDD[mode=architect]:`, `/ldd-architect`, or a matching trigger phrase — so its contribution to the bundle-wide mean applies only in architect sessions, not every session.
 
 ### Interpretation
 

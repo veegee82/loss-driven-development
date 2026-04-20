@@ -29,3 +29,12 @@ refinement:
   # Hard cap on iterative-refinement y-axis passes. Default 3. Range 1–10.
   # Refinement is asymptotic; past 5 the returns are typically noise.
   max_iterations: 3
+
+# mode: reactive | architect
+# Default 'reactive' — LDD debugs / fixes / refines existing code.
+# Set to 'architect' at project level ONLY if this repo is mostly
+# greenfield design work. For most projects, leave reactive and opt
+# into architect mode per task via `LDD[mode=architect]:` or the
+# /loss-driven-development:ldd-architect command.
+# See skills/architect-mode/SKILL.md for the 5-phase protocol.
+mode: reactive

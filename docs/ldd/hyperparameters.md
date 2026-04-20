@@ -35,6 +35,16 @@ LDD exposes a **deliberately small** set of hyperparameters. Every knob we add i
   - Reduce to `1` or `2` for time-critical polish
   - Increase cautiously — refinement is asymptotic; past iteration 5 the returns are typically indistinguishable from noise
 
+### 4. `mode` — reactive vs. architect
+
+- **Default:** `reactive`
+- **Values:** `reactive` | `architect`
+- **What it controls:** whether LDD operates as a debugger / fixer over existing code (`reactive`) or as an architect generating structure from requirements (`architect`). See [`../../skills/architect-mode/SKILL.md`](../../skills/architect-mode/SKILL.md) for the full 5-phase protocol.
+- **When to change:**
+  - Switch to `architect` when starting a greenfield system, proposing a new module, or when the user explicitly asks for "architecture" / "design" / "structure for X"
+  - Stay on `reactive` for bug fixes, feature additions, refactors, incident response — the default 95 % of the time
+  - Architect mode is strictly opt-in; an auto-trigger on phrases like "design" / "architect" / "greenfield" / "from scratch" flips it temporarily for that one task, then reverts. The agent reports the mode in the trace header so you always see what's active.
+
 ## What is NOT exposed (by design)
 
 | Knob we considered | Why not exposed |
@@ -64,6 +74,8 @@ Syntax:
 - `reproduce=<N>` — override `reproduce_runs`
 - `max-refinement=<N>` — override `max_refinement_iterations`
 - `no-reproduce` — shortcut for `reproduce=0` with the explicit caveat that you are asserting Branch-B-level evidence
+- `mode=architect` — switch to architect mode for this task (see architect-mode skill)
+- `mode=reactive` — force reactive mode even if the task description looks architect-flavored (override auto-trigger)
 
 Multiple flags comma-separated. Agent echoes the applied values in the trace block (`Budget : k=3/K_MAX=3 (override)`).
 

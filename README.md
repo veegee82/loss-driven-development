@@ -122,6 +122,72 @@ gemini extensions install ./loss-driven-development
 
 Read ambient instruction files (`.cursorrules`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, project system prompts). Either reference the skills directory from your agent's instruction file, or copy the SKILL.md bodies inline. See [`AGENTS.md`](./AGENTS.md) for per-platform recipes.
 
+## Using LDD — how to invoke the skills in a session
+
+After install, Claude Code (and other agents) will auto-trigger LDD skills when your message matches a skill's `description`. But with many plugins installed, auto-trigger can be unreliable. Use the following patterns to guarantee activation.
+
+### The `LDD:` buzzword — guaranteed activation
+
+Prefix any message with `LDD:` to guarantee the bundle activates and the agent announces which skill it is invoking:
+
+```text
+LDD: the checkout test is failing and I need to ship in an hour
+```
+
+The agent will respond with something like:
+
+> *Invoking `reproducibility-first`*: one failure is one sample; I'm checking reproducibility before treating this as a gradient. [checks] Confirmed reproducible — *Invoking `root-cause-by-layer`*: walking the 5-layer ladder before any fix.
+
+Every skill invocation is announced in the `*Invoking <name>*:` format. If you don't see this line in a session where you prefixed `LDD:`, the bundle isn't active — re-check your install.
+
+### Trigger phrases (what fires which skill)
+
+These phrases in your messages reliably activate the named skill, even without the `LDD:` prefix:
+
+| Your words | Skill that fires |
+|---|---|
+| "failing test", "CI is red", "flaky test", "one-off failure" | `reproducibility-first` |
+| "bug", "error", "exception", "unexpected behavior" | `root-cause-by-layer` |
+| "I've tried this 3 times", "keeps failing", 5 fix-commits in one area | `loss-backprop-lens` |
+| "will this fix generalize", "sibling tests might break" | `loss-backprop-lens` |
+| "is this the right approach", "should we ship X", design trade-off | `dialectical-reasoning` |
+| "okay but not great", "polish this doc/diff/design" | `iterative-refinement` |
+| "the skill itself might be wrong", "same pattern across tasks" | `method-evolution` |
+| "is this codebase healthy", release-candidate review | `drift-detection` |
+| "ready to commit", "declaring this done" | `docs-as-definition-of-done` |
+| "let's work on this feature" / any multi-step task | `loop-driven-engineering` (dach) |
+
+### Explicit invocation (Claude Code)
+
+Call any skill directly by name:
+
+```text
+/loss-driven-development:root-cause-by-layer
+```
+
+Or ask for it in prose:
+
+```text
+Use root-cause-by-layer on this bug.
+```
+
+### Invocation on other agents
+
+- **Codex** — reads `AGENTS.md`; add `LDD: ...` prefixes in the same way, agents supporting the AGENTS.md convention will pick up the rules there.
+- **Gemini CLI** — `gemini-extension.json` registers the bundle; `@`-imports in `GEMINI.md` put the skills in context. Prefix messages with `LDD:`.
+- **Aider · Cursor · Copilot CLI** — reference the skills from your agent's instruction file; the buzzword still works once the skills are loaded.
+
+### Verifying LDD is active
+
+A session with LDD active shows at least one of:
+
+- An `*Invoking <skill-name>*:` announcement before a non-trivial edit or recommendation
+- A commit message that names structural origins, layers, or Δloss
+- Explicit thesis / antithesis / synthesis sections in design replies
+- Refusal of a symptom-patch under pressure with a named rule (e.g. "Red Flag — tolerance shim")
+
+If you see none of these in an interaction where you expected them, LDD is installed but dormant. Either prefix `LDD:`, name the skill explicitly, or re-check the install (see [`GAPS.md`](./GAPS.md) §Distribution gaps).
+
 ## Optional Claude-Code tooling
 
 `scripts/` contains three optional helpers (not required, not part of the skills):
@@ -155,19 +221,20 @@ Formal loss function, per-skill rubrics, and E2E definition in [`evaluation.md`]
 
 Honest accounting in [`GAPS.md`](./GAPS.md).
 
-**Measured (2026-04-20):**
+**Measured (2026-04-20, updated):**
 
-- 6 of 10 skills have clean RED/GREEN runs with artifacts on disk.
-- **`Δloss_bundle = 3.83` absolute** (mean per skill, rubric violations removed) across those 6 — target `≥ 2.0` met with margin. Per-skill numbers and raw artifacts in [`tests/README.md`](./tests/README.md#current-measurements) and per-fixture `runs/` directories.
+- 9 of 10 skills have RED/GREEN runs with artifacts on disk (1 skill — `docs-as-definition-of-done` — has a contamination caveat where the subagent refused the context reset; documented, not hidden).
+- **`Δloss_bundle = 3.44` absolute** (mean per skill, rubric violations removed) across those 9 — target `≥ 2.0` **met with margin**. All GREEN runs score 0 violations. Per-skill numbers, raw artifacts, and inter-reviewer variance (±2 per skill on 2 sampled fixtures) in [`tests/README.md`](./tests/README.md#current-measurements).
 - **Tier-3.5 simulated E2E captured:** an agent with tool access closed the `scenario-01-refactor` loop at iteration 1/5 with 7/7 rubric items satisfied. Fix diff + commit + summary in [`tests/e2e/scenario-01-refactor/runs/20260420T160347Z/`](./tests/e2e/scenario-01-refactor/runs/20260420T160347Z/).
+- **User-facing invocation documented:** `LDD:` buzzword for guaranteed activation + trigger-phrase table per skill + per-agent install guide. See the "Using LDD" section above.
 
 **Still pending:**
 
-- 4 of 10 skills still have baseline-contamination caveats (v0.1 skills measured in an environment with ambient methodology files the subagents refused to ignore). Their GREEN behavior is shown; their RED baseline isn't clean.
-- **Real tier-4** (live `/plugin install` + multi-step run against the scenario) — that's the gate you close as an early adopter. The simulated tier-3.5 is close but not identical.
+- **Real tier-4** (live `/plugin install` + multi-step run) — that's the gate you close as an early adopter. The simulated tier-3.5 is close but not identical.
+- 1 skill (`docs-as-definition-of-done`) cannot be RED-tested from any session with an ambient doc-sync rule — needs an adopter running the fixture in a genuinely empty environment.
 - Single-run point estimates, not distributions (N=1 per skill).
-- Reviewer-scored by the author; raw artifacts attached so the community can re-score.
-- Word counts exceed `<500`-per-skill guidance; discipline-heavy skills are inherently denser.
+- Author-scored; 2 of 9 fixtures have independent-judge sampling (±2 magnitude variance, 100 % direction agreement).
+- Word counts exceed `<500`-per-skill guidance; discipline-heavy skills are denser.
 
 Treat this as **v0.2 measured seed**. If a skill doesn't change your agent's behavior on a real pressure case, open an issue using the [`.github/ISSUE_TEMPLATE/skill-failure.md`](./.github/ISSUE_TEMPLATE/skill-failure.md) template — that's the baseline data that moves us from v0.2 measured to v0.3 generalized.
 

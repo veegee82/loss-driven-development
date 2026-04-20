@@ -17,4 +17,6 @@ Thumbs.db
 
 # Drift-scan reports (generated, not committed)
 drift-report-*.md
-tests/fixtures/*/runs/
+
+# Note: tests/fixtures/*/runs/ IS committed — those are the measurement
+# artefacts (RED/GREEN/score/independent-judge) that back GAPS.md claims.

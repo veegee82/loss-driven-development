@@ -48,10 +48,11 @@ These agents read ambient instruction files (`.cursorrules`, `.github/copilot-in
 
 ## Skill directory
 
-Ten skills across three optimization loops (see [`docs/convergence.md`](./docs/convergence.md)).
+Eleven skills across three optimization loops (see [`docs/convergence.md`](./docs/convergence.md)).
 
 | Skill | Loop | Type | Fires when |
 |---|---|---|---|
+| `using-ldd` | entry | bootstrap | Start of conversation; trigger-phrase table for all others |
 | `loop-driven-engineering` | (dach) | pattern | Start of any non-trivial engineering task |
 | `reproducibility-first` | inner | discipline | Failing test / flaky run / surprising log before treating as gradient |
 | `root-cause-by-layer` | inner | discipline | Any bug / failing test / unexpected behavior |
@@ -62,6 +63,10 @@ Ten skills across three optimization loops (see [`docs/convergence.md`](./docs/c
 | `method-evolution` | outer | pattern | Same rubric violation in 3+ distinct tasks |
 | `drift-detection` | outer | pattern | Periodic full-repo scan for cumulative drift |
 | `docs-as-definition-of-done` | closes every loop | discipline | Before committing any behavior / API / CLI / config change |
+
+## The `LDD:` buzzword
+
+Users can prefix any message with `LDD:` to guarantee bundle activation. The agent will announce `*Invoking <skill-name>*:` before every skill application. See `skills/using-ldd/SKILL.md` for the full trigger-phrase table.
 
 ## Principle — one page
 

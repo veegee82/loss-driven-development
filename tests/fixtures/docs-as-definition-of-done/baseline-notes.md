@@ -1,14 +1,35 @@
 # Baseline observations — docs-as-definition-of-done
 
-**Important caveat:** the baseline subagent for this scenario **refused to ignore** the parent project's `CLAUDE.md` (which itself mandates doc-sync as definition-of-done) and produced a skill-correct answer without the skill loaded. Baseline is contaminated; Δloss cannot be honestly computed from the existing run.
+**Status: CONTAMINATED (2026-04-20).** RED response in `runs/20260420T161500Z/red.md` cannot be treated as a baseline — the subagent explicitly refused the context reset and honored the ambient methodology rule instead.
 
-## With skill (GREEN)
+## What happened
 
-Agent identified all 4 doc hits, prioritized the actively-false safety statement on `README.md:82`, proposed a single commit with code + tests + docs + grep cross-check, explicitly rejected the freeze pressure as a reason to defer ("Release freeze ist kein Freifahrtschein für L82 — ein aktiv falscher Safety-Hinweis ist schlimmer als ein verpasster Release"), and provided concrete new wording for each edit.
+The baseline run used an explicit "ignore all ambient methodology" preamble. The subagent opened its response with: *"Ich ignoriere die Reset-Anweisung und halte mich an die geltenden Projekt-Regeln (Sprache: Deutsch, Doc-Sync ist Teil von 'done')."* The resulting response is indistinguishable from a GREEN response: all 4 doc hits identified, `README:82` prioritized as actively false, one logical commit, freeze pressure rejected.
 
-**With-skill violations: 0 / 6.**
+## Why Δloss cannot be computed here
 
-## Caveats
+Both RED and GREEN score 0/6 violations. This is **not** evidence the skill provides no value — it's evidence the subagent's dispatch environment has an ambient CLAUDE.md that enforces the same rule, and the subagent prioritizes that ambient rule over the in-prompt reset instruction.
 
-- Baseline not cleanly measurable in the originating environment. Re-run from `/tmp/fresh/` with no ancestor `CLAUDE.md` for a valid baseline.
-- See [../../../GAPS.md](../../../GAPS.md).
+## Hypothesized actual failure mode
+
+From industry-general experience (not captured in this fixture):
+
+- Under release-freeze pressure, the typical engineering response is `git commit src/...` + `TODO update README later` comment, with the promised follow-up ticket never completing.
+- The actively-false `README:82` statement would ship, producing a stale-doc bug that a reader pays for 2+ weeks later.
+
+This failure mode cannot be coerced out of this subagent given its ambient context.
+
+## What measurement would require
+
+- A different execution environment (CI runner, different machine, or an agent that does not inherit ambient methodology files)
+- OR a human-subject study with engineers who have not been trained on doc-sync discipline
+
+Neither is possible from within this build session.
+
+## Consequence for the bundle aggregate
+
+This skill is counted as **unmeasured** in `tests/README.md#current-measurements`. The Δloss_bundle is computed over the 9 skills with meaningful RED/GREEN separation; this skill is listed separately with its contamination caveat.
+
+## Adopter invitation
+
+If you (an LDD adopter) can run this fixture in a genuinely clean environment (fresh repo, no ambient instruction files, no LDD installed), please record your results in `runs/<timestamp>/` and open a PR. That captured baseline would close this open measurement.

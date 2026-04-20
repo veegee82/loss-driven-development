@@ -1,7 +1,8 @@
 # Loss-Driven Development — Skills for Gemini CLI
 
-Ten skills across three optimization loops (inner / refinement / outer). The dach-skill `loop-driven-engineering` is the entry point and dispatches the others as the work requires.
+Eleven skills across three optimization loops (inner / refinement / outer). The entry-skill `using-ldd` is loaded first and explains how to dispatch the others, including the `LDD:` buzzword convention for explicit activation.
 
+@./skills/using-ldd/SKILL.md
 @./skills/loop-driven-engineering/SKILL.md
 @./skills/reproducibility-first/SKILL.md
 @./skills/root-cause-by-layer/SKILL.md

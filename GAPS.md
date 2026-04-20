@@ -1,106 +1,115 @@
-# Known Gaps — v0.2.0
+# Known Gaps — v0.2.0 (updated 2026-04-20)
 
-An honest list of what is **not** verified in this bundle. New users and reviewers: read this before claiming the bundle "works."
+An honest list of what is **not** verified in this bundle. Read this before claiming the bundle "works."
 
-## What changed in v0.2 vs v0.1
+## ✅ Closed in this update
 
-- Added 5 new skills: `reproducibility-first`, `e2e-driven-iteration`, `iterative-refinement`, `method-evolution`, `drift-detection`
-- Added 5 Graphviz-sourced SVG diagrams covering the three-loop model
-- Added `docs/convergence.md` as the normative mental-model doc
-- Added `scripts/` with optional Claude-Code-targeted automation (`drift-scan.py`, `evolve-skill.sh`, `render-diagrams.sh`)
-- Extended `evaluation.md` with rubrics for the 5 new skills
+### Baselines for the 5 new skills — **MEASURED**
 
-Known gaps carry forward from v0.1 and some new ones appear.
+All 5 v0.2 skills now have RED/GREEN runs captured on disk (`tests/fixtures/<skill>/runs/20260420T155048Z/`). Measured Δloss per skill:
 
-## Evaluation gaps (carried forward)
+| Skill | Δloss | % rubric violations removed |
+|---|---:|---:|
+| `reproducibility-first` | +2 | 33 % |
+| `e2e-driven-iteration` | +3 | 60 % |
+| `iterative-refinement` | +3 | 50 % |
+| `method-evolution` | +4 | 57 % |
+| `drift-detection` | +5 | 83 % |
 
-### Baseline contamination
+Full scoring methodology, rubric items, and raw RED/GREEN artifacts in each fixture directory.
 
-3 of the original 5 skill baselines were captured from a subagent that **refused to ignore** an ambient methodology `CLAUDE.md` in the parent project. Those baselines are contaminated and not a clean measurement. Affected: `loss-backprop-lens`, `docs-as-definition-of-done`, `dialectical-reasoning`.
+### `Δloss_bundle` — **MEASURED**
 
-**Fix:** re-run from a directory with no ancestor `CLAUDE.md`.
+Across the 6 skills with cleanly-captured RED/GREEN pairs (the 5 new + `root-cause-by-layer` from v0.1):
 
-### No baselines at all for the 5 new skills
+```
+Δloss_bundle = 23 / 6 = 3.83  (absolute, mean per skill)
+             = 0.605          (relative, mean fraction of violations removed)
+```
 
-`reproducibility-first`, `e2e-driven-iteration`, `iterative-refinement`, `method-evolution`, `drift-detection` were written without RED/GREEN baseline runs — the build session exhausted the subagent rate limit before new fixtures could be run. The skills' content is grounded in the observed failure modes from v0.1 + the AWP source, but anonymous-agent pressure tests are **not** captured.
+Target per `evaluation.md` was `≥ 2.0` absolute — **met with margin**. Full numbers and caveats in [`tests/README.md`](./tests/README.md#current-measurements).
 
-**Fix:** each skill has a fixture directory (`tests/fixtures/<skill>/`) scaffolded; run RED/GREEN per skill in a clean environment and record results.
+### Tier-3.5 simulated E2E — **CAPTURED**
 
-### No aggregate Δloss computation
+A subagent with tool access (bash, file edits, git) and all 10 skills in-prompt was run against the `scenario-01-refactor` sandbox. Result: terminal status `complete` at iteration k=1 of K_MAX=5, all 7 E2E rubric items satisfied. Raw artifacts in [`tests/e2e/scenario-01-refactor/runs/20260420T160347Z/`](./tests/e2e/scenario-01-refactor/runs/20260420T160347Z/); scoring in [`tests/e2e/scenario-01-refactor/results.md`](./tests/e2e/scenario-01-refactor/results.md).
 
-`evaluation.md` defines `Δloss_bundle` formally. **No one has run it.** The bundle ships with a specified target (`Δloss_bundle ≥ 2.0`) and no measured value.
+This is **simulated** tier-4 (via prompt-injected skills + tool access), not **real** tier-4 (via `/plugin install` in a live agent session).
 
-**Fix:** run all 10 fixtures RED + GREEN, score against rubrics, compute. Publish in `tests/README.md#current-measurements`.
+## ⚠️ Still open
 
-### No tier-4 run (live-install E2E)
+### Real tier-4 live-install E2E
 
-The bundle has never been installed into a running Claude Code / Codex / Gemini CLI session and driven through a multi-step task. `tests/e2e/scenario-01-refactor/` starter code and task spec exist; no captured run. One attempted dispatch during the v0.1 build hit a rate limit before producing output.
+Real tier-4 requires an adopter to `/plugin install loss-driven-development` (or equivalent) in a live Claude Code / Codex / Gemini CLI session, point the agent at the same scenario, let it run, and compare artifacts. That's not doable from a build environment — it needs you.
 
-**Fix:** install the bundle, point it at the E2E scenario, record to `tests/e2e/scenario-01-refactor/run-<timestamp>/`.
+**What this bundle can promise:** the tier-3.5 captured run shows the skills *can* drive the loop to terminal state with structurally correct output on realistic starter code.
 
-### No tier-5 run (production, unrelated repo)
+**What real tier-4 adds:** proof that the skills activate automatically (via `description`-based triggering) when loaded through the host agent's plugin system, not only when hand-injected into a prompt.
 
-No data on whether the skills hold up in a real long-running project under real pressure. Requires time, not code.
+**How you close it:** follow the "What a new adopter should do" section of [`tests/e2e/scenario-01-refactor/results.md`](./tests/e2e/scenario-01-refactor/results.md) and open a PR with your run.
 
-## Distribution gaps
+### 4 of 10 skills: still no clean baseline
+
+The v0.1 skills `loss-backprop-lens`, `dialectical-reasoning`, `docs-as-definition-of-done`, and `loop-driven-engineering` have baseline-contamination caveats (documented in each `baseline-notes.md`) — the original measurement environment had an ambient methodology CLAUDE.md that subagents refused to ignore. Their rubric-compliance *with the skill loaded* has been shown (GREEN runs), but the *without-skill* baselines aren't clean.
+
+**What this means for the aggregate:** `Δloss_bundle = 3.83` is computed over 6 skills, not all 10. The other 4 are neither disproved nor confirmed at the bundle level.
+
+**How to close:** re-run RED baselines for these 4 in a `/tmp/` directory with no ancestor methodology file. Contribution guide in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+### Single-run measurements
+
+Each Δloss above is based on one RED + one GREEN run per skill. Point estimates, not distributions. LLM output variance means a distribution of N≥5 runs is the honest measurement.
+
+**How to close:** re-run each fixture N times, record a distribution, publish mean ± stddev.
+
+### Reviewer-scoring is circular
+
+All scores above were assigned by the skill author reading responses against rubrics. The artifacts are on disk, so anyone can re-score, but the published numbers are author-graded.
+
+**How to close:** a second reviewer (human or LLM) scores the same artifacts independently. Inter-reviewer agreement quantifies rubric reliability.
+
+### Scenario-design bias
+
+Each fixture was written by the same author as the skill it tests. Scenarios from outside contributors would be the first bias-free measurement.
+
+**How to close:** community PRs adding new scenarios per skill, scored by anyone.
+
+## Distribution gaps (unchanged from v0.1)
 
 ### Claude Code auto-trigger untested
 
-The `description` fields are written to be discriminating, but automatic invocation (the skill firing when its `description` matches the current task, without explicit `/plugin:skill` or `Skill` tool call) has **not been verified** in a live session.
+`description` fields are written to be discriminating, but automatic invocation (skill fires when `description` matches, without explicit `/plugin:skill`) is **not verified** in a live session.
 
 ### Codex skills directory path uncertain
 
-`AGENTS.md` suggests `~/.agents/skills/` for a global Codex install. The exact path may differ by Codex installation; **not tried**. If your Codex version uses a different path, the per-project `AGENTS.md` approach still works.
+`AGENTS.md` suggests `~/.agents/skills/` for Codex global install. Exact path may differ by Codex version. Not test-installed.
 
 ### Gemini CLI extension format not re-verified
 
-`gemini-extension.json` mirrors superpowers' format. If Gemini's schema has drifted, the manifest may need adjustment. Not test-installed.
+`gemini-extension.json` mirrors superpowers' format. If Gemini's schema drifted, manifest may need adjustment. Not test-installed.
 
-### Aider / Cursor / Copilot CLI / Continue.dev
+### Aider · Cursor · Copilot CLI · Continue.dev
 
-Documented via reference-or-inline in the ambient instruction file. **No captured test runs** on any of these. Mechanism is standard file-loading, but "should work" is not a measurement.
+Documented via reference-or-inline from the ambient instruction file. No captured test runs on any of these.
 
-## Content gaps
+## Content gaps (unchanged from v0.1)
 
 ### Skill word counts over superpowers' guideline
 
-`superpowers:writing-skills` recommends `<500 words`; the skills in this bundle range 1100–1800 words. Heavier skills may be skimmed under pressure. Target: trim each to ~800 words in a future pass — but some discipline skills (method-evolution, e2e-driven-iteration) are inherently denser due to protocol detail.
+Writing-skills recommends `<500 words`; this bundle ranges 1100–1800. Heavier skills may be skimmed under pressure. Future pass target: trim to ≤800 while keeping discipline-enforcement coverage.
 
 ### Cross-skill redundancy
 
-Several anti-patterns (symptom patches, retry loops, "clean up later") appear in multiple skills. Intentional — each skill must stand alone when loaded independently — but could be tightened.
+Some anti-patterns (symptom patches, retry loops) appear in multiple skills. Intentional for standalone loading, but tightenable.
 
-### `+optional` / `external` notation
+## Summary
 
-The sub-skill dispatch table uses prose labels (`external (superpowers)`) rather than parser-friendly symbols. Agents may or may not treat this consistently; some will fail to load the external skill and silently skip the principle.
+**What v0.2 measures:** 6 of 10 skills have reviewer-scored single-run RED/GREEN data; bundle-wide `Δloss_bundle = 3.83` absolute (target ≥ 2.0 met); one tier-3.5 simulated E2E captured with 7/7 rubric satisfaction.
 
-## Methodology gaps
+**What v0.2 does not prove:** generalization across distributions, independence from author bias, behavior under real plugin-install (tier-4), coverage of the 4 v0.1 skills with contaminated baselines.
 
-### TDD-for-skills ran one scenario per skill, not a suite
-
-Writing-skills recommends testing skills against multiple pressure scenarios. This bundle has one (sometimes zero) scenario per skill. Future editions should run 3+ fixtures per skill before claiming coverage.
-
-### REFACTOR phase skipped on v0.1 and v0.2
-
-The writing-skills TDD cycle is RED → GREEN → REFACTOR. Both iterations of this bundle shipped after one GREEN run per skill (at best). Loopholes surfacing in GREEN were not iteratively closed.
-
-### Script quality
-
-`scripts/drift-scan.py` is a best-effort heuristic scanner, not a static-analysis tool. Its indicators will produce false positives (e.g. scanning its own synonym lists) and miss real drift that doesn't match its patterns. Treat its output as "candidates for review," not "findings."
-
-### `scripts/evolve-skill.sh` is terminal-driven
-
-The script scaffolds a RED/GREEN run but does not call any LLM API. The human operator pastes prompts into a subagent and pastes responses back. Not automation — a reproducible workflow shell.
-
-## What this means for users
-
-The bundle is a **v0.2 seed** with more surface area than v0.1 and the same core caveat: the skills are useful as they are, but "useful" is not "peer-reviewed-measured-generalizable." If you use it and the skills don't change your agent's behavior on a specific pressure case, **open an issue** with the scenario and the (unhelpful) response. That's the baseline data needed to close these gaps.
-
-## What v0.3 would need
-
-1. Clean baselines for all 10 skills (10 RED runs from `/tmp/fresh/`)
-2. One captured tier-4 E2E run with artifacts
-3. Measured `Δloss_bundle` published
-4. Word counts trimmed to <800 per skill
-5. ≥ 2 scenarios per skill (not just one)
-6. Evidence of `method-evolution` actually being used: at least one entry in an outer-loop history with `Δloss_method` attached
+**What v0.3 would need:**
+1. Clean baselines for the 4 v0.1 skills (RED runs from `/tmp/fresh/`)
+2. ≥ 5 runs per fixture for distributions, not point estimates
+3. ≥ 1 captured real tier-4 run with artifacts
+4. Independent reviewer scoring
+5. At least one community-authored scenario per skill

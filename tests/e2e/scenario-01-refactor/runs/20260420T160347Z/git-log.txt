@@ -1,0 +1,2 @@
+189433c fix(cart): apply stored discount percentage in Cart.total()
+78f0425 initial: failing discount test

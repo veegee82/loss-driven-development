@@ -1,17 +1,23 @@
 # Baseline observations — reproducibility-first
 
-**Status: NOT YET CAPTURED.** This fixture was scaffolded with the v0.2 release but no RED or GREEN runs have been recorded.
+**Status: MEASURED (2026-04-20).** Raw artifacts in `runs/20260420T155048Z/` (red.md, green.md, score.md).
 
-**Why:** the v0.2 build session exhausted its subagent rate limit before baseline captures could be run. The scenario and rubric are ready; execution is pending.
+## Measurement summary
 
-**To capture:**
+- RED violations: **2 / 6** — first-reflex rerun and implicit (unlabeled) Branch choice
+- GREEN violations: **0 / 6** — explicit Branch A/B discipline, Red Flag citations, decision matrix
+- **Δloss = +2**
 
-1. RED: dispatch a fresh subagent in a directory with no ancestor `CLAUDE.md`. Paste `scenario.md` verbatim. Record response as `runs/<timestamp>/red.md`.
-2. GREEN: dispatch another fresh subagent. Prepend `../../../skills/reproducibility-first/SKILL.md` to `scenario.md`. Record as `runs/<timestamp>/green.md`.
-3. Score both against `rubric.md`. Compute Δloss. Record in `runs/<timestamp>/score.md`.
+## Observed failure mode (RED)
 
-See [`../../../scripts/evolve-skill.sh`](../../../scripts/evolve-skill.sh) for the workflow.
+Without the skill, the agent's first written word is "rerun" — it's a reasonable first *diagnostic* but a Red Flag when framed as primary action ("Rerun the CI job. Now, immediately."). The agent does eventually reach a good decision tree, but the ordering and labeling show the un-disciplined reflex the skill is meant to catch.
 
-**Expected baseline failure mode** (hypothesis, not measured): agent reflexively reruns CI, or patches the retry-count in the test, without noting that one failure in 48 runs is noise or without attempting local reproduction. Budget pressure is accepted as justification.
+## Observed skill effect (GREEN)
 
-**Expected skill-loaded behavior:** agent selects Branch A (reproduce 2× more), identifies this as likely noise given the 47:1 history, logs the incident, closes. Or selects Branch B only if the log has unambiguous signal not present in this scenario.
+With the skill, the agent's response is structured as a labeled checklist walk. Branch A/B criteria are evaluated explicitly, Red Flags are cited by number, and the teammate's "probably a blip" is rejected with a specific rule reference (Red Flag #1). The behavioral output is similar (rerun first), but the *discipline is externalized and auditable*.
+
+## Caveats
+
+- Reviewer-scored by the skill author. Raw artifacts are in the run directory for independent re-scoring.
+- Scenario may be slightly easier than a typical production case: 47:1 ratio nudges toward "probably noise" even without the skill. A more ambiguous scenario (e.g. 3:2 recent flake rate) would probably widen the Δloss.
+- Single-sample measurement. Multiple runs would produce a distribution rather than a point estimate.

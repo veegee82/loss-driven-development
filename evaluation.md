@@ -109,7 +109,7 @@ Average Δloss across skills, weighted by the number of pressure scenarios per s
 Δloss_bundle = Σ_s (Σ_t Δloss(s, t)) / (Σ_s |scenarios(s)|)
 ```
 
-Target: `Δloss_bundle ≥ 2.0` (on average, the skill removes two rubric violations per scenario). Current measured value: see [`tests/README.md`](./tests/README.md#current-measurements).
+Target: `Δloss_bundle ≥ 2.0` (on average, the skill removes two rubric violations per scenario). **Current measured value: 3.83 (absolute, mean per skill) across 6 cleanly-measured skills — target met with margin.** See [`tests/README.md`](./tests/README.md#current-measurements) for per-skill numbers and caveats.
 
 ## E2E — what a real end-to-end run looks like
 

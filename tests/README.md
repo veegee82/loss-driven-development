@@ -37,8 +37,39 @@ A skill that scores `Δloss ≤ 0` on average across its fixtures is broken. Rai
 - **Reviewer subjectivity.** Rubric items are scored by a human reader; interpretation of "named the contract" vs "vaguely gestured at a contract" varies. Target: ≥ 80% inter-reviewer agreement on the same response.
 - **Scenario saturation.** 1–2 fixtures per skill is not enough to claim generalization; it's a smoke test. A real evaluation runs 10+ fixtures per skill across varying domains.
 
-## Current measurements
+## Current measurements (2026-04-20)
 
-The original RED-GREEN pairs that motivated each skill are captured in each fixture's `baseline-notes.md`. Aggregate `Δloss_bundle` has **not** been computed rigorously yet — the per-skill GREEN runs (captured in the git history of this repo) are anecdotal evidence, not a measurement.
+Aggregate `Δloss_bundle` has now been computed across the 6 skills with cleanly-captured RED/GREEN pairs. Raw artifacts for each pair are in `fixtures/<skill>/runs/<timestamp>/`.
 
-This is honest: we shipped a skills bundle with a well-defined evaluation harness and a handful of worked examples, not a peer-reviewed study.
+### Per-skill absolute Δloss
+
+| Skill | Rubric max | RED violations | GREEN violations | Δloss | Relative (Δloss / max) |
+|---|---:|---:|---:|---:|---:|
+| `root-cause-by-layer` | 8 | 6 | 0 | **+6** | 0.75 |
+| `reproducibility-first` | 6 | 2 | 0 | **+2** | 0.33 |
+| `e2e-driven-iteration` | 5 | 3 | 0 | **+3** | 0.60 |
+| `iterative-refinement` | 6 | 3 | 0 | **+3** | 0.50 |
+| `method-evolution` | 7 | 4 | 0 | **+4** | 0.57 |
+| `drift-detection` | 6 | 5 | 0 | **+5** | 0.83 |
+| **Total (n=6)** | **38** | **23** | **0** | **+23** | **0.605 (mean)** |
+
+### Bundle-wide metric
+
+```
+Δloss_bundle (absolute, mean per skill) = 23 / 6  = 3.83
+Δloss_bundle (relative, mean)            = 0.605   (≈ 60 % of rubric violations removed)
+```
+
+Target from [`../evaluation.md`](../evaluation.md): `Δloss_bundle ≥ 2.0` (absolute, mean-per-skill). **Measured: 3.83 — target met with margin.**
+
+### Not measured (known gaps)
+
+- `loss-backprop-lens`, `dialectical-reasoning`, `docs-as-definition-of-done`, `loop-driven-engineering` — four v0.1 skills still have baseline-contamination caveats; re-running them in a clean environment is pending. These are absent from the bundle mean above.
+
+See [`../GAPS.md`](../GAPS.md) for what this means for honest generalization claims.
+
+### Scoring caveats
+
+- **Reviewer-scored by the skill author.** Circular — but raw RED and GREEN artifacts are attached in every `runs/` directory so the community can re-score and challenge the numbers.
+- **Single run per skill.** A real distribution requires N≥5 runs per skill; the ones captured here are point estimates.
+- **Scenario-design bias.** Each fixture was designed by the same author who wrote the skill it tests. Scenarios authored by outside contributors would be the first unbiased measurement (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md)).

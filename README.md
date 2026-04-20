@@ -153,14 +153,23 @@ Formal loss function, per-skill rubrics, and E2E definition in [`evaluation.md`]
 
 ## What's verified, what isn't
 
-Honest accounting in [`GAPS.md`](./GAPS.md). TL;DR:
+Honest accounting in [`GAPS.md`](./GAPS.md).
 
-- Each original skill has at least one baseline captured (with caveats on environmental contamination).
-- The 5 new skills from v0.2 have fixtures scaffolded but **no baseline captures yet**.
-- No tier-4 live-install E2E has been run (that's the first thing you do as an early adopter).
+**Measured (2026-04-20):**
+
+- 6 of 10 skills have clean RED/GREEN runs with artifacts on disk.
+- **`Δloss_bundle = 3.83` absolute** (mean per skill, rubric violations removed) across those 6 — target `≥ 2.0` met with margin. Per-skill numbers and raw artifacts in [`tests/README.md`](./tests/README.md#current-measurements) and per-fixture `runs/` directories.
+- **Tier-3.5 simulated E2E captured:** an agent with tool access closed the `scenario-01-refactor` loop at iteration 1/5 with 7/7 rubric items satisfied. Fix diff + commit + summary in [`tests/e2e/scenario-01-refactor/runs/20260420T160347Z/`](./tests/e2e/scenario-01-refactor/runs/20260420T160347Z/).
+
+**Still pending:**
+
+- 4 of 10 skills still have baseline-contamination caveats (v0.1 skills measured in an environment with ambient methodology files the subagents refused to ignore). Their GREEN behavior is shown; their RED baseline isn't clean.
+- **Real tier-4** (live `/plugin install` + multi-step run against the scenario) — that's the gate you close as an early adopter. The simulated tier-3.5 is close but not identical.
+- Single-run point estimates, not distributions (N=1 per skill).
+- Reviewer-scored by the author; raw artifacts attached so the community can re-score.
 - Word counts exceed `<500`-per-skill guidance; discipline-heavy skills are inherently denser.
 
-Treat this as **v0.2 seed**. If a skill doesn't change your agent's behavior on a real pressure case, open an issue with the scenario + the unhelpful response. That's the baseline data needed for v0.3.
+Treat this as **v0.2 measured seed**. If a skill doesn't change your agent's behavior on a real pressure case, open an issue using the [`.github/ISSUE_TEMPLATE/skill-failure.md`](./.github/ISSUE_TEMPLATE/skill-failure.md) template — that's the baseline data that moves us from v0.2 measured to v0.3 generalized.
 
 ## License
 

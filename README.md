@@ -3,6 +3,8 @@
 > **LDD is to AI-era coding what TDD was to human coding.**
 > Ten portable skills for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured* discipline where symptom patches, local-minimum traps, and silent code drift can't hide.
 
+> 📦 **Where this came from:** distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) ([`pip install awp-agents`](https://pypi.org/project/awp-agents/)), an open standard for multi-agent orchestration where all three LDD loops — inner, refinement, outer — are implemented as live SGD code, not metaphor. See [**LDD in AWP**](./docs/ldd-in-awp.md) for the one-to-one mapping, a concrete debugging case study, and how to try the framework itself.
+
 ![Three loops](./diagrams/three-loops.svg)
 
 ## The one-sentence pitch
@@ -163,8 +165,20 @@ MIT — see [LICENSE](./LICENSE).
 
 ## Author
 
-Silvio Jurk — `silvio.jurk@googlemail.com`.
+Silvio Jurk — `silvio.jurk@googlemail.com` · [github.com/veegee82](https://github.com/veegee82)
 
-## Attribution
+## The bigger picture — AWP
 
-Distilled from an in-project `CLAUDE.md` (AWP — Agent Workflow Protocol). The loss/backprop framing, the 5-Why-by-Layer protocol, the three-loop model, and refinement mode originate there. The generalized, platform-agnostic form is what this bundle ships.
+LDD is the portable, platform-agnostic **discipline**. [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) is the full **runtime** this discipline came from — an open standard for multi-agent orchestration with two execution engines (DAG + delegation-loop), 36 normative rules, and **all three LDD loops implemented as live SGD code**:
+
+- **Inner loop** → AWP's budget-bounded work loop (`K_MAX = 5`, test pyramid, escalation)
+- **Refinement loop** → AWP's `awp refine <seed_run_dir>` — y-axis SGD on deliverables with critique-derived gradients
+- **Outer loop** → AWP's `awp optimize --with-textgrad` — θ-axis SGD on prompt artifacts with TextGrad as LLM-as-optimizer, rollback on regression
+
+If LDD as discipline makes sense to you, AWP is what it looks like when the whole framework is built around it. Read [**LDD in AWP**](./docs/ldd-in-awp.md) for the one-to-one concept mapping, a concrete debugging case study, and install instructions.
+
+```bash
+pip install awp-agents && python -m awp studio
+```
+
+⭐ Star [`veegee82/agent-workflow-protocol`](https://github.com/veegee82/agent-workflow-protocol) if LDD helped you — that's where the methodology is being pushed forward.

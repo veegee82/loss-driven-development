@@ -11,7 +11,7 @@ description: Use periodically (weekly, at release candidates, before major versi
 
 **Core principle:** drift accumulates silently. Detecting it requires a periodic full-system scan, not per-edit vigilance. The scan produces a finite list of drift indicators; each becomes a candidate for immediate fix or a `method-evolution` step.
 
-See [`../../docs/convergence.md`](../../docs/convergence.md) §4 for the drift taxonomy.
+See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §4 for the drift taxonomy.
 
 ## When to Use
 

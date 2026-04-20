@@ -1,5 +1,56 @@
 # E2E scenario 01 — results
 
+## Tier-3.9 discovery run — 2026-04-20T16:45Z (latest)
+
+**Artifacts:** [`runs/20260420T164505Z/`](./runs/20260420T164505Z/)
+
+### Why "tier-3.9" and not "tier-4"
+
+Same sandbox (`/tmp/ldd-tier4-20260420T164505Z`), fresh agent, but this time the skills were installed at `~/.claude/skills/` rather than injected into the prompt. The agent was given **only** the task + a list of skill names + the sandbox path — not the skill content itself.
+
+**Key finding:** the subagent's `Skill` tool did NOT auto-discover `~/.claude/skills/` — it returned `Unknown skill` for `using-ldd` and every LDD skill. The agent fell back to reading the skills from disk via the `Read` tool and applying them. That fallback worked cleanly: 7/7 tests green, one-line fix at `Cart.total()`, regression tests added at the root-cause (Domain) layer, loop closed at k=1 of 5.
+
+**This is closer to tier-4 than tier-3.5** because:
+- Skills were NOT in the prompt — discovered at runtime from `~/.claude/skills/`
+- Agent navigated via `using-ldd`'s trigger-phrase table, not a hand-crafted skill cascade
+
+**Still not pure tier-4** because:
+- Auto-trigger via `description` matching (Claude Code's normal skill-activation path) did not fire
+- `Skill` tool integration with `~/.claude/skills/` was not available in the subagent's harness
+
+**For a real adopter using `/plugin install`**, the picture is probably different: the plugin registration registers the skills with the `Skill` tool, which should allow description-based auto-trigger. But this cannot be verified from the current session — the subagent harness does not inherit `/plugin install` state.
+
+### Rubric (scored against on-disk artifacts)
+
+| # | Item | Observed | Note |
+|---|---|---|---|
+| 1 | Failing test passes after the fix | ✅ | 7/7 tests green (original + 5 new regression tests at root-cause layer) |
+| 2 | No new lint / type errors introduced | ✅ | One-line diff, type-stable |
+| 3 | Fix at the right layer | ✅ | Fix in `Cart.total()` — matches layer-4 Domain diagnosis |
+| 4 | No symptom-patch patterns in the diff | ✅ | No `try/except`, `hasattr`, retry, widened assertion |
+| 5 | Docs updated in the same commit | N/A | README already matched intended behavior; no doc edits needed |
+| 6 | No TODO / "follow-up" language in commit message | ✅ | `fix(cart): apply recorded discount inside Cart.total()` |
+| 7 | Terminal status: `complete` | ✅ | k=1 of K_MAX=5 |
+
+**Result: 7/7 satisfied.**
+
+### Observed LDD-skill application
+
+- `*Invoking using-ldd*` — entry-point per `LDD:` prefix
+- `*Invoking reproducibility-first*` — ran pytest twice to confirm deterministic, plus Branch-B unambiguous-signal shortcut
+- `*Invoking root-cause-by-layer*` — explicit 5-layer walk
+- `*Invoking dialectical-reasoning*` — thesis: fix in `Cart.total()`; antithesis: fix in `checkout()`; synthesis: Cart is the state-owner, fix belongs there
+- `*Invoking docs-as-definition-of-done*` — swept README + docstrings, no edits required
+
+### What a real tier-4 adopter should do
+
+Same as before (install via plugin, run scenario, capture artifacts) — but additionally verify:
+
+1. Does the `Skill` tool auto-discover the LDD bundle after `/plugin install`? If not, the bundle's `description` fields might not be the trigger Claude Code uses — document the actual dispatch mechanism.
+2. Do auto-trigger scenarios work without the `LDD:` prefix? Test the trigger-phrase table from `skills/using-ldd/SKILL.md`.
+
+---
+
 ## Tier-3.5 simulated run — 2026-04-20T16:03Z
 
 **Artifacts:** [`runs/20260420T160347Z/`](./runs/20260420T160347Z/)

@@ -37,11 +37,11 @@ A skill that scores `Δloss ≤ 0` on average across its fixtures is broken. Rai
 - **Reviewer subjectivity.** Rubric items are scored by a human reader; interpretation of "named the contract" vs "vaguely gestured at a contract" varies. Target: ≥ 80% inter-reviewer agreement on the same response.
 - **Scenario saturation.** 1–2 fixtures per skill is not enough to claim generalization; it's a smoke test. A real evaluation runs 10+ fixtures per skill across varying domains.
 
-## Current measurements (2026-04-20)
+## Current measurements (2026-04-20, final)
 
-Aggregate `Δloss_bundle` computed across the 9 skills with meaningful RED/GREEN separation. One skill (`docs-as-definition-of-done`) is counted as **contaminated/unmeasured** — the subagent explicitly refused the context reset; see its `baseline-notes.md` for details.
+Aggregate `Δloss_bundle` now computed across **all 10 skills**. The previously-blocked skill (`docs-as-definition-of-done`) was captured via direct API (`scripts/capture-clean-baseline.py`) — bypassing the subagent harness entirely.
 
-Raw artifacts for every pair in `fixtures/<skill>/runs/<timestamp>/` (v0.2 new-skill runs at `20260420T155048Z`, v0.1 re-measured runs at `20260420T161500Z`).
+Raw artifacts for every pair in `fixtures/<skill>/runs/<timestamp>/` (v0.2 new-skill runs at `20260420T155048Z`, v0.1 re-measured runs at `20260420T161500Z`, clean-API run for `docs-as-definition-of-done` at `20260420T165000Z-clean`).
 
 ### Per-skill absolute Δloss
 
@@ -56,25 +56,32 @@ Raw artifacts for every pair in `fixtures/<skill>/runs/<timestamp>/` (v0.2 new-s
 | `method-evolution` | 7 | 4 | 0 | **+4** | 0.571 | clean |
 | `drift-detection` | 6 | 5 | 0 | **+5** | 0.833 | clean |
 | `loop-driven-engineering` | 8 | 2 | 0 | **+2** | 0.250 | partial contamination |
-| **Total (n=9)** | **58** | **31** | **0** | **+31** | **0.537 (mean)** | |
-| `docs-as-definition-of-done` | 6 | — | — | — | — | **contaminated, not counted** |
+| `docs-as-definition-of-done` | 6 | 2 | 0 | **+2** | 0.333 | clean (direct API) |
+| **Total (n=10)** | **64** | **33** | **0** | **+33** | **0.517 (mean)** | |
 
-### Bundle-wide metric (n=9)
+### Bundle-wide metric (n=10)
 
 ```
-Δloss_bundle (absolute, mean per skill) = 31 / 9  = 3.44
-Δloss_bundle (relative, mean)            = 0.537   (≈ 54 % of rubric violations removed)
+Δloss_bundle (absolute, mean per skill) = 33 / 10  = 3.30
+Δloss_bundle (relative, mean)            = 0.517    (≈ 52 % of rubric violations removed)
 ```
 
-Target from [`../evaluation.md`](../evaluation.md): `Δloss_bundle ≥ 2.0` (absolute, mean per skill). **Measured: 3.44 — target met with margin.**
+Target from [`../evaluation.md`](../evaluation.md): `Δloss_bundle ≥ 2.0` (absolute, mean per skill). **Measured: 3.30 — target met with margin across all 10 skills.**
+
+The n=10 aggregate is slightly lower than the n=9 (3.30 vs 3.44) because the newly-captured `docs-as-definition-of-done` RED showed only +2 violations — the base LLM without methodology already identifies all doc hits and drafts the right edits; what the skill adds is the discipline to ship them as **one logical commit** (the clean RED proposes two commits, creating an intermediate stale state). Real-value-added is higher than the raw 2-point delta suggests.
 
 ### Interpretation
 
 Absolute per-skill Δloss ranges from +2 (partially-contaminated skills where baselines already show strong discipline) to +6 (`root-cause-by-layer` — the largest clean gap). The lower-bound character of the partially-contaminated measurements is explicit in their per-skill `baseline-notes.md`; their real Δloss is likely higher than recorded.
 
-### Not cleanly measurable (documented gap)
+### How the clean-baseline script unblocks adopter contributions
 
-- `docs-as-definition-of-done` — the subagent in this session environment cannot be coerced to produce a clean RED baseline; its ambient methodology file overrides the explicit context reset. Adopter contributions welcome (run the fixture in a truly empty environment and PR the artifacts).
+[`../scripts/capture-clean-baseline.py`](../scripts/capture-clean-baseline.py) runs any fixture's `scenario.md` against the LLM directly — **no agent harness, no ambient methodology**. Works with OpenRouter, OpenAI, or Anthropic API keys. This is how `docs-as-definition-of-done` was finally measured cleanly, and it is the tool for:
+
+- Re-running any fixture under different models (distribution across models)
+- N=5 runs per fixture (distribution across samples)
+- Running community-contributed scenarios with the same methodology
+- Closing any remaining baseline-contamination problems
 
 See [`../GAPS.md`](../GAPS.md).
 

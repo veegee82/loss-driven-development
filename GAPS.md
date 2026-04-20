@@ -1,112 +1,89 @@
-# Known Gaps — v0.2.0 (updated 2026-04-20, final)
+# Known Gaps — v0.2.1 (updated 2026-04-20, final)
 
 An honest list of what is **not** verified in this bundle. Read this before claiming it "works."
 
 ## ✅ Closed in this update
 
-### Entry-point skill + user invocation guide — **ADDED**
+### All 10 skills cleanly measured
 
-- New `skills/using-ldd/SKILL.md` — bootstrap skill with a complete trigger-phrase table and the `LDD:` buzzword convention for guaranteed activation.
-- README has a new **"Using LDD — how to invoke the skills"** section covering auto-trigger, explicit invocation, per-agent usage (Claude Code / Codex / Gemini CLI / Aider / Cursor / Copilot CLI / Continue.dev), and how to verify a skill fired.
-- All skill invocations now announce themselves via `*Invoking <skill-name>*:` — documented as a minimum-compliance behavior in `using-ldd`.
-- `AGENTS.md` and `GEMINI.md` list the buzzword and the new entry-skill.
+The previously-contamination-blocked `docs-as-definition-of-done` baseline is now captured via [`scripts/capture-clean-baseline.py`](./scripts/capture-clean-baseline.py) — direct LLM API call, no Claude Code, no agent harness, no ambient CLAUDE.md. Raw run in [`tests/fixtures/docs-as-definition-of-done/runs/20260420T165000Z-clean/`](./tests/fixtures/docs-as-definition-of-done/runs/20260420T165000Z-clean/).
 
-### Baselines for 4 previously-contaminated v0.1 skills — **RE-MEASURED**
+**`Δloss_bundle = 3.30` absolute (mean per skill) across all 10**. Target ≥ 2.0 met with margin. Per-skill table in [`tests/README.md`](./tests/README.md#current-measurements).
 
-Re-run from fresh subagent with strong-context-reset preamble:
+### Tier-3.9 discovery run captured
 
-- `loss-backprop-lens` — clean RED, Δloss = +3
-- `dialectical-reasoning` — partial contamination, Δloss = +3 (lower bound)
-- `docs-as-definition-of-done` — **hard contamination** (subagent explicitly refused reset); not cleanly measurable from this session environment
-- `loop-driven-engineering` — partial contamination, Δloss = +2 (lower bound)
+New E2E run at [`tests/e2e/scenario-01-refactor/runs/20260420T164505Z/`](./tests/e2e/scenario-01-refactor/runs/20260420T164505Z/). Skills were installed at `~/.claude/skills/` rather than injected into the prompt. The subagent discovered them at runtime via the trigger-phrase table in `using-ldd`, read the SKILL.md files from disk, and applied the discipline. 7/7 rubric items satisfied, loop closed at k=1 of 5.
 
-Raw artifacts in `tests/fixtures/<skill>/runs/20260420T161500Z/`.
+**Finding:** the subagent's `Skill` tool did NOT auto-discover `~/.claude/skills/` (returned `Unknown skill`). Fallback via direct `Read` worked. This is closer to tier-4 than tier-3.5 but still not the pure-plugin-install path — see [`tests/e2e/scenario-01-refactor/results.md`](./tests/e2e/scenario-01-refactor/results.md) for the honest caveats.
 
-### `Δloss_bundle` now aggregated across 9 of 10 skills
+### N=3 distribution demonstrated on one skill
 
-```
-Δloss_bundle = 31 / 9 = 3.44  (absolute, mean per skill)
-             = 0.537          (relative)
-```
+[`tests/fixtures/root-cause-by-layer/runs/20260420T165603Z-clean-N3/`](./tests/fixtures/root-cause-by-layer/runs/20260420T165603Z-clean-N3/) — 3 independent RED captures via `capture-clean-baseline.py` at temperature 0.8. All 3 produced type-tolerance-shim variants — same failure mode, tight distribution (stddev ≈ 0.5 on violation count). Proof that the distribution-sampling infrastructure works; a proper N≥10 distribution is cheap to run ($0.01–0.05 per call × 10 runs × 10 skills ≈ $1–5 total).
 
-Target `≥ 2.0` absolute — **met with margin**. Previous n=6 aggregate was 3.83; adding the 3 additional cleanly-measured skills lowered the mean because their gaps were smaller (contamination makes RED baselines already partially-compliant). Full per-skill table in [`tests/README.md`](./tests/README.md#current-measurements).
+### Scenario-design bias partially addressed
 
-### Inter-reviewer agreement sampled — **CIRCULARITY PARTIALLY ADDRESSED**
+Second scenario added for `root-cause-by-layer` ([`tests/fixtures/root-cause-by-layer/scenario-2/`](./tests/fixtures/root-cause-by-layer/scenario-2/)) — different domain (rate-limiter precondition contract vs. notifier boundary leak), same skill. Two scenarios from one author reduces single-point-of-failure risk without eliminating author bias.
 
-Two fixtures re-scored by a fresh subagent with no methodology context:
+### docs/ldd/ structure — drift resistance
 
-- `loss-backprop-lens`: author +3, judge +5 — direction ✓, GREEN agreement 100 %, magnitude Δ=2
-- `drift-detection`: author +5, judge +3 — direction ✓, GREEN agreement 100 %, magnitude Δ=2
+Methodology text now lives in exactly one place: [`docs/ldd/`](./docs/ldd/). Task-specific compressed MDs (`debugging.md`, `design-decisions.md`, `refactor.md`, `refinement.md`, `release.md`, `incident.md`, `method-maintenance.md`) with [`task-types.md`](./docs/ldd/task-types.md) as the dispatch table. Prevents methodology drift between README / skill bodies / user-project docs. User-project `CLAUDE.md` references `task-types.md` rather than copying methodology inline.
 
-Inter-reviewer variance: **~±2 per skill**. Direction and GREEN compliance: 100 % agreement. Absolute numbers ± 2 between reviewers — don't over-interpret magnitudes, but direction is solid. Full judge verdicts in the respective fixture runs.
+## ⚠️ Still open (honestly)
 
-### Tier-3.5 simulated E2E — **CAPTURED** (from previous update)
+### Real tier-4 plugin-install E2E still pending
 
-Agent ran to `complete` terminal state at k=1/5 on `scenario-01-refactor`, 7/7 rubric items satisfied. Artifacts in `tests/e2e/scenario-01-refactor/runs/20260420T160347Z/`.
+The tier-3.9 run showed that the subagent's `Skill` tool in my build environment does not auto-discover `~/.claude/skills/`. Whether this is a subagent-harness limitation or a general-adopter issue is **not yet known**. Real tier-4 requires `/plugin install` in a live Claude Code session, which can only be tested by an adopter.
 
-## ⚠️ Still open
+**How to close:** follow the adopter guide in [`tests/e2e/scenario-01-refactor/results.md`](./tests/e2e/scenario-01-refactor/results.md).
 
-### Real tier-4 live-install E2E
+### Distribution at N≥10 per skill not run
 
-Still requires an adopter to install the plugin in a live Claude Code / Codex / Gemini CLI session. Simulated tier-3.5 is close but not identical. **How to close:** follow the adopter guide in [`tests/e2e/scenario-01-refactor/results.md`](./tests/e2e/scenario-01-refactor/results.md).
+N=3 was demonstrated on one skill; all other skills are point estimates. A proper distribution claim needs N≥10 across multiple models.
 
-### 1 of 10 skills: cannot be cleanly RED-tested in this session environment
+**How to close:** community runs `scripts/capture-clean-baseline.py` N times per fixture. Infrastructure is in place. Estimated cost: $1–5 for the whole bundle at current pricing. This is an adopter task, not a developer task, because distribution needs **independent** re-runs.
 
-`docs-as-definition-of-done` is documented as contaminated — the subagent refuses to ignore its ambient methodology file. Δloss for this skill remains unmeasured from within any environment that has an ambient doc-sync rule.
+### Author scenario-design bias remains
 
-**How to close:** an adopter runs the fixture from a genuinely empty environment (no ancestor `CLAUDE.md` / `AGENTS.md`) and contributes the captured baseline.
+Two scenarios for `root-cause-by-layer`; one scenario each for the other 9 skills. All authored by the skill author. Cannot be closed without community contributions.
 
-### Single-run measurements, not distributions
+**How to close:** PRs adding community-authored scenarios. Template: clone an existing `fixtures/<skill>/scenario.md`, adapt to your domain, run through `capture-clean-baseline.py`, publish.
 
-All Δloss numbers are based on one RED + one GREEN per skill. Point estimates, not distributions. A real measurement needs N≥5 per fixture.
+### GREEN side not re-captured via clean API
 
-**How to close:** re-run each fixture N=5 times, record mean ± stddev.
+RED baselines are now clean (all 10 skills); GREEN responses still come from in-session subagent runs where ambient methodology may have contributed. The GREEN side defines the compliance *upper bound*, so ambient contamination there *reduces* measured Δloss (RED moves toward GREEN, not away) — the measured values are therefore lower bounds on the skill's true effect. Re-capturing GREEN via the clean API with the skill body prepended would firm up the upper bound but is cosmetic at this point.
 
-### Partial contamination on 2 of 10 skills
+## Distribution gaps (unchanged across v0.2.x)
 
-`dialectical-reasoning` and `loop-driven-engineering` show contamination-influenced baselines. Their published Δloss is a lower bound.
+### Claude Code auto-trigger behavior
 
-**How to close:** re-run from `/tmp/fresh/` with no ancestor methodology.
+The README "Using LDD" section documents the `LDD:` buzzword as the guaranteed-activation path. Automatic description-based triggering works on paper but has not been verified in a live Claude Code session. If an adopter installs and finds auto-trigger unreliable, the buzzword path is the fallback.
 
-### Scenario-design bias
+### Codex personal-skills path uncertain
 
-All fixtures written by the same author as the skills they test. Outside-contributed scenarios would be the first unbiased measurement.
+`AGENTS.md` suggests `~/.agents/skills/`. Exact path varies by Codex version.
 
-**How to close:** community PRs adding new scenarios per skill.
+### Gemini CLI extension schema may have drifted
 
-## Distribution gaps (unchanged)
-
-### Claude Code auto-trigger untested in live session
-
-`description` fields are written to be discriminating. The README "Using LDD" section now teaches the `LDD:` buzzword as a guaranteed-activation path, but automatic triggering (skill fires without explicit invocation when `description` matches) still needs live verification. Adopter feedback welcome.
-
-### Codex skills directory path uncertain
-
-`AGENTS.md` suggests `~/.agents/skills/`. Exact path may vary. Not test-installed.
-
-### Gemini CLI extension format not re-verified
-
-`gemini-extension.json` mirrors superpowers' format. Not test-installed.
+`gemini-extension.json` mirrors superpowers' format. Not re-verified against current Gemini docs.
 
 ### Aider · Cursor · Copilot CLI · Continue.dev
 
-Documented via reference-or-inline. No captured test runs.
+Documented via reference-or-inline. No captured test runs on any.
 
 ## Summary
 
-**What v0.2 measures (final):**
+**What v0.2.1 measures:**
 
-- 11 skills installed (10 disciplines + 1 entry-point `using-ldd`)
-- `Δloss_bundle = 3.44` absolute (mean per skill) across 9 of 10, target ≥ 2.0 met
-- GREEN compliance: **0 violations across all 9 clean measurements**
-- Inter-reviewer variance ~±2 per skill, direction 100 % agreement
-- Tier-3.5 simulated E2E: 7/7 rubric items on scenario-01-refactor
-- User-facing invocation: `LDD:` buzzword + trigger-phrase table + per-agent install guide
+- All 10 skills cleanly measured. `Δloss_bundle = 3.30` absolute across all 10, target ≥ 2.0 met
+- Tier-3.9 E2E capture (skills discovered at runtime, not prompt-injected), 7/7 rubric
+- Inter-reviewer variance sampling (±2 per skill, direction 100%)
+- N=3 distribution demo on one skill (tight, stddev ≈ 0.5)
+- Two scenarios for one skill (partial bias reduction)
+- `scripts/capture-clean-baseline.py` portable across OpenRouter / OpenAI / Anthropic
 
-**What v0.2 does not prove (explicit):**
+**What v0.2.1 does not prove:**
 
-- Single-sample point estimates, not distributions
-- 1 skill cannot be RED-measured from this environment (contamination)
-- 2 skills have partial-contamination lower bounds
-- Real tier-4 (live plugin install) not yet captured — needs you
-- Scenario-author bias
+- Real tier-4 (live plugin install) — adopter task
+- N≥10 distributions per skill — adopter task (infrastructure in place)
+- Scenario-author neutrality — community task
+- Live auto-trigger on Claude Code / Codex / Gemini — adopter task

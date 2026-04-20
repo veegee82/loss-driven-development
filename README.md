@@ -3,7 +3,7 @@
 > **LDD is to AI-era coding what TDD was to human coding.**
 > Ten portable skills for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured* discipline where symptom patches, local-minimum traps, and silent code drift can't hide.
 
-> 📦 **Where this came from:** distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) ([`pip install awp-agents`](https://pypi.org/project/awp-agents/)), an open standard for multi-agent orchestration where all three LDD loops — inner, refinement, outer — are implemented as live SGD code, not metaphor. See [**LDD in AWP**](./docs/ldd-in-awp.md) for the one-to-one mapping, a concrete debugging case study, and how to try the framework itself.
+> 📦 **Where this came from:** distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) ([`pip install awp-agents`](https://pypi.org/project/awp-agents/)), an open standard for multi-agent orchestration where all three LDD loops — inner, refinement, outer — are implemented as live SGD code, not metaphor. See [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one mapping, a concrete debugging case study, and how to try the framework itself.
 
 ![Three loops](./diagrams/three-loops.svg)
 
@@ -50,7 +50,7 @@ Engineering is **gradient descent on code**:
 - Docs are the **regularizer** — keep them in sync or generalization loss rises silently.
 - Budget (`K_MAX=5`) prevents descending past local minima into drift.
 
-Full mental model in [`docs/convergence.md`](./docs/convergence.md). The convergence conditions, the five divergence patterns, the drift taxonomy — all formally stated.
+Full mental model in [`docs/ldd/convergence.md`](./docs/ldd/convergence.md). The convergence conditions, the five divergence patterns, the drift taxonomy — all formally stated.
 
 ## Three loops, not one
 
@@ -121,6 +121,26 @@ gemini extensions install ./loss-driven-development
 ### Aider · Cursor · Copilot CLI · Continue.dev · generic
 
 Read ambient instruction files (`.cursorrules`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, project system prompts). Either reference the skills directory from your agent's instruction file, or copy the SKILL.md bodies inline. See [`AGENTS.md`](./AGENTS.md) for per-platform recipes.
+
+## Methodology docs — `docs/ldd/`
+
+LDD's methodology text lives in one canonical place: [`docs/ldd/`](./docs/ldd/). Each task type has its own ~1-page compressed reference; the agent loads only what the current task needs, not the whole methodology.
+
+| File | When the agent loads it |
+|---|---|
+| [`docs/ldd/task-types.md`](./docs/ldd/task-types.md) | Always — the dispatch table |
+| [`docs/ldd/getting-started.md`](./docs/ldd/getting-started.md) | First-time LDD user |
+| [`docs/ldd/debugging.md`](./docs/ldd/debugging.md) | Bug / failing test / flaky run |
+| [`docs/ldd/design-decisions.md`](./docs/ldd/design-decisions.md) | Design trade-off, architectural choice |
+| [`docs/ldd/refactor.md`](./docs/ldd/refactor.md) | Structural change, step-size decision |
+| [`docs/ldd/refinement.md`](./docs/ldd/refinement.md) | Deliverable polish (y-axis) |
+| [`docs/ldd/release.md`](./docs/ldd/release.md) | Pre-commit / pre-release / pre-merge |
+| [`docs/ldd/incident.md`](./docs/ldd/incident.md) | Production fire, fast-path |
+| [`docs/ldd/method-maintenance.md`](./docs/ldd/method-maintenance.md) | Outer-loop: the skill itself isn't working |
+| [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) | Heavy reference — three loops, divergence patterns, drift taxonomy |
+| [`docs/ldd/in-awp.md`](./docs/ldd/in-awp.md) | Case study — LDD in AWP |
+
+This structure enforces single-source-of-truth for methodology text (no drift between skill bodies, README, and user docs). User-project `CLAUDE.md` / `AGENTS.md` should reference [`docs/ldd/task-types.md`](./docs/ldd/task-types.md) rather than copying methodology inline. See [`docs/ldd/README.md`](./docs/ldd/README.md) for integration notes.
 
 ## Using LDD — how to invoke the skills in a session
 
@@ -254,7 +274,7 @@ LDD is the portable, platform-agnostic **discipline**. [**AWP — Agent Workflow
 - **Refinement loop** → AWP's `awp refine <seed_run_dir>` — y-axis SGD on deliverables with critique-derived gradients
 - **Outer loop** → AWP's `awp optimize --with-textgrad` — θ-axis SGD on prompt artifacts with TextGrad as LLM-as-optimizer, rollback on regression
 
-If LDD as discipline makes sense to you, AWP is what it looks like when the whole framework is built around it. Read [**LDD in AWP**](./docs/ldd-in-awp.md) for the one-to-one concept mapping, a concrete debugging case study, and install instructions.
+If LDD as discipline makes sense to you, AWP is what it looks like when the whole framework is built around it. Read [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one concept mapping, a concrete debugging case study, and install instructions.
 
 ```bash
 pip install awp-agents && python -m awp studio

@@ -1,0 +1,2 @@
+b7161e9 fix(cart): apply recorded discount inside Cart.total()
+eacc866 initial: failing discount test

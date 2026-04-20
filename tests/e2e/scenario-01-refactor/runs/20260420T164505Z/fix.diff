@@ -1,0 +1,57 @@
+diff --git a/src/cart.py b/src/cart.py
+index 0ef8fe9..43bc7f8 100644
+--- a/src/cart.py
++++ b/src/cart.py
+@@ -12,4 +12,4 @@ class Cart:
+ 
+     def total(self) -> float:
+         subtotal = sum(self.items)
+-        return subtotal
++        return subtotal * (1.0 - self.discount / 100.0)
+diff --git a/tests/test_cart.py b/tests/test_cart.py
+new file mode 100644
+index 0000000..c2f8089
+--- /dev/null
++++ b/tests/test_cart.py
+@@ -0,0 +1,41 @@
++"""Domain-layer tests for Cart.
++
++The checkout bug (amount = subtotal, ignoring discount) had its root cause in
++Cart.total() — the field `self.discount` was recorded by apply_discount() but
++never used by total(). These tests pin the Cart.total() contract directly, at
++the layer of the root cause, independent of the checkout() wrapper.
++"""
++
++from src.cart import Cart
++
++
++def test_total_no_items_is_zero():
++    assert Cart().total() == 0.0
++
++
++def test_total_without_discount_returns_subtotal():
++    c = Cart()
++    c.add_item(100.0)
++    c.add_item(25.0)
++    assert c.total() == 125.0
++
++
++def test_total_applies_recorded_discount():
++    c = Cart()
++    c.add_item(100.0)
++    c.apply_discount(10.0)
++    assert c.total() == 90.0
++
++
++def test_total_applies_zero_discount_as_identity():
++    c = Cart()
++    c.add_item(50.0)
++    c.apply_discount(0.0)
++    assert c.total() == 50.0
++
++
++def test_total_applies_full_discount():
++    c = Cart()
++    c.add_item(75.0)
++    c.apply_discount(100.0)
++    assert c.total() == 0.0

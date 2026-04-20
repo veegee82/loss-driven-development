@@ -11,7 +11,7 @@ description: Use when you have observed a failing test, a flaky run, a surprisin
 
 **Core principle:** before you use a failure as the basis for a code edit, you must either **(a)** reproduce it at least once more, or **(b)** prove the log is unambiguous signal that does not require repetition.
 
-See [`../../docs/convergence.md`](../../docs/convergence.md) §3.3 "Noisy SGD" for why this matters for convergence.
+See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §3.3 "Noisy SGD" for why this matters for convergence.
 
 ## When to Use
 

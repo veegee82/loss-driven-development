@@ -14,7 +14,7 @@ Most agents, when told "this is okay but can be better," do one of two wrong thi
 
 **Core principle:** refinement is a *second* gradient-descent pass, on the **y-axis** (the deliverable itself), using a **specific gradient** derived from the previous output's defects. The inputs, the task, the code, the skills — all held fixed. Only the deliverable changes.
 
-This is the skill-level equivalent of `awp refine` (AWP's normative refinement mode). See [`../../docs/convergence.md`](../../docs/convergence.md) §1 for the three-loop model.
+This is the skill-level equivalent of `awp refine` (AWP's normative refinement mode). See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §1 for the three-loop model.
 
 ## When to Use
 

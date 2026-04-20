@@ -67,7 +67,7 @@ Why it matters: the autonomy-spectrum idea is more general than AWP. If you buil
 
 ### 3.3 Three real SGD loops in code
 
-The three-loop model in [`docs/convergence.md`](./convergence.md) is **not theoretical** in AWP. All three are implemented:
+The three-loop model in [`docs/ldd/convergence.md`](./convergence.md) is **not theoretical** in AWP. All three are implemented:
 
 - **Inner loop** — the DAG engine and the delegation-loop engine in `packages/awp-runtime/src/awp/runtime/`
 - **Refinement loop** — `awp refine`, authoritative at [`docs/refinement.md`](https://github.com/veegee82/agent-workflow-protocol/blob/main/docs/refinement.md)

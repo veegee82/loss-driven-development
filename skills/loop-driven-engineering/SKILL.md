@@ -13,7 +13,7 @@ Engineering is **three loops**, not one. You plan, you try, you measure, you dia
 
 This skill is a **flexible pattern**, not a rigid procedure. Use judgment; adapt the structure to the task. But the budget, the escalation rule, and the loop-separation rule are hard.
 
-See [`../../docs/convergence.md`](../../docs/convergence.md) for the three-loop model in full, and [`../../diagrams/three-loops.svg`](../../diagrams/three-loops.svg) for the picture.
+See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) for the three-loop model in full, and [`../../diagrams/three-loops.svg`](../../diagrams/three-loops.svg) for the picture.
 
 ## When to Use
 

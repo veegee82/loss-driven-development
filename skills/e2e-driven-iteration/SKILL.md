@@ -13,7 +13,7 @@ The existing dach-skill `loop-driven-engineering` says "run E2E when warranted."
 
 No E2E at the start → no loss measurement → your edit is speculative. No E2E at the end → you don't know if you converged or just stopped.
 
-See [`../../docs/convergence.md`](../../docs/convergence.md) §5 for how this skill implements the loss trace across the test pyramid.
+See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §5 for how this skill implements the loss trace across the test pyramid.
 
 ## When to Use
 

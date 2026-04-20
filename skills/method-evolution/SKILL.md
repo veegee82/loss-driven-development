@@ -13,7 +13,7 @@ Updating the task fixes *this* bug. Updating the method fixes the bug *and* prev
 
 **Core principle:** method-evolution is SGD on the **θ-axis** (the skills, prompts, rubrics themselves), not the inner-loop code axis or the refinement y-axis. It is the rarest and most load-bearing of the three loops — and the only one that can actually improve the bundle over time.
 
-See [`../../docs/convergence.md`](../../docs/convergence.md) §1 for the three-loop model and §3.4 for the "moving-target loss" anti-pattern that this skill prevents.
+See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §1 for the three-loop model and §3.4 for the "moving-target loss" anti-pattern that this skill prevents.
 
 ## When to Use
 
@@ -102,7 +102,7 @@ No anonymous "improve skill" commits. Each evolution step is auditable and rever
 
 - "I want to make the skill clearer" → refactoring prose, not evolving behavior
 - "The skill feels long, let me trim it" → style, not evolution; don't pretend otherwise
-- "I'll update the rubric to match what the agent did" → that's **moving-target loss** (see `docs/convergence.md` §3.4), forbidden
+- "I'll update the rubric to match what the agent did" → that's **moving-target loss** (see `docs/ldd/convergence.md` §3.4), forbidden
 - "We saw this pattern once last week" → not enough signal; wait for 3 occurrences
 - "I don't need to measure, the change is obviously better" → exactly the symptom this skill prevents in code; same rule applies to the method itself
 - Editing the skill without running the suite → your edit is a random direction in method-space

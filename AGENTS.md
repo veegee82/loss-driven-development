@@ -48,7 +48,7 @@ These agents read ambient instruction files (`.cursorrules`, `.github/copilot-in
 
 ## Skill directory
 
-Eleven skills across three optimization loops (see [`docs/convergence.md`](./docs/convergence.md)).
+Eleven skills across three optimization loops (see [`docs/ldd/convergence.md`](./docs/ldd/convergence.md)).
 
 | Skill | Loop | Type | Fires when |
 |---|---|---|---|
@@ -74,7 +74,7 @@ Engineering is **gradient descent on code**. Tests are forward passes. The delta
 
 Docs are the **regularizer** — they pin the conceptual model; drift raises generalization loss silently.
 
-LDD separates three optimization loops: **inner** (θ = code), **refinement** (θ = deliverable, y-axis), **outer** (θ = skills / rubrics, θ-axis). Mixing them is the single biggest cause of "iterative work that never converges." Full mental model in [`docs/convergence.md`](./docs/convergence.md); pictures in [`diagrams/`](./diagrams/).
+LDD separates three optimization loops: **inner** (θ = code), **refinement** (θ = deliverable, y-axis), **outer** (θ = skills / rubrics, θ-axis). Mixing them is the single biggest cause of "iterative work that never converges." Full mental model in [`docs/ldd/convergence.md`](./docs/ldd/convergence.md); pictures in [`diagrams/`](./diagrams/).
 
 ## Methodology
 

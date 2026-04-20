@@ -1,0 +1,140 @@
+# LDD hyperparameters
+
+LDD exposes a **deliberately small** set of hyperparameters. Every knob we add is one more thing a user can misconfigure and one more dimension along which the loss function can drift. The bias is "no knob unless the measured value of exposing it outweighs the method-evolution risk."
+
+> **Warning — anti-pattern:** the easiest way to make LDD look good on your current task is to tune hyperparameters until the rubric passes. That is **moving-target loss** (`skills/method-evolution/SKILL.md` §"Red Flags"). Changing a knob to fit the current run is drift, not optimization. If you find yourself repeatedly tweaking `K_MAX` upward because "this task is complex," the problem is the task decomposition, not the budget.
+
+## The three exposed knobs
+
+### 1. `k_max` — inner loop iteration budget
+
+- **Default:** `5`
+- **Range:** `1` to `20` (hard cap; above 20 the inner loop is not the right tool — see `docs/ldd/refactor.md`)
+- **What it controls:** maximum iterations in the fix-loop before `loop-driven-engineering` §Escalation fires
+- **When to change:**
+  - Reduce to `2` or `3` for exploratory / throwaway work where you would rather restart than grind
+  - Increase to `8` or `10` ONLY if individual iterations are very short and the task is well-localized (e.g. many quick unit-test cycles)
+  - Do NOT increase to avoid escalation — escalation is the signal that the loop isn't converging and something structural is wrong
+
+### 2. `reproduce_runs` — reproducibility-first Branch A reruns
+
+- **Default:** `2` (additional runs beyond the initial failure)
+- **Range:** `1` to `10`
+- **What it controls:** how many times `reproducibility-first` re-runs the failing case before concluding deterministic / flaky / transient
+- **When to change:**
+  - Reduce to `1` for very slow tests (e.g. 20-min E2E) where the budget cost outweighs the noise risk
+  - Increase to `4` or `5` for tests known to have low flake rates where you need higher confidence before editing
+  - Do NOT set to `0` — that defeats the skill
+
+### 3. `max_refinement_iterations` — y-axis budget
+
+- **Default:** `3`
+- **Range:** `1` to `10` (hard cap)
+- **What it controls:** maximum refinement passes in `iterative-refinement` before stopping regardless of remaining gradient
+- **When to change:**
+  - Reduce to `1` or `2` for time-critical polish
+  - Increase cautiously — refinement is asymptotic; past iteration 5 the returns are typically indistinguishable from noise
+
+## What is NOT exposed (by design)
+
+| Knob we considered | Why not exposed |
+|---|---|
+| **Loss weights per rubric item** | Direct gateway to moving-target loss. Rubric items are intentionally equal-weight — if one item seems more important in your context, that's a scenario-design issue, not a weight-tuning issue |
+| **`K_MAX` learning-rate multiplier** | Method-evolution rollback uses a fixed halving. Exposing it invites "just try it a few more times" — that's the anti-pattern the halving exists to prevent |
+| **`min_occurrences` for method-evolution** | Fixed at 3. Lower = noise-driven skill changes. Higher = issues take too long to surface |
+| **Drift-scan indicator subset** | All 7 indicators are the scan. Subsetting would encourage "only check what's currently clean" theater |
+| **Temperature / top-p / sampling params** | Host-agent concerns, not LDD concerns. The bundle is behavior-shaping markdown; sampling is orthogonal |
+| **Skill enable/disable flags** | Unused skills have no cost; disabling them hides capability without measurable benefit. Better path: don't invoke them (they won't fire without matching triggers) |
+
+## Three ways to set hyperparameters
+
+### A. Inline on the `LDD:` prefix — per-task override
+
+Highest priority. Wins over file + session settings for THIS task only.
+
+```
+LDD[k=3]: quick exploratory fix
+LDD[k=10, reproduce=4]: deep dive on this flaky test
+LDD[max-refinement=1]: one polish pass on this doc, then ship
+LDD[no-reproduce]: I've already confirmed reproducibility — go straight to root-cause
+```
+
+Syntax:
+- `k=<N>` or `kmax=<N>` — override `k_max`
+- `reproduce=<N>` — override `reproduce_runs`
+- `max-refinement=<N>` — override `max_refinement_iterations`
+- `no-reproduce` — shortcut for `reproduce=0` with the explicit caveat that you are asserting Branch-B-level evidence
+
+Multiple flags comma-separated. Agent echoes the applied values in the trace block (`Budget : k=3/K_MAX=3 (override)`).
+
+### B. Project config — `.ldd/config.yaml`
+
+Persisted, git-committable, team-shared. Wins over bundle defaults, loses to inline overrides.
+
+```yaml
+# .ldd/config.yaml — optional; omit any key to use the bundle default
+
+inner:
+  k_max: 5
+  reproduce_runs: 2
+
+refinement:
+  max_iterations: 3
+```
+
+Any key you omit falls through to the bundle default. The agent reports the effective config at the start of each LDD session; if it ever uses a default, that is explicit in the trace.
+
+### C. Session override — slash commands
+
+Non-persisted. Wins over file + bundle, loses to inline.
+
+- `/loss-driven-development:ldd-config` — show the effective config (bundle / file / session / inline layers, visibly stacked)
+- `/loss-driven-development:ldd-set <key>=<value>` — set a session-level override (e.g. `/loss-driven-development:ldd-set k_max=8`)
+- `/loss-driven-development:ldd-reset` — clear session overrides
+
+## Precedence
+
+```
+inline `LDD[...]` flags      ← wins
+    ↓
+/ldd-set session overrides
+    ↓
+.ldd/config.yaml in project root
+    ↓
+bundle defaults              ← loses
+```
+
+## Natural-language override
+
+If the user writes in prose ("LDD: fix this, use a budget of 3 iterations"), the agent should parse the intent and apply the override — then echo the structured flag in the trace (`Budget : k=3/K_MAX=3 (parsed from prose)`) so the user can see what was inferred.
+
+Natural-language parsing is best-effort. If ambiguous, the agent asks one clarifying question rather than guessing.
+
+## Config discovery
+
+The agent discovers config in this order, once per session:
+
+1. Read `.ldd/config.yaml` if present in project root
+2. Otherwise, bundle defaults
+3. Session overrides accumulate from `/ldd-set` calls
+4. Per-task inline overrides apply only to the current invocation
+
+The effective config is reported in every trace block's header when any override is active, so users never wonder "did my setting stick?"
+
+## Reference: starter config
+
+Copy this to `.ldd/config.yaml` in your project root if you want team-shared defaults. Every key is optional.
+
+```yaml
+# LDD hyperparameters — all optional
+# See docs/ldd/hyperparameters.md for what each does.
+
+inner:
+  k_max: 5              # inner-loop iteration budget
+  reproduce_runs: 2     # reproducibility-first Branch A reruns
+
+refinement:
+  max_iterations: 3     # iterative-refinement hard cap
+```
+
+Drop this file in, commit it, and every team member's LDD sessions share the same budgets.

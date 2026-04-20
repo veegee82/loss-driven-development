@@ -43,6 +43,46 @@ Example:
 > User: `LDD: the checkout test is failing and I need to ship in an hour`
 > You: "Invoking `reproducibility-first` first to check whether this is a real gradient or noise. [runs check] Confirmed reproducible — invoking `root-cause-by-layer` next to diagnose at layer 4/5 before editing."
 
+### Inline hyperparameter overrides: `LDD[k=N]:`
+
+Users can override hyperparameters for a single task by writing flags in square brackets after `LDD` and before the colon:
+
+```
+LDD[k=3]: quick exploratory fix
+LDD[k=10, reproduce=4]: deep dive on this flaky test
+LDD[max-refinement=1]: one polish pass on this doc, then ship
+LDD[no-reproduce]: I've already confirmed reproducibility — go straight to root-cause
+```
+
+Accepted flags (full reference in [`../../docs/ldd/hyperparameters.md`](../../docs/ldd/hyperparameters.md)):
+
+- `k=<N>` / `kmax=<N>` — inner-loop `k_max` (range 1–20)
+- `reproduce=<N>` — `reproducibility-first` Branch A rerun count (0–10; 0 is allowed but warned)
+- `no-reproduce` — shortcut for `reproduce=0`
+- `max-refinement=<N>` — refinement-loop hard cap (1–10)
+
+Multiple flags are comma-separated. Inline flags **beat everything else** (session `/ldd-set`, `.ldd/config.yaml`, bundle defaults). When an override applies, echo it in the trace block header so the user sees what budget is actually active:
+
+```
+│ Budget : k=3/K_MAX=3 (override: inline)
+```
+
+If the user expresses a budget in prose ("budget of 3 iterations", "give me only one refinement pass"), parse the intent and apply — echo in the trace as `(parsed from prose)`. When ambiguous, ask one clarifying question rather than guessing.
+
+### Precedence
+
+```
+inline LDD[...] flags         ← highest priority
+    ↓
+/ldd-set session overrides
+    ↓
+.ldd/config.yaml in project
+    ↓
+bundle defaults               ← lowest
+```
+
+Use `/loss-driven-development:ldd-config` to see the full stack with per-key provenance. Only the three knobs above are exposed — requests to tune other parameters (learning rates, loss weights, skill-enable flags) are moving-target-loss risks and are refused per `docs/ldd/hyperparameters.md` §"What is NOT exposed (by design)".
+
 ## The LDD trace — mandatory visible output
 
 For every non-trivial LDD task, emit a **visible trace block** inline in your reply so the user can see what discipline is running, how the loss is moving, and which skill fired. The user wants to audit this in real-time; the block is part of the deliverable, not an internal monologue.

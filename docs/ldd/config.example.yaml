@@ -1,0 +1,31 @@
+# LDD hyperparameters — all optional.
+#
+# Copy this file to `.ldd/config.yaml` in your project root to set
+# team-shared defaults that git-commit with your code. Any key you
+# omit falls through to the bundle default.
+#
+# Documentation: ../docs/ldd/hyperparameters.md
+#
+# Precedence (highest wins):
+#   1. Inline `LDD[...]` flags per task
+#   2. /loss-driven-development:ldd-set session overrides
+#   3. This file
+#   4. Bundle defaults
+
+inner:
+  # Inner-loop iteration budget. Default 5. Range 1–20.
+  # K_MAX is the escalation trigger — don't raise it to avoid escalation.
+  # Escalation is the signal that the loop isn't converging and something
+  # structural is wrong.
+  k_max: 5
+
+  # reproducibility-first Branch A re-run count (additional runs beyond
+  # the first observation). Default 2. Range 1–10.
+  # Reduce to 1 only for very slow tests (20-min E2E, etc.).
+  # Never 0 — that defeats the skill.
+  reproduce_runs: 2
+
+refinement:
+  # Hard cap on iterative-refinement y-axis passes. Default 3. Range 1–10.
+  # Refinement is asymptotic; past 5 the returns are typically noise.
+  max_iterations: 3

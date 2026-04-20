@@ -216,6 +216,49 @@ Use root-cause-by-layer on this bug.
 - **Gemini CLI** — `gemini-extension.json` registers the bundle; `@`-imports in `GEMINI.md` put the skills in context. Prefix messages with `LDD:`.
 - **Aider · Cursor · Copilot CLI** — reference the skills from your agent's instruction file; the buzzword still works once the skills are loaded.
 
+### Hyperparameters — three ways to tune
+
+Three knobs are exposed, deliberately few. See [`docs/ldd/hyperparameters.md`](./docs/ldd/hyperparameters.md) for the rationale (and for the list of parameters we **don't** expose and why — moving-target-loss is the anti-pattern we're avoiding).
+
+| Knob | Default | Range | Controls |
+|---|---|---|---|
+| `k_max` | `5` | 1–20 | Inner-loop iteration budget |
+| `reproduce_runs` | `2` | 0–10 | Additional reruns in `reproducibility-first` Branch A |
+| `max_refinement_iterations` | `3` | 1–10 | Refinement y-axis hard cap |
+
+Three ways to set them, in precedence order (highest first):
+
+**1. Inline per task** — flags in square brackets on the `LDD:` prefix:
+
+```text
+LDD[k=3]: quick exploratory fix
+LDD[k=10, reproduce=4]: deep dive on this flaky test
+LDD[max-refinement=1]: one polish pass on this doc, then ship
+LDD[no-reproduce]: I've already confirmed reproducibility — go to root-cause
+```
+
+**2. Project config** — `.ldd/config.yaml` (git-committable, team-shared):
+
+```yaml
+inner:
+  k_max: 5
+  reproduce_runs: 2
+refinement:
+  max_iterations: 3
+```
+
+Starter template at [`docs/ldd/config.example.yaml`](./docs/ldd/config.example.yaml). Copy to `.ldd/config.yaml` in your project root; every key is optional (unset keys fall through to bundle defaults).
+
+**3. Slash commands** — session-scoped overrides:
+
+| Command | Action |
+|---|---|
+| `/loss-driven-development:ldd-config` | Show effective config with per-key source (bundle / file / session / inline) |
+| `/loss-driven-development:ldd-set k_max=8` | Set a session override (non-persisted) |
+| `/loss-driven-development:ldd-reset` | Clear all session overrides |
+
+The agent echoes the active budget in every trace block header, so you never wonder "did my setting stick?".
+
 ### Live trace — see the loop happen in real time
 
 Every non-trivial LDD task emits a **visible trace block** inline in the chat so you can audit what's running without reading the agent's mind:

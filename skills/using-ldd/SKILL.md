@@ -375,24 +375,55 @@ Phase completion is reported as it happens (the block grows as the task progress
 ### When to emit
 
 - **Always** on any invocation triggered by `LDD:` prefix or any trigger-phrase match (initial block carries header + budget, no iterations yet)
-- **After every iteration** during live task execution — re-emit the full current-state block so the user watches the loss descend in real time (per v0.5.0 rule above)
+- **After every iteration** during live task execution — re-emit the full current-state block so the user watches the loss descend in real time (per v0.5.0 rule above). **v0.5.1 hardens this**: iteration-close without a trace block is a RED FLAG, see below.
 - **Always** when closing a loop (final block with Close section: terminal status + layer fix + docs-sync verdict)
 - **At the end of each message** if the task spans multiple messages (re-emit current state)
 - **On request** when the user types the `/ldd-trace` command or asks for the current state
 - **Not** for trivial one-shot replies (file read, single grep, typo fix) where no skill fires
 - **Not** per-iteration when reconstructing a post-hoc trace from completed data the user supplied (one final block suffices — repeating the same iterations 3× adds no information)
 
-### Persisted trace at `.ldd/trace.log`
+### RED FLAGS — per-iteration trace emission is load-bearing
 
-When you are operating in a project directory (as opposed to answering an abstract question), also append a compact single-line trace entry to `.ldd/trace.log` at the project root. Create the directory if needed. Format:
+v0.5.1 adds explicit red flags because empirical observation (`scripts/ldd_trace/test_ldd_trace.py`, narralog post-mortem) showed the v0.5.0 mandate was regularly violated under time pressure:
+
+| Thought | Reality |
+|---------|---------|
+| "The iteration succeeded, I'll show the trace at the end of the task" | No — every iteration ends with a block. The user needs to see *during* convergence, not post-mortem. |
+| "Rendering the chart is a lot of ASCII; I'll describe the loss in prose" | No — use `scripts/ldd_trace append ...` and let the tool render. Manual prose descriptions of loss are a rubric violation at the method layer. |
+| "I re-emitted the summary, that counts" | No — the trace block has four mandated channels (sparkline, mini chart, per-iteration info line, trend arrow). A summary table is not the trace. |
+| "The loss didn't change this iteration, no point re-rendering" | No — a plateau IS a signal; the `Δ ±0.000 →` row lets the user see the plateau forming. |
+
+An iteration close without a full trace block emission is treated as a `method-evolution` trigger at the next outer-loop checkpoint.
+
+### Persisted trace at `.ldd/trace.log` — bidirectional
+
+**Write.** When operating in a project directory, append a structured line to `.ldd/trace.log` at the project root on every iteration close. Create the directory if needed. Format:
 
 ```
-2026-04-20T17:32:10Z  inner  k=1  skill=reproducibility-first    verdict=deterministic    loss_norm=0.375  raw=3/8  loss_type=normalized-rubric
-2026-04-20T17:32:45Z  inner  k=1  skill=root-cause-by-layer      layer4=domain-boundary   loss_norm=0.375  raw=3/8  loss_type=normalized-rubric
-2026-04-20T17:33:22Z  inner  k=1  close                          terminal=complete        loss_norm=0.000  raw=0/8  Δloss_norm=+0.375
+2026-04-20T17:32:10Z  meta  task="..."  loops=inner,refine
+2026-04-20T17:32:45Z  inner  k=0  baseline       loss_norm=1.000  raw=5/5   loss_type=rate
+2026-04-20T17:33:22Z  inner  k=1  skill=reproducibility-first  action="..."  loss_norm=0.600  raw=3/5   Δloss_norm=-0.400
+2026-04-20T17:34:10Z  inner  close  terminal=complete  layer="3: ..."  docs=synced
 ```
 
-One line per skill invocation or close event. ISO-8601 UTC timestamp first. Space-separated key=value pairs. `loss_norm` is the primary normalized [0,1] value; `raw` keeps the underlying count for action. `loss_type` is one of `normalized-rubric`, `rate`, `absolute-<unit>`. The user can `tail -f .ldd/trace.log` in a second terminal to watch the loop in real time, or grep the file for post-hoc audit.
+One line per iteration or close event. ISO-8601 UTC first. Space-separated key=value; values with spaces are double-quoted.
+
+**Read.** At task start (before any new iteration), **if `.ldd/trace.log` exists in the project, read the last ~10 entries** via `python -m ldd_trace status --project <root>` or by tailing. This is how LDD recovers context across sessions — you cannot know what iteration `k` you are at, or what skills have already been tried, without reading prior state.
+
+**Tool.** `scripts/ldd_trace` (v0.5.1) is the reference implementation. Subcommands:
+
+```bash
+python -m ldd_trace init --project . --task "one-line title" --loops inner,refine
+python -m ldd_trace append --project . --loop inner --auto-k \
+    --skill e2e-driven-iteration --action "what concretely changed" \
+    --loss-norm 0.333 --raw 2/6 --loss-type normalized-rubric
+python -m ldd_trace close  --project . --loop inner --terminal complete \
+    --layer "3: <contract> · 5: <invariant>" --docs synced
+python -m ldd_trace render --project .        # re-print the current block
+python -m ldd_trace status --project .        # machine-readable last-k per loop
+```
+
+Each `append` / `close` call prints the FULL current trace block to stdout — so running the tool IS the per-iteration emission. The single-file module lives at `scripts/ldd_trace/` in the plugin repo; copy it into `$PROJECT_ROOT/.ldd/ldd_trace/` if the plugin isn't in PYTHONPATH.
 
 **If `.ldd/` cannot be written** (read-only filesystem, no project root), skip the persistence but still emit the inline block.
 

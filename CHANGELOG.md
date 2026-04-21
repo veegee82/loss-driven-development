@@ -2,6 +2,56 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] — 2026-04-21
+
+### Added — `scripts/ldd_trace/` CLI tool for per-iteration trace emission
+
+v0.5.0 mandated per-iteration emission of the trace block (see `using-ldd/SKILL.md` § "When to emit"). v0.5.1 makes that mandate **cheap to honor**: a Python package with a five-subcommand CLI (`init` / `append` / `close` / `render` / `status`) that persists to `.ldd/trace.log` and re-renders the full block on every write.
+
+```bash
+python -m ldd_trace init   --project . --task "bug fix" --loops inner
+python -m ldd_trace append --project . --loop inner --auto-k \
+    --skill e2e-driven-iteration --action "what changed" \
+    --loss-norm 0.333 --raw 1/3 --loss-type rate
+python -m ldd_trace close  --project . --loop inner --terminal complete \
+    --layer "3: contract · 5: invariant" --docs synced
+```
+
+Rendering logic was **lifted verbatim from `scripts/demo-trace-chart.py`** into `scripts/ldd_trace/renderer.py` — no behavior change versus the v0.5.0 demo output. The demo script remains as the educational reference.
+
+### Changed — per-iteration trace emission reclassified from "should" to hard step
+
+Empirical finding behind v0.5.1: on a real multi-iteration task (narralog, 2026-04-21), the v0.5.0 per-iteration emission mandate was silently dropped across 4 iterations despite the spec. The mandate lived only in `using-ldd/SKILL.md` § "When to emit" — the iteration-performing skills didn't cross-reference it, so the agent finished iterations without rendering the trajectory.
+
+Method-evolution fix across three skills:
+
+- `skills/e2e-driven-iteration/SKILL.md` — the Five-Step Iteration becomes **Six-Step**; step 6 is `Emit trace` with an explicit `python -m ldd_trace append ...` call. "Do not skip step 6" is added with a one-paragraph rationale. The red-flags list gains `"I'll emit the trace block at the end of the whole task"` → NO, per-iteration is a data-visibility requirement. The checklist grows from 7 to 8 items (step 7 = emit; step 8 = close).
+- `skills/loop-driven-engineering/SKILL.md` — `Sub-Skill Dispatch` table gains two rows: `ldd_trace status` at task start (recover prior iteration state from `.ldd/trace.log`), and `ldd_trace append` at iteration close (emission contract).
+- `skills/using-ldd/SKILL.md` — adds a RED FLAGS table immediately after § "When to emit" with four concrete rationalizations and the correct response for each. Adds a "bidirectional" subsection: trace.log is now READ at task start for state recovery, not just written.
+
+### Why a tool, not just a stricter spec
+
+v0.5.0's spec was already strict — the violation was tooling-driven. Per-iteration emission asked the agent to hand-render ~30 lines of ASCII (sparkline + chart + per-iteration info lines) on every loss measurement. Under time pressure that overhead got discounted. v0.5.1 reduces the cost to one shell command: if the agent can run `pytest`, it can run `python -m ldd_trace append ...`. Spec strictness is now matched by ergonomic strictness.
+
+### Bidirectional trace.log
+
+Prior to v0.5.1 the trace.log was write-only (persistence for grep / audit). v0.5.1 makes it the **source of truth** for iteration-state recovery across sessions:
+
+- `python -m ldd_trace status --project .` → machine-readable `next_k` per loop + last `loss_norm` per loop
+- `python -m ldd_trace render --project .` → full trace block reconstituted from log alone
+
+A new session starting on an existing project reads trace.log first and resumes at the correct `k` instead of starting at `i1` again.
+
+### Tests
+
+- `scripts/ldd_trace/test_ldd_trace.py` — 21 unit + integration tests, pytest-driven:
+  - Pure renderer functions (sparkline, trend_arrow, mini_chart) against the §"Rendering recipe" in `using-ldd/SKILL.md`
+  - Store round-trip (init → append → close → render) on pytest's `tmp_path`
+  - CLI subprocess tests for all five subcommands
+  - Three-channel consistency: sparkline last bar + chart last marker + final iteration's loss must agree on the same number
+
+All green: `python -m pytest scripts/ldd_trace/test_ldd_trace.py -q` → 21 passed.
+
 ## [0.5.0] — 2026-04-21
 
 ### Added — trace visualization (sparkline, mini chart, mode+info line, trend arrow)

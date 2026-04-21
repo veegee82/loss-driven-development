@@ -103,6 +103,7 @@ This is a composition skill. Dispatch the right sub-skill at the right moment. E
 
 | Moment in the loop | Sub-skill | Source | Why |
 |---|---|---|---|
+| Task start, if `.ldd/trace.log` exists | `ldd_trace status --project .` | this plugin (v0.5.1 tool) | Recover prior iteration state before starting new iterations |
 | Observing a failing signal, before any edit | `reproducibility-first` | this plugin | One sample is noise, not gradient |
 | Inside a fix-loop, every iteration | `e2e-driven-iteration` | this plugin | Measure loss each iteration, don't guess |
 | Debugging a failing gate / test / run | `root-cause-by-layer` | this plugin | Find the structural origin, not the surface symptom |
@@ -110,8 +111,10 @@ This is a composition skill. Dispatch the right sub-skill at the right moment. E
 | Any non-trivial recommendation, plan, trade-off | `dialectical-reasoning` | this plugin | Force the counter-case before shipping an opinion |
 | Deliverable is good-enough but not great | `iterative-refinement` | this plugin | Polish with a real gradient (y-axis) |
 | Same rubric violation in 3+ tasks | `method-evolution` | this plugin | Evolve the skill itself (θ-axis) |
+| **At iteration close, every iteration** | `ldd_trace append` | this plugin (v0.5.1 tool) | Per-iteration trace emission is mandatory (see using-ldd) — the tool is the cheap path |
 | Release-candidate / weekly / before version bump | `drift-detection` | this plugin | Find cumulative drift that per-commit gates missed |
 | Before committing / pushing / declaring done | `docs-as-definition-of-done` | this plugin | Sync docs to current behavior |
+| At loop close, before handoff | `ldd_trace close` | this plugin (v0.5.1 tool) | Record terminal status + layer fix in `.ldd/trace.log` |
 | Open-ended problem framing | `brainstorming` | external (superpowers) | Explore before committing |
 | Writing a multi-step plan | `writing-plans` | external (superpowers) | Externalize the plan |
 | Red-green discipline while coding | `test-driven-development` | external (superpowers) | Test before implementation |

@@ -27,7 +27,7 @@ Invoke at the start of **every inner-loop iteration** whose purpose is:
 
 Do **not** use for: new-feature work where there's no failing E2E yet (write the E2E first, then enter this loop), pure refactors (no behavioral E2E to run), documentation-only changes.
 
-## The Five-Step Iteration
+## The Six-Step Iteration
 
 ```
 k-th iteration:
@@ -36,6 +36,7 @@ k-th iteration:
   3. Diagnose       → invoke root-cause-by-layer, name layer 4/5
   4. Fix            → one focused edit, smallest coherent unit, at the named layer
   5. Run E2E again  → loss_{k+1} becomes loss_k of iteration k+1
+  6. Emit trace     → python -m ldd_trace append ...  (see using-ldd §"Persisted trace")
 ```
 
 **Do not skip step 1** — "I know what broke, I'll just fix it" is the anti-pattern. Until you measured the current state, you don't know if the last change helped, hurt, or was a no-op.
@@ -43,6 +44,8 @@ k-th iteration:
 **Do not skip step 2** — if `Δloss_k ≤ 0`, the previous edit did not help. You are in oscillation or a local minimum. Invoke `loss-backprop-lens` before proposing another edit.
 
 **Do not skip step 5** — without the post-edit run, "fixed" is a claim, not a measurement.
+
+**Do not skip step 6** — the user needs to see the loss descend live, per-iteration. v0.5.1 makes this a hard step, not an optional summary at task end. Running `python -m ldd_trace append ...` appends to `.ldd/trace.log` AND prints the full trace block (sparkline + chart + per-iteration line) — one command satisfies both mandates. If the tool is unavailable, render the trace block manually per `using-ldd/SKILL.md` §"Loss visualization".
 
 ## Red Flags — STOP, the loop is degrading
 
@@ -52,6 +55,7 @@ k-th iteration:
 - "E2E keeps failing the same way, let me try something else" → `Δloss` is not going down; step size wrong (invoke `loss-backprop-lens`)
 - "I'll run the unit test instead, same signal" → only if the unit test covers the same failure surface; otherwise you're measuring a different loss
 - "Let me batch 3 fixes and run once" → conflates 3 gradient steps; if one regressed, you can't attribute
+- "I'll emit the trace block at the end of the whole task, the user doesn't need it per iteration" → **NO (v0.5.1)**. The user CANNOT see convergence without per-iteration emission; a final-block-only cadence gives them a single data point instead of a trajectory. Per-iteration trace is step 6, not optional.
 
 ## E2E selection — cheap before expensive
 
@@ -76,13 +80,14 @@ This skill runs **inside** `loop-driven-engineering`'s `K_MAX = 5`. The E2E-per-
 
 ## How to Apply — checklist
 
-1. **Define the failing E2E.** Exact command, expected state, measured state. Save the output of iteration 0 as `loss_0`.
+1. **Define the failing E2E.** Exact command, expected state, measured state. Save the output of iteration 0 as `loss_0`. If `.ldd/trace.log` exists in the project, first run `python -m ldd_trace status --project .` to see prior iterations.
 2. **Enter the loop.** At the start of each iteration: run E2E, capture `loss_k`, compare to `loss_{k-1}`.
 3. **Interpret the delta.** Negative → progress, continue. Zero → no-op, rethink. Positive → regression, revert immediately and re-diagnose.
 4. **Diagnose** via `root-cause-by-layer`. **Calibrate** via `loss-backprop-lens`.
 5. **Edit** smallest coherent unit.
 6. **Rerun E2E.** That's `loss_{k+1}`.
-7. **Close** only when E2E is fully green AND the regularizers (contracts, docs) are honored — hand off to `docs-as-definition-of-done`.
+7. **Emit trace block.** Run `python -m ldd_trace append --project . --loop inner --auto-k --skill <skill> --action "<what changed>" --loss-norm <v> --raw <n>/<max>`. The tool appends to `.ldd/trace.log` AND prints the full trace block — show the output to the user.
+8. **Close** only when E2E is fully green AND the regularizers (contracts, docs) are honored — hand off to `docs-as-definition-of-done`. Run `python -m ldd_trace close ...` to record terminal status.
 
 ## Common Rationalizations
 

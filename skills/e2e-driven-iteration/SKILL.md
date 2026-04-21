@@ -5,6 +5,10 @@ description: Use at the start of every inner-loop iteration where the goal is to
 
 # E2E-Driven-Iteration
 
+## The Metaphor
+
+**The lab scientist with a hypothesis.** Before any intervention: *measure the baseline.* After any intervention: *measure again.* Between the two measurements: exactly one change. "I know what this reagent does" without running the control experiment is not science — it is storytelling. The E2E run is the measurement device. Skipping it turns every edit into a story and leaves the loss unexamined.
+
 ## Overview
 
 The existing dach-skill `loop-driven-engineering` says "run E2E when warranted." That's too soft. Under time pressure, "warranted" silently becomes "never" and the iteration degrades into blind-patching based on stale assumptions.

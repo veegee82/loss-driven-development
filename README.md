@@ -4,9 +4,14 @@
 [![Plugin format: Claude Code · Codex · Gemini CLI](https://img.shields.io/badge/plugin-Claude%20Code%20·%20Codex%20·%20Gemini%20CLI-green.svg)](#installation)
 [![Δloss_bundle: 0.561 (normalized)](https://img.shields.io/badge/%CE%94loss__bundle-0.561-brightgreen.svg)](./tests/README.md#current-measurements)
 [![Skills: 10 + architect + entry](https://img.shields.io/badge/skills-10%20%2B%20architect%20%2B%20entry--point-blueviolet.svg)](./skills/)
+[![Theory](https://img.shields.io/badge/theory-%C2%A7%20SGD%20on%20code-informational.svg)](./docs/theory.md)
 
 > **LDD is to AI-era coding what TDD was to human coding.**
 > Ten portable skills (+ bootstrap entry-point) for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured* discipline where symptom patches, local-minimum traps, and silent code drift can't hide.
+
+### The metaphor in one paragraph
+
+Imagine a climber on a cloud-shrouded mountain. The summit is `L = 0` (no rubric violations). She can't see the top, only her altimeter, the local slope, her log book of past steps, and a fellow climber asking hostile questions about her next move. **LDD encodes those four instruments** as a reasoning discipline: *measure before every step* (inner loop), *probe the slope from a hostile angle* (dialectical reasoning), *consult the log book for patterns* (project memory), and *calibrate predictions against observations* (drift detection). The full theory — metaphor, architecture, formulas — lives in [`docs/theory.md`](./docs/theory.md).
 
 ### Install in 30 seconds (Claude Code)
 

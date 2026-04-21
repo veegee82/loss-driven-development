@@ -5,6 +5,10 @@ description: Use when encountering a bug, failing test, or unexpected behavior �
 
 # Root-Cause-by-Layer
 
+## The Metaphor
+
+**The pathologist at the autopsy table.** The visible symptom — the bleeding, the bruise, the collapsed lung — is never the disease. The disease lives in a failing organ, a contract between systems, a subtle pressure gradient two layers deep. A surgeon who sutures the bleeding without opening up dies a different patient next week. Five layers, always. Stop at layer 2 and the bug re-emerges in a different guise.
+
 ## Overview
 
 A bug is a **symptom**. The disease almost always lives at a layer boundary, a contract violation, or a conceptual mismatch — rarely on the line that threw the exception. Walk the 5-layer ladder before proposing any fix.

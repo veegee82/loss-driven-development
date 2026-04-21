@@ -1,0 +1,89 @@
+// memory-dialectical-coupling.dot
+// How project memory (1st moment / prior) couples with dialectical reasoning
+// (2nd order / Hessian probe) to produce a posterior over action confidence.
+
+digraph memory_dialectical {
+    rankdir=LR;
+    bgcolor="transparent";
+    nodesep=0.45;
+    ranksep=0.55;
+
+    node [shape=box, style="filled,rounded", fontname="Helvetica", fontsize=11,
+          fillcolor="#F5F5F5", color="#666666"];
+    edge [fontname="Helvetica", fontsize=9, color="#444444"];
+
+    // Left column — memory
+    subgraph cluster_memory {
+        label=<<B>Memory</B>\n(1st moment / prior)>;
+        labeljust="l";
+        style="rounded,dashed";
+        color="#5B8DB8";
+        fontname="Helvetica";
+        fontsize=11;
+        bgcolor="#F4F9FC";
+
+        trace [label=".ldd/trace.log\n(append-only)",
+               shape=cylinder, fillcolor="#E8F4F8", color="#5B8DB8"];
+        agg [label="aggregator\n(deterministic)",
+             fillcolor="#E8F4F8", color="#5B8DB8"];
+        mem [label="project_memory.json\n- μ_s per skill\n- plateau patterns\n- calibration MAE",
+             fillcolor="#E8F4F8", color="#5B8DB8", shape=cylinder];
+
+        trace -> agg -> mem;
+    }
+
+    // Center column — coupling (primer generation)
+    subgraph cluster_primer {
+        label=<<B>Coupling</B>\n(prime-antithesis)>;
+        labeljust="l";
+        style="rounded,dashed";
+        color="#B88830";
+        fontname="Helvetica";
+        fontsize=11;
+        bgcolor="#FFFBF0";
+
+        primer [label="Primers\n\nskill_failure_mode,\nplateau_pattern,\nsimilar_task,\nterminal_analysis",
+                fillcolor="#FFF5DD", color="#B88830"];
+    }
+
+    // Right column — dialectical reasoning
+    subgraph cluster_dialectical {
+        label=<<B>Dialectical</B>\n(2nd order / Hessian probe)>;
+        labeljust="l";
+        style="rounded,dashed";
+        color="#4C8A4C";
+        fontname="Helvetica";
+        fontsize=11;
+        bgcolor="#F2FBF2";
+
+        thesis [label="Thesis\nΔθ + predicted_ΔL",
+                fillcolor="#E8F8E8", color="#4C8A4C"];
+        antithesis [label="Antithesis\n(primed +\n≥ 1 independent)",
+                    fillcolor="#E8F8E8", color="#4C8A4C"];
+        synth [label="Synthesis\nE[ΔL] = ΣPr·impact\n+ (1−ΣPr)·predicted",
+               fillcolor="#E8F8E8", color="#4C8A4C"];
+
+        thesis -> antithesis [label=" probe "];
+        antithesis -> synth [label=" combine "];
+    }
+
+    // Right of dialectical — posterior
+    posterior [label="Action confidence\n(posterior)\n\nconfidence(action) ∝\nmemory_likelihood\n× dialectical_likelihood\n× prior",
+               fillcolor="#F0E8F8", color="#8050A8", shape=note];
+    decision [shape=diamond, label="Decide",
+              fillcolor="#FFEBE0", color="#B85040"];
+
+    // Coupling flows
+    mem -> primer [label=" statistics "];
+    primer -> antithesis [label=" priming material\n(anti-groupthink: +1 free) "];
+
+    mem -> thesis [label=" μ_s → predicted ", style=dashed];
+
+    synth -> posterior;
+    posterior -> decision;
+
+    // Bias invariant note
+    note [label="Bias invariant:\nneither memory nor dialectical\nmodifies L(θ). Both refine\nsearch direction only.",
+          shape=note, fillcolor="#F8F8F8", color="#888888", fontsize=9];
+    note -> posterior [style=dotted, arrowhead=none, color="#888888"];
+}

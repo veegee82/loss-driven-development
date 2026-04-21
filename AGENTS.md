@@ -1,6 +1,8 @@
 # Loss-Driven Development (LDD) — Skills for any coding agent
 
-Five composable skills for **loss-driven development** — the AI-era counterpart of TDD. Platform-agnostic content; multiple distribution formats so the same skills work in Claude Code, Codex, Gemini CLI, Aider, Cursor, Copilot CLI, and any agent that reads project-level instruction files.
+**Twelve composable skills** for **loss-driven development** — the AI-era counterpart of TDD. Platform-agnostic content; multiple distribution formats so the same skills work in Claude Code, Codex, Gemini CLI, Aider, Cursor, Copilot CLI, and any agent that reads project-level instruction files.
+
+**The metaphor in one paragraph**: imagine a climber on a cloud-shrouded mountain (the codebase). She can't see the summit (`L = 0`) — only her altimeter, the local slope, her log book of past climbs, and a fellow climber asking hostile questions. LDD encodes those four instruments as a reasoning discipline: *measure before every step* (inner loop), *probe the slope from a hostile angle* (dialectical reasoning), *consult the log book for patterns* (project memory), and *calibrate predictions against observations* (drift detection). Full theory with metaphor → high-level → formulas: [`docs/theory.md`](./docs/theory.md).
 
 ## What this is
 
@@ -75,7 +77,13 @@ Engineering is **gradient descent on code**. Tests are forward passes. The delta
 
 Docs are the **regularizer** — they pin the conceptual model; drift raises generalization loss silently.
 
-LDD separates three optimization loops: **inner** (θ = code), **refinement** (θ = deliverable, y-axis), **outer** (θ = skills / rubrics, θ-axis). Mixing them is the single biggest cause of "iterative work that never converges." Full mental model in [`docs/ldd/convergence.md`](./docs/ldd/convergence.md); pictures in [`diagrams/`](./diagrams/).
+LDD separates three optimization loops: **inner** (θ = code), **refinement** (θ = deliverable, y-axis), **outer** (θ = skills / rubrics, θ-axis). Mixing them is the single biggest cause of "iterative work that never converges." Three navigational instruments layer on top without modifying the loss function:
+
+- **Project memory** (v0.5.2) — per-project aggregate at `.ldd/project_memory.json`; first-moment statistical priors over skill effectiveness
+- **Memory × dialectical coupling** (v0.6.0) — `prime-antithesis` surfaces memory-derived primers for the dialectical synthesis step; Bayesian-style `confidence(action) ∝ memory × dialectical × prior`
+- **Quantitative dialectic** (v0.7.0) — the synthesis step computes `E[Δloss | thesis]`, logs the prediction, and the aggregator computes `MAE` vs. observed Δloss; `drift_warning` when `MAE > 0.15` over `n ≥ 5`
+
+Full mental model: [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) (practitioner-facing) and [`docs/theory.md`](./docs/theory.md) (paper-style). Diagrams in [`diagrams/`](./diagrams/) — start with `three-loops.svg`, then `gradient-via-dialectic.svg`, `memory-dialectical-coupling.svg`, `calibration-feedback-loop.svg`.
 
 ## Methodology
 

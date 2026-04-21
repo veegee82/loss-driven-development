@@ -179,6 +179,52 @@ Key constraints that keep this from being a moving-target-loss escape hatch:
 
 The ML-lens framing holds: every work session is still gradient descent on code. Architect-mode with creativity levels just exposes the **choice of `L`** as a first-class parameter for one specific case (design from requirements), with the choice being one of three discrete, named alternatives — not a free parameter.
 
-## 8. What this document does not do
+## 8. Navigational instruments — memory, dialectic, calibration (v0.5.2 – v0.7.0)
 
-It does not prove convergence. It specifies the conditions under which convergence is expected and names the divergence patterns a practitioner will actually see. The proof would require formalizing each skill's rubric, running a large task suite, and measuring `Δloss_bundle` trajectories under each creativity level — the outer-loop work of a future paper, not this v0.3.
+The three loops and architect-mode's creativity levels describe *what* is optimized. A separate layer of the framework describes *how the agent navigates* the θ-space — refining the gradient estimate without modifying `L(θ)`. Three instruments, each orthogonal to the loop structure.
+
+### 8.1 Metaphor — back to the climber
+
+The climber on the cloudy slope has four navigational aids:
+
+- **Altimeter** = measured `L(θ_k)` (the loss itself; unchanged)
+- **Compass** = gradient direction (where the slope points down, per `root-cause-by-layer`)
+- **Log book of past climbs** = project memory (`.ldd/project_memory.json` — first-moment statistics over past gradient steps)
+- **Hostile fellow climber** = dialectical reasoning (probes orthogonal directions — "sure about that direction? the fog is thickest there")
+
+A fifth practice wraps all four: **calibration**. After a committed step, the climber compares "I expected to lose 30m of altitude" against "I actually lost 45m." Systematic error means the compass is biased; the climber corrects, or asks why.
+
+### 8.2 Memory as first moment (v0.5.2)
+
+Persistent per-iteration trace (`.ldd/trace.log`) accumulates into a deterministic, bias-guarded aggregate (`.ldd/project_memory.json`). Per-skill Δloss history, plateau resolution patterns, terminal distribution. The invariant: memory informs the *prior* over skill choice, never the *loss* itself. Four explicit bias guards (survivorship, regression-to-mean, recency-drift, confirmation) are enforced in code (`TestBiasInvariant`) and documented in each emitted memory file.
+
+**SGD analog**: momentum-like prior. Memory says "this direction has historically worked"; dialectic says "does it work *here*"; loss says "did it actually work."
+
+### 8.3 Dialectic as Hessian probe (v0.6.0)
+
+When the agent proposes a thesis (`Δθ_t` with expected Δloss), the dialectical skill probes orthogonal directions via primers from memory:
+
+```
+E[Δloss | thesis] = Σ_primer Pr(primer applies) · impact(primer)
+                  + (1 − Σ Pr) · predicted(thesis)
+```
+
+Each primer encodes a candidate perpendicular direction in θ-space where `L` reacts non-monotonically. Enough primer counter-cases indicate the thesis has significant Hessian off-diagonal in that direction — synthesis narrows scope or pivots.
+
+**SGD analog**: second-order / Hessian-probing. Combined with memory (first moment), it approaches a Newton-style update: *confidence(action) ∝ memory_likelihood × dialectical_likelihood × prior*. See `diagrams/memory-dialectical-coupling.svg`.
+
+### 8.4 Quantitative dialectic (v0.7.0)
+
+The synthesis step is reduced to a number: `E[Δloss | thesis]`. Decision rule: commit if `E[Δloss] < 0` and no alternative dominates by > 0.1; reject otherwise. The commit logs `predicted_Δloss`; after the iteration runs, the aggregator computes `prediction_error = predicted − actual` and surfaces mean absolute error. When `MAE > 0.15` with `n ≥ 5`, a `drift_warning` fires — explicit signal that the agent's priors are miscalibrated, triggering method-evolution.
+
+**SGD analog**: learning-rate scheduling via a posterior-vs-prior error. Poor calibration means the optimizer's internal model of the loss landscape is wrong; the response is not bigger steps, but re-inspecting the model. See `diagrams/calibration-feedback-loop.svg`.
+
+### 8.5 Why none of this modifies `L(θ)`
+
+Each instrument is subject to the bias-invariance principle (§3.11 of [`docs/theory.md`](../theory.md)). Memory cannot turn a regressive edit into a progressive one; primers cannot invert the sign of Δloss; calibration adjusts predictions, not observations. The loss function remains externally specified by the rubric. All navigation happens in the *search* layer; the *objective* stays pure.
+
+This is the structural reason LDD can accumulate per-project priors without collapsing into moving-target-loss — the separation of "what the agent believes about the gradient" from "what the rubric measures about the state" is enforced at the code level, not just the doc level.
+
+## 9. What this document does not do
+
+It does not prove convergence. It specifies the conditions under which convergence is expected and names the divergence patterns a practitioner will actually see. The proof would require formalizing each skill's rubric, running a large task suite, and measuring `Δloss_bundle` trajectories under each creativity level AND each calibration regime — the outer-loop work of a future paper, not this revision.

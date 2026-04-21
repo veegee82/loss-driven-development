@@ -5,6 +5,10 @@ description: Use whenever the user prefixes a message with "LDD:" or mentions LD
 
 # Using LDD — the bundle entry-point
 
+## The Metaphor
+
+**The conductor before the orchestra.** Twelve instruments sit ready — violins (`reproducibility-first`), brass (`root-cause-by-layer`), percussion (`loss-backprop-lens`), a vocalist who sings counter-arguments (`dialectical-reasoning`). The conductor plays none of them. She picks *which* and *when* each enters, watches the composition (the loss curve), and cues the next instrument from the score (the trace). `using-ldd` is the conductor. Every other skill is an instrument.
+
 ## Overview
 
 Loss-Driven Development (LDD) is a ten-skill bundle that treats code changes as SGD steps and forbids overfitting to the current test. This entry-skill exists so you (the agent) know **when to reach for which LDD skill** without the user having to name each one by hand.

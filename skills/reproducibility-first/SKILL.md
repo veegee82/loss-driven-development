@@ -5,6 +5,10 @@ description: Use when you have observed a failing test, a flaky run, a surprisin
 
 # Reproducibility-First
 
+## The Metaphor
+
+**The trial judge weighing testimony.** One witness saying the defendant was at the scene is *hearsay* — a single data point that could be malice, error, or noise. Two independent witnesses with the same story is *evidence*. A failure observed once is a rumor; a failure observed twice is a signal. Acting on a single observation is how budget gets burned chasing phantoms.
+
 ## Overview
 
 **One observation is not a gradient.** An LLM call is one sample of a distribution. A CI run is one sample of an intermittent fault. A failing test on your machine is one sample of your environment. Acting on a single sample is not SGD — it's noise injection.

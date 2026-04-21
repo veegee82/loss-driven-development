@@ -5,6 +5,10 @@ description: Use at the start of any non-trivial engineering task (feature, bugf
 
 # Loop-Driven-Engineering
 
+## The Metaphor
+
+**The flight controller guiding three nested loops.** The *inner loop* is the aircraft correcting pitch per second — direct edits to the code. The *refinement loop* is the approach pattern — polishing the landing without changing the aircraft. The *outer loop* is the training program that adjusts how pilots are taught — changing the skill itself. Each loop has its own budget, its own instruments, its own failure mode. The controller's first duty: *name which loop is active.* Confusion about which loop you're in is the canonical engineering error.
+
 ## Overview
 
 Engineering is **three loops**, not one. You plan, you try, you measure, you diagnose, you try again — on the **code axis** (inner loop), the **deliverable axis** (refinement), and the **method axis** (outer loop). The thing that separates good engineering from flailing is choosing the right loop for the current loss, respecting each loop's budget, and not smuggling one loop's edits into another's.

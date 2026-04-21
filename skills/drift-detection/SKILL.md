@@ -5,6 +5,10 @@ description: Use periodically (weekly, at release candidates, before major versi
 
 # Drift-Detection
 
+## The Metaphor
+
+**The geologist, not the meteorologist.** The meteorologist watches yesterday's weather. The geologist reads the erosion patterns that took decades to form — features *no single rainstorm* could have produced. Cumulative drift is geological: twenty reasonable commits, each individually innocent, erode the codebase's coherence. No per-commit gate can catch it. Looking for drift requires a different timescale and a different instrument — the aggregate, not the diff.
+
 ## Overview
 
 **Drift is divergence on a timescale longer than one work session.** Twenty individually-reasonable commits can compose into a system whose mental model no longer matches the code. Per-commit gates (`docs-as-definition-of-done`) cannot catch it because no single commit violates a rule — the violation is the **cumulative pattern**.

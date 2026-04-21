@@ -1,0 +1,302 @@
+# Theory of Loss-Driven Development
+
+**A discipline for AI-era software engineering, framed as stochastic gradient descent on code.**
+
+---
+
+## Abstract
+
+Loss-Driven Development (LDD) treats every engineering task as optimization: a **loss function** defined by rubric violations, a **parameter space** defined by the code, and a set of **operators** (skills) that take gradient-descent-like steps against the loss. The discipline enforces that every step is *measured* (reproducible), *directional* (informed by a gradient estimate), and *bounded* (budget-limited). v0.7.0 extends the framework with **quantitative dialectic**: the synthesis step of dialectical reasoning now produces an expected-loss number that can be validated post-hoc, closing the calibration loop between the agent's internal priors and the observed world.
+
+LDD is a **skill** — a reasoning protocol, not a framework. The discipline lives in the skill text. The accompanying Python tool (`ldd_trace`) exists only to make compliance ergonomic.
+
+---
+
+## 1. The Metaphor — The Climber Without a Summit View
+
+Imagine a climber on a cloud-shrouded mountain. The summit (`L = 0`) is somewhere above; every step changes altitude by some amount (Δ loss). The climber cannot see the summit, only:
+
+- **Altimeter** — tells them their current height (the loss `L(θ)` at the current state)
+- **Sense of slope** — local gradient: where does the ground fall away most steeply?
+- **Log book** — every past step: "I went north and lost 200m; then east and gained 50m"
+- **A fellow climber's hostile questions** — "are you sure that direction? the fog is thickest there"
+
+A reckless climber walks by altitude alone, committing to every downward step. A disciplined climber does four things:
+1. **Reads the altimeter before every step** (inner loop: measure `L` per iteration)
+2. **Reasons about the terrain**, not just the gradient (dialectical: probe orthogonal directions)
+3. **Consults the log book** for patterns (memory: historical step outcomes)
+4. **Calibrates**: "I predicted −50m for this kind of step; I got −30m. My compass drifts right."
+
+LDD encodes these four behaviors. Every other specialist skill (`root-cause-by-layer`, `reproducibility-first`, `method-evolution`, …) is a sub-protocol for one of them.
+
+---
+
+## 2. High-Level Structure
+
+LDD is organized as **three nested optimization loops**, each with its own parameter space:
+
+| Loop | What is optimized | Gradient source | Budget |
+|---|---|---|---|
+| **Inner** (`θ` = code) | A code change makes a failing signal pass | Rubric / test outcomes | K_MAX = 5 iterations |
+| **Refinement** (`y` = deliverable) | A "good enough" artifact becomes "great" | Review rubric on the deliverable itself | Halved per iteration, stops on plateau |
+| **Outer** (`θ` = skill definition) | A recurring rubric violation across N tasks becomes a skill/rubric change | Cross-task statistics (`project_memory.json`) | Triggers at N ≥ 3 tasks |
+
+Orthogonal to the three loops, LDD provides **navigational instruments** that refine the gradient estimate without biasing the loss function:
+
+| Instrument | SGD analog | Role |
+|---|---|---|
+| `ldd_trace` / project memory | First moment (momentum-like prior) | Accumulates empirical Δloss per skill |
+| `dialectical-reasoning` | Second moment (local Hessian probe) | Tests orthogonal directions; produces expected-Δloss |
+| `loss-backprop-lens` | Adaptive learning rate | Matches edit-size to loss structure |
+| `reproducibility-first` | Noise-suppression | Rejects single-sample gradient estimates |
+| `docs-as-definition-of-done` | Regularizer | Penalizes under-documented (future-loss-inducing) edits |
+
+**Bias invariant** (load-bearing): none of these instruments may modify the loss function `L(θ)`. They inform the search for the gradient; they do not redefine progress.
+
+See `diagrams/three-loops.svg` for the loop-nesting diagram.
+
+---
+
+## 3. Formalization
+
+### 3.1 Code as Parameter Space
+
+Let `θ ∈ Θ` denote the complete state of the code at a given moment: every file's bytes, every test's contents, every config value. The space `Θ` is discrete and enormous, but local neighborhoods (small diffs from `θ`) are well-defined.
+
+### 3.2 The Loss Function
+
+For a given engineering task `T`, the loss function is:
+
+$$
+L_T(\theta) = \frac{|\{r \in R_T : r \text{ violated at } \theta\}|}{|R_T|}
+$$
+
+where `R_T` is the rubric: the set of pass/fail checks defining success for `T`. This is **rate-typed** loss (`L ∈ [0,1]`). For absolute-typed losses (latency, throughput), the same frame applies with a task-specific denominator; normalization is deferred to the display layer, not the optimization.
+
+**Key property**: `L_T` is externally specified — by tests, by docs, by explicit R-rules. It is not a function of the agent's beliefs. This is why "memory cannot bias the loss" is a meaningful rule: even if memory tells the agent that skill X is best, L only registers what X *actually achieved*.
+
+### 3.3 Gradient Descent Step
+
+Given the current state `θ_k` with `L_T(θ_k) > 0`, the next iteration produces:
+
+$$
+\theta_{k+1} = \theta_k + \Delta\theta_k
+$$
+
+where `Δθ_k` is the edit made during iteration `k`. The observable gradient signal is:
+
+$$
+\Delta L_k = L_T(\theta_{k+1}) - L_T(\theta_k)
+$$
+
+Progress: `Δ L_k < 0`. Plateau: `|ΔL_k| < ε` (typically `ε = 0.005`). Regression: `ΔL_k > 0`.
+
+### 3.4 Inner Loop — K_MAX-Bounded SGD
+
+The inner loop runs:
+
+```
+for k = 0 ... K_MAX:
+    L_k = measure(θ_k)                        // E2E / rubric / tests
+    if L_k == 0: break                        // converged
+    diagnose(θ_k, L_k)                         // root-cause-by-layer
+    Δθ_k = edit(diagnosis)                     // smallest coherent change
+    θ_{k+1} = apply(θ_k, Δθ_k)
+    emit_trace(k, skill, Δθ, L_k, ΔL_k)        // discipline, not optional
+if k == K_MAX and L_k > 0: escalate           // budget exhaustion signal
+```
+
+The discipline: measure *before* the edit (to know the gradient), emit the trace *after* the edit (so the log encodes the descent), and escalate at `K_MAX` instead of silently continuing. Budget exhaustion is a **signal**, not a failure: it says the current parameterization is inadequate, which hands off to the outer loop.
+
+### 3.5 Refinement Loop — Y-Axis Optimization
+
+When the inner loop has converged (`L = 0`), the artifact is *done* in the rubric sense, but may be "good enough, not great." Refinement loop optimizes **deliverable quality** (`y`), not correctness:
+
+$$
+y_{k+1} = \text{refine}(y_k, \text{review-rubric})
+$$
+
+with halved budget per step and plateau-detection termination. This is not the inner loop rerun — the loss function itself changes (from `rubric_violations` to `reviewer_notes`).
+
+### 3.6 Outer Loop — θ-Axis Optimization
+
+When the same rubric violation recurs across N ≥ 3 tasks, the parameter space shifts to **the skills/rubrics themselves**. This is `method-evolution`: modify the skill's rules, measure `mean_Δloss_over_tasks` before and after, rollback on regression.
+
+The outer loop closes the self-improvement circuit: the system learns not just individual tasks but how to do tasks.
+
+### 3.7 Memory as First-Moment Estimator
+
+The persistent trace (`.ldd/trace.log`) records, for every iteration:
+
+$$
+e_i = (t_i, \text{loop}, k, \text{skill}, \Delta\theta\text{-summary}, L_k, \Delta L_k, \hat L_k)
+$$
+
+where `t_i` is timestamp and `L̂_k` is the predicted Δloss from the quantitative dialectic (if applied; see §3.9).
+
+The aggregator maintains a **project memory**:
+
+$$
+\mu_s = \frac{1}{n_s} \sum_{e : \text{skill}(e) = s} \Delta L_e
+$$
+
+The per-skill mean Δloss `μ_s` is an estimator of "what does this skill typically do in this project." Bias-guards:
+
+- **Survivorship**: `μ_s` is computed over *all* terminal states; per-terminal breakdown is exposed separately.
+- **Regression to mean**: both absolute `μ_s^{abs}` and relative `μ_s^{rel} = E[ΔL/L_{prev}]` are reported.
+- **Recency drift**: lifetime and last-30-day windows both tracked.
+- **Confirmation**: aggregation is deterministic on raw trace; no agent curation.
+
+Memory serves as a **prior**, not a rule. It informs `P(skill_s | current_task)` without altering `L_T`.
+
+### 3.8 Dialectic as Hessian Probe
+
+Dialectical reasoning — the thesis → antithesis → synthesis protocol — is LDD's second-order-information mechanism. The agent proposes a gradient direction (thesis = `Δθ_{thesis}`); the antithesis generates counter-cases (`Δθ_{anti,i}`) that probe orthogonal directions where `L` reacts non-monotonically.
+
+Formally, if the thesis is `Δθ_t` with expected progress `-g_t`, and a primer surfaces a counter-direction `v_i` with historical impact `+h_i`, the **Hessian-projected cost** is:
+
+$$
+\mathcal{H}_{i} = v_i^\top \nabla^2 L(\theta) \, \Delta\theta_t \quad \text{(informal)}
+$$
+
+In practice, `∇²L` is not computed; the primer encodes it heuristically as a *probability that the counter-case applies times its impact*. The synthesis step aggregates:
+
+$$
+\mathbb{E}[\Delta L \mid \text{thesis}] = \sum_i \Pr(v_i \text{ applies}) \cdot h_i + \Big(1 - \sum_i \Pr(v_i)\Big) \cdot \hat L_{thesis}
+$$
+
+This is the **Bayesian-expectation** formulation of the synthesis — not a black-box reasoning output, but a number the agent computes and can be checked against observation.
+
+### 3.9 The Quantitative Dialectic (v0.7.0)
+
+The full protocol:
+
+1. **Thesis** with `predicted_Δloss` from `μ_{skill}` and `confidence = clamp(log(1+n)/log(11), 0, 1)`
+2. **Primers** (from `prime-antithesis`): each maps to `{Pr(applies), impact}`
+3. **Synthesis** computes `E[ΔL | thesis]` per §3.8
+4. **Decision**:
+   - commit if `E[ΔL | thesis] < 0` ∧ no alternative dominates by > 0.1
+   - reject if `E[ΔL | thesis] ≥ 0` ∨ alternative dominates by > 0.1
+   - escalate if within-ambiguity band
+5. **Calibration** (§3.10) logs `predicted_Δloss` alongside `actual_Δloss`
+
+This is where the "gradient-via-dialectic" metaphor becomes a computable gradient estimate — computed by the agent's reasoning, not the tool's code, but reduced to a number that can be right or wrong.
+
+### 3.10 Calibration Feedback Loop
+
+Given a series of (predicted, actual) pairs `{(L̂_i, L_i)}_{i=1..N}`:
+
+$$
+\text{err}_i = \hat L_i - \Delta L_i \qquad \text{MAE} = \frac{1}{N}\sum_i |\text{err}_i|
+$$
+
+The aggregator emits `drift_warning: true` when `MAE > 0.15 ∧ N ≥ 5`. This is the explicit signal that the agent's in-head priors are miscalibrated; the response is `method-evolution` (outer loop), not silent loss modification.
+
+Per-skill MAE is also tracked — a skill with good overall calibration but bad MAE on one skill-choice signals that the specific skill's behavior has drifted (e.g., the skill definition was updated).
+
+### 3.11 Bias Invariance Principle (Load-Bearing)
+
+All navigational instruments (memory, dialectical, calibration, suggestions) MUST satisfy:
+
+$$
+\forall \theta, \theta' : L_T(\theta) < L_T(\theta') \implies L_T(\theta) < L_T(\theta')
+$$
+
+(The loss ordering is preserved under any navigational intervention.) In plain terms:
+
+- Memory cannot make a regressive edit look progressive
+- Primers cannot invert the sign of `ΔL`
+- Rank scores cannot relabel a violation as a non-violation
+- Calibration adjustments apply to *predictions*, not to observations
+
+Violations of this principle turn LDD into a moving-target-loss system and collapse the convergence guarantee. The memory module is tested (`TestBiasInvariant`) to enforce this at code level.
+
+---
+
+## 4. The Complete Protocol
+
+A single LDD inner-loop iteration in full:
+
+```
+# Before
+assert .ldd/trace.log exists                    # recover prior state
+state = ldd_trace.status(project)              # know which k we're on
+
+# During
+for k = current_k ... K_MAX:
+    L_k = run_e2e()                             # reproducibility-first
+    if L_k == 0: break
+    diag = root_cause_by_layer(L_k, θ_k)        # name layers 4-5
+    thesis = propose_edit(diag)                 # from the diagnosis
+    primers = prime_antithesis(                 # memory feeds dialectical
+        memory, thesis, files=touched
+    )
+    E_ΔL = dialectical_synthesis(thesis, primers)  # §3.9
+    if E_ΔL >= 0 or alternative_dominates:
+        reject(thesis)  or  pivot()
+        continue
+    apply(thesis)                                # commit the edit
+    L_{k+1} = run_e2e()
+    ldd_trace.append(                            # discipline
+        loop=inner, k=k, skill=..., action=...,
+        loss_norm=L_{k+1}, raw=...,
+        predicted_delta=E_ΔL                     # for calibration
+    )
+    if L_{k+1} == 0: break
+
+# After
+docs_as_definition_of_done()                     # regularizer
+ldd_trace.close(                                 # terminal state
+    terminal=complete, layer=...,
+    docs=synced
+)
+# auto: aggregate refreshes project_memory.json
+```
+
+Each step corresponds to one skill. Skipping a step is a rubric violation.
+
+---
+
+## 5. Relation to Prior Work
+
+| Concept | Prior art | LDD's contribution |
+|---|---|---|
+| Gradient descent | Stochastic Gradient Descent (SGD) | Apply to code as parameter space; reasoning agent as optimizer |
+| Momentum | Nesterov / Adam | Bias-guarded per-project memory; explicit "prior ≠ rule" |
+| Hessian probing | Newton methods | Natural-language antitheses as orthogonal-direction probes |
+| Dialectical reasoning | Hegel (obviously) | Bound to an observable loss; synthesis produces `E[ΔL]` |
+| Bayesian decision theory | Laplace / Jaynes | Per-iteration posterior over skill choice |
+| Calibration | Brier scores, conformal prediction | Post-hoc `predicted vs. actual` logging, drift-warning trigger |
+| Test-driven development | Beck | Generalized to ANY measurable loss (tests are one instance) |
+
+The distinction: LDD does not replace any of these; it *composes* them into a single protocol applicable to AI-era software engineering, where a reasoning agent is the optimizer.
+
+---
+
+## 6. Open Questions
+
+- **Cross-project memory**: currently forbidden (signal-mixing risk). Could a bias-guarded global aggregate — conditioned on task-type — help or harm? Requires validation beyond a single-project demonstration.
+- **Confidence estimation**: the `confidence = log(1+n)/log(11)` heuristic is ad-hoc. A proper posterior (Beta / Gamma on Δloss distribution) would be more principled, at the cost of protocol complexity.
+- **Non-stationarity**: skill definitions evolve (the outer loop changes them). Current calibration assumes stationary priors. A proper handling requires change-point detection on the trace.
+- **Meta-calibration**: does the protocol itself require a meta-level calibration? When drift_warning fires repeatedly, is the problem in the skills, the rubrics, or the protocol's structure?
+
+---
+
+## 7. Where the Theory Materializes in the Code
+
+| Theory | Implementation |
+|---|---|
+| `L_T(θ)` — loss function | `run_e2e` results; rubric scoring |
+| `ΔL` signal | `ldd_trace append --loss-norm ... --raw ...` |
+| Per-skill `μ_s` | `project_memory.json` → `skill_effectiveness.delta_mean_abs` |
+| Plateau resolution `μ_resolver` | `project_memory.json` → `plateau_resolution_patterns` |
+| `E[ΔL | thesis]` (§3.8–3.9) | Agent reasoning, primed by `ldd_trace prime-antithesis` |
+| `predicted_Δloss` log | `ldd_trace append --predicted-delta <float>` |
+| `MAE`, `drift_warning` | `project_memory.json` → `calibration` |
+| Bias invariance | `scripts/ldd_trace/test_e2e_memory.py::TestBiasInvariant` |
+
+The theory is the specification; the code is an ergonomic shim that makes the specification cheap to honor.
+
+---
+
+*See `diagrams/gradient-via-dialectic.svg`, `diagrams/memory-dialectical-coupling.svg`, `diagrams/calibration-feedback-loop.svg`, `diagrams/three-loops.svg` for visual intuition.*

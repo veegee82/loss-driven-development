@@ -1,0 +1,78 @@
+// gradient-via-dialectic.dot
+// The 5-step quantitative dialectic protocol as a flow.
+// Renders the v0.7.0 numeric protocol — thesis/primers/synthesis/decision/calibration.
+
+digraph gradient_via_dialectic {
+    rankdir=TB;
+    bgcolor="transparent";
+    splines=ortho;
+    nodesep=0.35;
+    ranksep=0.5;
+
+    node [shape=box, style="filled,rounded", fontname="Helvetica", fontsize=11,
+          fillcolor="#F5F5F5", color="#666666"];
+    edge [fontname="Helvetica", fontsize=9, color="#444444"];
+
+    // Inputs
+    memory [label="project_memory.json\n(per-skill μ_s, plateau patterns,\ncalibration history)",
+            fillcolor="#E8F4F8", color="#5B8DB8", shape=cylinder];
+    context [label="in-flight task\n(streak, starting_loss, files)",
+             fillcolor="#FFF5E1", color="#C89850", shape=note];
+
+    // Step 1 — Thesis
+    step1 [label="STEP 1 — Thesis\n\nΔθ_thesis + predicted_Δloss\n+ confidence_factor",
+           fillcolor="#E8F8E8", color="#4C8A4C"];
+
+    // Step 2 — Primers
+    step2 [label="STEP 2 — Primers\n\n{Pr(applies), impact}\nper counter-case",
+           fillcolor="#E8F8E8", color="#4C8A4C"];
+
+    // Step 3 — Synthesis
+    step3 [label="STEP 3 — Synthesis\n\nE[Δloss | thesis] =\nΣ Pr·impact  +  (1−ΣPr)·predicted",
+           fillcolor="#FFF5DD", color="#B88830"];
+
+    // Step 4 — Decision
+    decision [label="STEP 4 — Decision", shape=diamond,
+              fillcolor="#FFEBE0", color="#B85040"];
+
+    commit [label="commit\n(E[ΔL] < 0,\nno dominant alt.)",
+            fillcolor="#D8F0D8", color="#4C8A4C"];
+    reject [label="reject / pivot\n(E[ΔL] ≥ 0 or\nalt dominates > 0.1)",
+            fillcolor="#F8D8D8", color="#B85040"];
+    escalate [label="escalate to user\n(within ±0.1 band)",
+              fillcolor="#FFF0D8", color="#B88830"];
+
+    // Step 5 — Calibration
+    step5 [label="STEP 5 — Calibration\n\nprediction_error = predicted − actual\nMAE → drift_warning",
+           fillcolor="#E8E8F8", color="#5050A8"];
+
+    // Observe (actual Δloss)
+    observe [label="observe actual Δloss\n(post-iteration measurement)",
+             fillcolor="#F0F0F0", color="#888888"];
+
+    // Outer-loop trigger
+    method_evo [label="outer loop\n(method-evolution)",
+                fillcolor="#F8E8F8", color="#A050A0"];
+
+    // Flow
+    memory -> step1 [label=" μ_s → predicted_Δloss"];
+    memory -> step2 [label=" μ_resolver → impacts"];
+    context -> step2 [label=" current streak\n applies Pr"];
+
+    step1 -> step3;
+    step2 -> step3;
+    step3 -> decision;
+
+    decision -> commit  [label=" E[ΔL] < 0 "];
+    decision -> reject  [label=" alt dominates "];
+    decision -> escalate [label=" |Δ| < 0.1 "];
+
+    commit -> observe;
+    observe -> step5 [label=" actual ΔL "];
+    step1 -> step5 [style=dashed, label=" predicted_Δloss "];
+    step5 -> method_evo [label=" MAE > 0.15\n(n ≥ 5) ", style=dashed, color="#A050A0"];
+
+    // Layout hint
+    {rank=same; memory; context;}
+    {rank=same; commit; reject; escalate;}
+}

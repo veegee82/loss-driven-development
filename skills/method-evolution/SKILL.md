@@ -5,6 +5,10 @@ description: Use when the same rubric violation, the same kind of symptom-patch,
 
 # Method-Evolution
 
+## The Metaphor
+
+**The blacksmith sharpening the tool.** Three botched hinges in a row — the blacksmith doesn't re-hammer the last hinge harder. She examines the hammer. The striking face is dulled from a thousand blows. *The tool has drifted, and every future hinge will inherit the drift until the tool is re-tempered.* In engineering: when the same rubric violation appears across three distinct tasks, the problem is not in the tasks. The skill itself needs work. Sharpening the tool is slower than hammering harder — but every future task benefits.
+
 ## Overview
 
 If your agent keeps making the same kind of mistake across completely different tasks, the mistake is not in the tasks — it's in the **method** that's instructing the agent. That means a skill is too vague, a rubric is too permissive, a prompt lets a rationalization slip through.

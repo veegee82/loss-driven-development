@@ -5,6 +5,10 @@ description: Use when a deliverable (document, diff, design, report, code module
 
 # Iterative-Refinement
 
+## The Metaphor
+
+**The stone carver polishing the sculpture.** Three weeks of rough work produced the form. Now the surface needs smoothing, the corners tightening, the subtle curve emphasized. A stone carver who *starts over from the block* because "it's still not perfect" has failed to understand the work. So has the engineer who *reruns the whole task* when the deliverable is already 90% right. Polish, don't rebuild. Small tool, small stroke, one facet at a time, until the plateau appears.
+
 ## Overview
 
 Most agents, when told "this is okay but can be better," do one of two wrong things:

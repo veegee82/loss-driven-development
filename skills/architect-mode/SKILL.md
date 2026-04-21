@@ -5,6 +5,10 @@ description: Use when the user wants an architecture, design, or structure inven
 
 # Architect Mode
 
+## The Metaphor
+
+**The city planner before the first brick.** The mason lays walls well — straight, plumb, mortar set. But the mason does not decide where the streets go, where the market belongs, which districts connect to the harbour. That is the city planner's work: constraints survey → exclusions map (non-goals) → three alternative plans on a load-bearing axis → scoring → chosen plan → initial scaffold that proves the plan can be built. Build without a plan and the city is a maze. LDD's reactive stack is the mason; architect-mode is the city planner — opt-in, five rigid phases, creativity as a choice of loss function not an amount of permissiveness.
+
 ## Overview
 
 LDD's default stack is **reactive**: it measures loss on existing code and drives a gradient-descent fix-loop. Architect mode **inverts** this — the loss is computed over the **space of possible designs** for a stated problem, not over an existing artifact. The agent's role shifts from pathologist to constructor.

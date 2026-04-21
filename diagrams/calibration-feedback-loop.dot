@@ -1,0 +1,68 @@
+// calibration-feedback-loop.dot
+// The calibration feedback loop — v0.7.0 Step 5.
+// Predicted Δloss → actual Δloss → prediction error → drift-warning → outer loop.
+
+digraph calibration_loop {
+    rankdir=LR;
+    bgcolor="transparent";
+    nodesep=0.45;
+    ranksep=0.55;
+
+    node [shape=box, style="filled,rounded", fontname="Helvetica", fontsize=11,
+          fillcolor="#F5F5F5", color="#666666"];
+    edge [fontname="Helvetica", fontsize=9, color="#444444"];
+
+    // Pre-commit prediction
+    dialectic [label="Quantitative dialectic\n(synthesis §3.9)",
+               fillcolor="#E8F8E8", color="#4C8A4C"];
+    predicted [label="predicted_Δloss\n(L̂_k)",
+               fillcolor="#FFF5DD", color="#B88830", shape=note];
+
+    // Iteration runs
+    edit [label="apply edit (θ_k → θ_{k+1})",
+          fillcolor="#F5F5F5", color="#666666"];
+    measure [label="measure L(θ_{k+1})",
+             fillcolor="#F5F5F5", color="#666666"];
+    actual [label="actual Δloss\n(ΔL_k)",
+            fillcolor="#E8F4F8", color="#5B8DB8", shape=note];
+
+    // Logging
+    append [label="ldd_trace append\n--predicted-delta L̂\n--loss-norm L",
+            fillcolor="#F8F4E8", color="#B88830", shape=cds];
+
+    // Aggregator
+    agg [label="aggregator\n(auto on close)",
+         fillcolor="#E8F4F8", color="#5B8DB8"];
+
+    // Calibration stats
+    calib [label="calibration block:\nerr_i = L̂_i − ΔL_i\nMAE = mean|err_i|\nby-skill MAE",
+           fillcolor="#E8E8F8", color="#5050A8", shape=cylinder];
+
+    // Drift gate
+    gate [shape=diamond, label="MAE > 0.15\n∧ n ≥ 5 ?",
+          fillcolor="#FFEBE0", color="#B85040"];
+
+    // Outcomes
+    ok [label="calibration OK\n(priors trustworthy)",
+        fillcolor="#D8F0D8", color="#4C8A4C"];
+    method_evo [label="drift_warning\n→ method-evolution\n(outer loop)",
+                fillcolor="#F0E8F8", color="#8050A8"];
+
+    // Flow
+    dialectic -> predicted;
+    predicted -> append [style=dashed];
+    edit -> measure -> actual;
+    actual -> append;
+    append -> agg;
+    agg -> calib;
+    calib -> gate;
+    gate -> method_evo [label=" yes "];
+    gate -> ok [label=" no "];
+
+    // Loop back — method_evo produces updated skills → updated predictions
+    method_evo -> dialectic [label=" updated skills\n + priors ", style=dashed, color="#8050A8"];
+
+    // Groupings
+    {rank=same; dialectic; edit;}
+    {rank=same; predicted; actual;}
+}

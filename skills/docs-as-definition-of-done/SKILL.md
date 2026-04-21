@@ -5,6 +5,10 @@ description: Use when finishing any code change that modifies behavior, public A
 
 # Docs-as-Definition-of-Done
 
+## The Metaphor
+
+**The cartographer updating the map as the city changes.** A new bridge is built. A road is closed. A district is rebuilt after a fire. If the cartographer says "I'll update the map next week" — the map is wrong *now*. Every traveller using the map arrives at the wrong intersection. In engineering: the docs are the map of the code. An edit that changes behavior and leaves the docs untouched builds a map that lies. Future readers — human or agent — get lost. Sync docs in the same commit as behavior; deferred means broken.
+
 ## Overview
 
 Docs describe code **exactly, but at the conceptual level**. A reader of the markdown must get a faithful, current mental model of the code without reading the code.

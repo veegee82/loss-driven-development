@@ -5,6 +5,10 @@ description: Use when deciding whether to edit code at all, how large the edit s
 
 # Loss-Backprop-Lens
 
+## The Metaphor
+
+**The climber on a cloudy slope.** A novice takes the same stride size everywhere — one metre down the gentle meadow, one metre down the cliff edge. The experienced climber reads the terrain: short crab-steps on loose rock, long strides on open ground, an abseil where the slope is vertical. *Step size must match the gradient's shape.* In code: a typo warrants a one-line edit; a recurring contract violation demands an architectural step. Wrong step-size is how optimizers oscillate at cliff edges or stall on plateaus.
+
 ## Overview
 
 Working on a codebase is **gradient descent on code**. A test / CI run / E2E is a **forward pass**. The difference between expected and actual is the **loss**. Every edit is a **step** toward lower loss. This is not a metaphor — it dictates which edits are admissible and which are noise injected into your parameters.

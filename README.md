@@ -23,6 +23,55 @@ Full install for other agents (Codex · Gemini CLI · Aider · Cursor · …) be
 
 > 📦 **Where this came from:** distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) ([`pip install awp-agents`](https://pypi.org/project/awp-agents/)), an open standard for multi-agent orchestration where all three LDD loops — inner, refinement, outer — are implemented as live SGD code, not metaphor. See [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one mapping, a concrete debugging case study, and how to try the framework itself.
 
+## Here's what an LDD session looks like
+
+Every non-trivial LDD task emits a visible **trace block** inline — re-rendered after every iteration (v0.5.0+) so you watch the loss descend in real time, not a single summary at the end:
+
+```
+╭─ LDD trace ─────────────────────────────────────────╮
+│ Task       : fix JSON parser bug across 3 functions
+│ Loops      : inner → refine → outer  (all three fired)
+│ Loss-type  : normalized [0,1]  (raw counts in parens)
+│ Budget     : inner k=3/5 · refine k=2/3 · outer k=1/1
+│
+│ Trajectory : █▆▃▂··   0.500 → 0.375 → 0.125 → 0.100 → 0.000 → 0.000  ↓
+│
+│ Loss curve (auto-scaled, linear):
+│   0.50 ┤ ●  ●
+│   0.25 ┤       ●
+│   0.00 ┤          ●  ●  ●
+│        └─i1─i2─i3─r1─r2─o1→  iter
+│        Phase prefixes: i=inner · r=refine · o=outer
+│
+│ Iteration i1 (inner, reactive)    loss=0.500  (4/8)
+│   *reproducibility-first* + *root-cause-by-layer* → guard empty list, filter None values
+│ Iteration i2 (inner, reactive)    loss=0.375  (3/8)   Δ −0.125 ↓
+│   *e2e-driven-iteration* → isinstance-based filter for non-numeric types
+│ Iteration i3 (inner, reactive)    loss=0.125  (1/8)   Δ −0.250 ↓
+│   *loss-backprop-lens* → sibling-signature generalization check 3/3 green
+│ Iteration r1 (refine)             loss=0.100  (1/10)  Δ −0.025 ↓
+│   *iterative-refinement* → docstring sections + ValueError on all-invalid
+│ Iteration r2 (refine)             loss=0.000  (0/10)  Δ −0.100 ↓
+│   *iterative-refinement* → runtime invariants via assert
+│ Iteration o1 (outer)              loss=0.000  (0/8)   Δ ±0.000 →
+│   *method-evolution* → skill rubric updated; 3 sibling tasks no longer regress
+│
+│ Close:
+│   Fix at layer: 4 (input-contract) · 5 (deterministic-before-LLM)
+│   Docs synced : yes (SKILL.md + rubric updated)
+│   Terminal    : complete
+╰─────────────────────────────────────────────────────╯
+```
+
+Four parallel visualization channels encode the same SGD descent at different granularities:
+
+- **Trajectory sparkline** (`▁▂▃▄▅▆▇█`) + net-direction trend arrow — micro-dynamics, 8-level resolution, separates a converged tail where losses differ by 0.05.
+- **Mini ASCII chart** (`┤` axis + `●` markers) — macro-trajectory, tail convergence honestly collapses to the baseline row.
+- **Per-iteration mode + info line** — the audit surface. `(inner, reactive)` / `Phase p1 (architect, inventive)` / `(refine)` / `(outer)` tells you which discipline was active; the indented `*<skill>* → <action>` line tells you what it did.
+- **Per-step `Δ` + arrow** — local magnitude and direction of each step, distinct from the end-to-end sparkline arrow (a run can locally spike `↑` while ending net `↓`).
+
+Full format spec in [`skills/using-ldd/SKILL.md`](./skills/using-ldd/SKILL.md) § Loss visualization. Persistence + slash commands in [§ Live trace below](#live-trace--see-the-loop-happen-in-real-time). Renderer + executed E2E demo: [`scripts/demo-trace-chart.py`](./scripts/demo-trace-chart.py) and [`scripts/demo-e2e-trace.py`](./scripts/demo-e2e-trace.py) — both runnable with zero deps.
+
 ![Three loops](./diagrams/three-loops.svg)
 
 ## The one-sentence pitch
@@ -435,12 +484,15 @@ If you see none of these in an interaction where you expected them, LDD is insta
 
 ## Optional Claude-Code tooling
 
-`scripts/` contains four optional helpers (not required, not part of the skills):
+`scripts/` contains seven optional helpers (not required, not part of the skills):
 
 - `scripts/drift-scan.py` — runs the seven drift indicators over a repo, produces a Markdown report
 - `scripts/capture-clean-baseline.py` — captures RED/GREEN baselines via direct LLM API (no agent harness) for any fixture
+- `scripts/capture-red-green.py` — paired RED/GREEN captures for multi-scenario fixtures (skill content prepended as system-message on GREEN)
 - `scripts/evolve-skill.sh` — scaffolds a RED/GREEN re-run for a skill against its fixture (terminal-driven)
 - `scripts/render-diagrams.sh` — regenerates SVGs from the `.dot` sources
+- `scripts/demo-trace-chart.py` — renders the v0.5.0 trace block (sparkline / mini chart / mode+info / trend arrow) from a hard-coded 6-iteration task. Pure renderer, no LLM calls.
+- `scripts/demo-e2e-trace.py` — executed E2E demo: optimizes a real `compute_average()` through all three loops, running actual rubric checks against actual compiled code and re-rendering the trace after each iteration.
 
 Run them manually, wire them into CI, or ignore them. The skills don't depend on them.
 

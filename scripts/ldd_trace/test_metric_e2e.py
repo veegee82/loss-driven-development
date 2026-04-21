@@ -188,11 +188,14 @@ class TestE2E_CompositionDrivesMultiObjective:
         reg.register(lint)
         reg.register(latency)
 
-        # Weighted sum — tests weigh 4x as much as the others
+        # Weighted sum — tests weigh 4x as much as the others.
+        # v0.9.1 P6: cross-kind composition (bounded + positive) requires
+        # explicit force_incompatible opt-in with scale attestation.
         combined = weighted_sum(
             "combined_quality",
             [(test_pass, 4.0), (lint, 1.0), (latency, 1.0)],
             description="weighted sum: 4:1:1 over test_pass, lint, latency",
+            force_incompatible=True,  # attestation: latency normalize_scale=1000 chosen deliberately
         )
         reg.register(combined)
 

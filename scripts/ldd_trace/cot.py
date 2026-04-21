@@ -350,12 +350,23 @@ class CoTRunner:
         commit_threshold: float = COMMIT_THRESHOLD,
         revise_threshold: float = REVISE_THRESHOLD,
         max_backtracks: int = MAX_BACKTRACKS,
+        trust_guard: Optional["Any"] = None,
+        require_antithesis: bool = True,
     ) -> None:
+        """v0.9.1: `trust_guard` sanitizes agent-supplied prior + antitheses
+        per audit findings C2 / H1. `require_antithesis` (default True)
+        rejects steps with zero antitheses to close the C2 bypass.
+        """
         self.llm = llm
         self.store = store
         self.commit_threshold = commit_threshold
         self.revise_threshold = revise_threshold
         self.max_backtracks = max_backtracks
+        self.require_antithesis = require_antithesis
+        if trust_guard is None:
+            from ldd_trace.trust_guard import default_trust_guard
+            trust_guard = default_trust_guard
+        self.trust_guard = trust_guard
 
     def run(
         self,
@@ -427,6 +438,8 @@ class CoTRunner:
         proposed = self.llm.propose_step(
             task=chain.task, task_type=chain.task_type, chain=chain.steps
         )
+        # v0.9.1 P1 — cap prior (C2 fix): prevent LLM always-confident bypass
+        safe_prior = self.trust_guard.guard_prior(proposed.prior)
 
         # --- Step 2: antitheses (primers + independent) ---
         primers = gather_primers(
@@ -443,17 +456,38 @@ class CoTRunner:
         )
         antitheses = primers + independent
 
+        # v0.9.1 P1 — validate antitheses bounds (H1 fix) + require ≥ 1 (C2 fix)
+        # When require_antithesis is True AND primers is empty AND llm returned
+        # nothing, the guard raises AntithesisAbsentError. Caller-level policy:
+        # we catch it here and mark the chain terminal=antithesis-absent via
+        # a soft-land (instead of crashing the chain).
+        from ldd_trace.trust_guard import AntithesisAbsentError
+        try:
+            antitheses = self.trust_guard.guard_antitheses(
+                antitheses, allow_empty=not self.require_antithesis
+            )
+        except AntithesisAbsentError:
+            # Chain cannot continue — mark partial termination
+            chain.terminal = "partial"  # will be confirmed by outer loop
+            # Return a degenerate step so the chain records the event
+            return Step(
+                k=k, task_type=chain.task_type,
+                thesis=proposed.content, thesis_prior=safe_prior,
+                antitheses=[], synthesis=proposed.content,
+                predicted_correct=0.0, decision="reject",
+                tokens=proposed.tokens, timestamp=_utcnow_iso(),
+            )
+
         # --- Step 3: synthesis ---
         synth = self.llm.synthesize(
             thesis=proposed.content,
-            thesis_prior=proposed.prior,
+            thesis_prior=safe_prior,
             antitheses=antitheses,
         )
 
         # Authoritative math — trust our formula over whatever the LLM says
-        # (bias-invariance: predicted_correct MUST be computed, not supplied by LLM)
         computed_predicted = compute_predicted_correct(
-            thesis_prior=proposed.prior, antitheses=antitheses
+            thesis_prior=safe_prior, antitheses=antitheses
         )
         decision = decide_from_predicted(computed_predicted)
 
@@ -474,7 +508,7 @@ class CoTRunner:
             k=k,
             task_type=chain.task_type,
             thesis=proposed.content,
-            thesis_prior=proposed.prior,
+            thesis_prior=safe_prior,  # v0.9.1: store the guarded prior
             antitheses=antitheses,
             synthesis=synthesis_content,
             predicted_correct=computed_predicted,

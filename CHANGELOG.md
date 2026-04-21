@@ -2,6 +2,134 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] — 2026-04-22
+
+### Added — self-consistency release (14/15 audit findings resolved)
+
+v0.9.1 applies LDD's own discipline to LDD's own code. The v0.9.0 audit
+(docs/audit/v0-9-0-findings.md) surfaced 15 collapse/unsoundness modes.
+v0.9.1 resolves 14 of them across 6 structural patterns. The remaining
+finding (H7: recursive coupling / meta-calibration) is v0.10.0 scope
+because it requires method-evolution-rollback infrastructure.
+
+### P1 — Trust Boundary Layer (fixes C1, C2, H1, H4, L1)
+
+New module `scripts/ldd_trace/trust_guard.py`:
+
+  - `TrustGuard.guard_prior(prior)` caps at `MAX_PRIOR=0.9` (C2 fix)
+  - `TrustGuard.guard_antitheses(antis, allow_empty=False)` validates
+    prob ∈ [0,1] and |impact| ≤ 1; rejects empty list by default (H1, C2 fix)
+  - `TrustGuard.guard_verify_fn(fn, required=True)` rejects None with
+    a clear error pointing to canonicalize-then-compare (H4 fix)
+  - `TrustGuard.guard_accessor(accessor, spec_name)` AST-audits for
+    goodhart-identifier patterns (`lines_added`, `_by_agent`, etc.) (C1 fix)
+  - `MULTILINGUAL_GAMING_PHRASES` extends phrase list to EN + DE + FR + ES (L1 fix)
+
+Integration:
+  - `MetricSpec.__post_init__` calls `TrustGuard.check_description_multilingual`
+  - `CoTRunner.__init__` accepts `trust_guard` parameter; default is
+    `default_trust_guard`. `require_antithesis=True` is the new default;
+    old callers opt out via `require_antithesis=False`.
+  - `CoTRunner._run_step` caps `thesis_prior` and validates antitheses;
+    AntithesisAbsentError soft-lands with a degenerate reject step.
+
+New exceptions:
+  - `AntithesisAbsentError`, `ImpactOutOfRangeError`, `PriorTooHighError`,
+    `VerifyFnMissingError`, `GoodhartAccessorError`, `TrustGuardError`
+
+### P2 — Single Source of Truth (fixes C3, H5, M1)
+
+- `MetricRegistry.list_names()` now returns `sorted(self._specs.keys())`,
+  not `self._metrics.keys()`. API alignment — no more list_names-vs-specs
+  disagreement after session reopen.
+- `MetricRegistry.get(name)` raises `SpecExistsButCallableMissing` when
+  the spec is on disk but the callable wasn't re-registered this session.
+  Replaces the silent `None` return of v0.9.0.
+- New `MetricRegistry.has_callable(name)` introspection helper.
+
+### P3 — Multi-Statistic Gate + Rolling Window + Tri-State (fixes H2, H3, M2, M3)
+
+`CalibrationRecord` unchanged; `Calibrator` extended:
+
+  - `p95_error(name)` — 95th-percentile absolute error (H2 tail-risk)
+  - `worst_error(name)` — max absolute error (H2 catastrophic-miss)
+  - `mae_window(name, window=10)` — rolling MAE for demotion detection (M3)
+  - `evaluate_state(name)` — returns tri-state+ verdict:
+    `INSUFFICIENT_DATA` (n < min_n) — explicit third state (H3 fix)
+    `CATASTROPHIC_OUTLIER` (worst > 0.50) — blocks promotion (H2)
+    `TAIL_RISK_HIGH` (p95 > 0.30) — blocks promotion (H2)
+    `DRIFTING` (mae > 0.15) — blocks promotion; enables demotion
+    `LOAD_BEARING` (all gates pass)
+  - `try_promote(name)` — now also DEMOTES a previously-promoted metric
+    if recent-window MAE drifts above threshold (M3 monotonic-promotion fix)
+
+`PromotionState` extended:
+  - `state` field (string) — authoritative tri-state+ replaces
+    binary `is_load_bearing`
+  - `is_load_bearing` retained as read-only `@property` for v0.9.0 compat
+  - `demoted_at`, `last_p95_error`, `last_worst_error` new audit fields
+
+### P5 — Explicit Writer Model (fixes H6)
+
+`Calibrator` constructor takes `writer_mode` ∈ `{"single_writer", "shared"}`:
+  - `single_writer` (default): fast path, caller guarantees exclusivity
+  - `shared`: wraps each append in `fcntl.flock(LOCK_EX)` so multiple
+    processes / threads can safely append
+
+The assumption becomes **contractual** rather than implicit.
+
+### P6 — Type-Safe Composition (fixes M4)
+
+`metric_compose` operators (`weighted_sum`, `maximum`, `minimum`) now check
+that all components share the same `kind`:
+  - Same kind → composes normally
+  - Different kinds → raises `IncompatibleUnitsError` with a message
+    explaining the user must either (a) choose same-kind components or
+    (b) pass `force_incompatible=True` and attest the scale choice.
+
+### Deferred — H7 recursive coupling (v0.10.0)
+
+The method-evolution ↔ project_memory ↔ prime_antithesis cycle requires
+a meta-calibration layer AND a skill-change-rollback mechanism. Both are
+architectural v0.10.0 work — not a bugfix.
+
+### Tests — 208 new total
+
+  - `test_trust_guard.py` (24 tests): TrustGuard unit + integration tests
+  - `test_v0_9_0_audit.py`: 4 audit tests inverted from "vulnerability" to
+    "defense_in_v0_9_1" — evidence that the fixes hold
+  - `test_metric.py`, `test_metric_e2e.py`: updated 1 test to use
+    `force_incompatible=True` for legitimate cross-kind compositions
+  - `test_cot.py`: 2 legacy tests opt out of new `require_antithesis=True`
+    default via `require_antithesis=False`
+
+All green: `python -m pytest scripts/ldd_trace/ -q` → 208 passed.
+
+### Backward-compat notes
+
+  - `PromotionState.is_load_bearing` is a read-only property now. Code
+    that wrote to it must write to `state` instead. The one internal
+    usage was updated; external callers must do the same.
+  - `CoTRunner` default behavior changed: empty antithesis list → soft-land
+    as `terminal=partial` + degenerate reject step. Legacy mock-LLM tests
+    opt out via `require_antithesis=False`.
+  - Cross-kind composition now requires `force_incompatible=True`. Legacy
+    cross-kind calls will raise `IncompatibleUnitsError`.
+
+### Dogfood — v0.9.1 built with LDD on itself
+
+Audit-driven release: v0.9.0 audit surfaced findings → v0.9.1 closes 14
+of them under LDD discipline. Trace persisted in `.ldd/trace.log`. This
+is the self-consistency loop — LDD used LDD's tooling (`ldd_trace append`,
+quantitative dialectic, method-evolution lens) to fix LDD's own code.
+
+### Philosophical upshot
+
+The v0.9.0 audit showed: LDD had weaknesses where it hadn't applied its
+own discipline internally. v0.9.1 closes those gaps. When a framework
+that teaches discipline internally violates the same principles, it's
+not a bug — it's a credibility crisis. v0.9.1 is the credibility repair.
+
 ## [0.9.0] — 2026-04-21
 
 ### Added — Metric Algebra (extensible foundation for agent-defined losses)

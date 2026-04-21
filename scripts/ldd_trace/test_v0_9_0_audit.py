@@ -83,26 +83,21 @@ class TestBiasInvarianceLeaks:
         assert bad_metric.normalize(bad_metric.observed({"lines_added_by_agent": 5000})) == 1.0
         # VULNERABILITY confirmed: no protection against goodhart-accessor.
 
-    def test_llm_supplied_thesis_prior_propagates_unchecked_vulnerability(
+    def test_llm_supplied_thesis_prior_defense_in_v0_9_1(
         self, tmp_path: Path
     ) -> None:
-        """FINDING: in dialectical-CoT, `thesis_prior` comes from the LLM's
-        self-rating. The Runner recomputes `predicted_correct` authoritatively
-        via `compute_predicted_correct` — but that formula MULTIPLIES the prior
-        through. A malicious / over-confident LLM returning prior=1.0 always
-        drives E[correct]=1.0 when there are no antitheses, bypassing any
-        dialectical gate.
+        """v0.9.1 P1 DEFENSE VERIFIED: TrustGuard.guard_prior caps thesis_prior
+        at MAX_PRIOR (0.9), AND require_antithesis=True (default) rejects
+        steps with empty antitheses.
 
-        v0.9.0 is VULNERABLE. Defense would require (a) prior smoothing
-        (cap at 0.9 max), or (b) ensemble-check prior across multiple LLM
-        samples, or (c) forcing mandatory primer-based antithesis count > 0.
+        Pre-v0.9.1: prior=0.999 + antitheses=[] → guaranteed-commit bypass.
+        Post-v0.9.1: chain terminates partial with degenerate step.
         """
-        # Simulate a degenerate LLM that always self-rates prior=0.999
         always_confident = MockCotLLMClient(
             propose_queue=[
                 ProposedStep(content="Answer: 0", prior=0.999, tokens=10),
             ],
-            attack_queue=[[]],  # NO antitheses — LLM doesn't self-attack
+            attack_queue=[[]],  # NO antitheses — would bypass v0.9.0 dialectic
             synth_queue=[
                 SynthesisOutput(content="Answer: 0", predicted_correct=0.999, decision="commit"),
             ],
@@ -111,19 +106,23 @@ class TestBiasInvarianceLeaks:
             verify_fn=lambda a, gt: a == gt,
         )
         store = TraceStore(tmp_path)
+        # Default v0.9.1 behavior — strict antithesis requirement
         runner = CoTRunner(llm=always_confident, store=store)
         chain = runner.run(
             task="What is the correct answer?", task_type="test",
             ground_truth="42", max_steps=2,
         )
-        # The chain committed the (wrong) answer with ~0.999 predicted confidence
-        assert chain.steps[0].predicted_correct > 0.95
-        # But actual is False
-        assert chain.actual_correct is False
-        # VULNERABILITY: agent was "99.9% confident" on a wrong answer,
-        # calibration will eventually catch it, but a single-shot bypass
-        # is complete. A malicious agent with antitheses=[] and prior=1.0
-        # has a guaranteed-commit action.
+        # v0.9.1: chain does NOT reach load-bearing commit with high confidence;
+        # step is a degenerate reject (predicted_correct = 0, decision = reject).
+        # The final terminal may be partial/failed depending on verify_fn.
+        assert len(chain.steps) >= 1
+        assert chain.steps[0].predicted_correct == 0.0
+        assert chain.steps[0].decision == "reject"
+        # v0.9.1: prior was capped to MAX_PRIOR even though LLM reported 0.999
+        assert chain.steps[0].thesis_prior <= 0.9 + 1e-9
+        # chain.terminal ∈ {partial, failed} — crucially NOT "complete"
+        assert chain.terminal != "complete"
+        # DEFENSE VERIFIED: always-confident-no-antithesis bypass is closed.
 
     def test_agent_supplied_antithesis_impact_gameable_vulnerability(self) -> None:
         """FINDING: `Antithesis.impact` is agent-supplied. Either direction
@@ -162,13 +161,13 @@ class TestBiasInvarianceLeaks:
 
 
 class TestCalibrationCollapse:
-    def test_mae_hides_catastrophic_tail_vulnerability(self, tmp_path: Path) -> None:
-        """FINDING: MAE is mean-absolute-error. A single catastrophic
-        prediction can be hidden by many good ones — the metric gets
-        promoted to load_bearing despite having tail risk.
+    def test_mae_hides_catastrophic_tail_defense_in_v0_9_1(self, tmp_path: Path) -> None:
+        """v0.9.1 P3 DEFENSE VERIFIED: multi-statistic gate rejects promotion
+        when any single error exceeds `CALIB_MAX_WORST_ERROR` (0.50) — even
+        if mean MAE is under threshold.
 
-        v0.9.0 is VULNERABLE. Defense: use p95 or max instead of mean,
-        or track a separate 'worst case' counter.
+        Pre-v0.9.1: MAE alone → promoted despite catastrophic tail.
+        Post-v0.9.1: evaluate_state → CATASTROPHIC_OUTLIER → no promotion.
         """
         store = TraceStore(tmp_path)
         reg = MetricRegistry(store)
@@ -176,21 +175,31 @@ class TestCalibrationCollapse:
         reg.register(m)
         cal = Calibrator(reg)
 
-        # 9 predictions nearly-perfect (err=0.05 each), 1 catastrophic (err=0.95)
+        # 9 predictions nearly-perfect + 1 catastrophic (err=0.5)
         for _ in range(9):
             cal.log("m", predicted=0.5, observed=0.55)  # err = 0.05
-        cal.log("m", predicted=0.5, observed=1.0)  # but observed must be in [0,1]…
-        # Actual MAE: (9*0.05 + 0.5) / 10 = 0.95 / 10 = 0.095 — below 0.15 threshold
-        mae = cal.mae("m")
-        assert mae is not None and mae < 0.15
+        cal.log("m", predicted=0.5, observed=1.0)  # err = 0.50 — catastrophic
 
-        # Promotion succeeds despite the catastrophic miss
-        assert cal.try_promote("m") is True
+        # MAE alone would still pass (0.095) but multi-stat gate catches it:
+        mae = cal.mae("m")
+        assert mae is not None and mae < 0.15  # MAE gate would pass
+        worst = cal.worst_error("m")
+        assert worst is not None and worst >= 0.50  # tail stat catches it
+
+        # Multi-stat evaluation rejects promotion — could be either
+        # TAIL_RISK_HIGH (p95 exceeded) or CATASTROPHIC_OUTLIER (worst exceeded)
+        # depending on exact data; both are non-load-bearing rejection states.
+        from ldd_trace.metric_registry import (
+            PROMOTION_LOAD_BEARING, PROMOTION_OUTLIER, PROMOTION_TAIL_RISK,
+        )
+        state = cal.evaluate_state("m")
+        assert state in (PROMOTION_TAIL_RISK, PROMOTION_OUTLIER)
+        # try_promote returns False (P3 gate works)
+        assert cal.try_promote("m") is False
         promo = reg.promotion("m")
-        assert promo.is_load_bearing is True
-        # VULNERABILITY: promoted metric has a 10% catastrophic-miss rate
-        # that mean-MAE smoothed over. An agent using this metric as a
-        # gate will silently accept wrong decisions 10% of the time.
+        assert promo.state != PROMOTION_LOAD_BEARING
+        assert promo.is_load_bearing is False  # v0.9.0 compat property still works
+        # DEFENSE VERIFIED: tail-risky metric cannot become load-bearing.
 
     def test_min_n_5_fails_rare_task_types_vulnerability(
         self, tmp_path: Path
@@ -272,42 +281,33 @@ class TestCalibrationCollapse:
 
 
 class TestCompositionSemantics:
-    def test_composition_is_mathematically_sound_but_semantically_naive_tradeoff(
+    def test_composition_semantics_defense_in_v0_9_1(
         self, tmp_path: Path
     ) -> None:
-        """FINDING: weighted_sum is mathematically sound (output in [0,1],
-        linear, commutative). But it treats normalized values from
-        different metric kinds as comparable, which is a semantic
-        fiction:
-          - latency 500ms/1000ms normalizes to 0.5
-          - test-pass rate 0.5 is ALSO 0.5
-        These are NOT commensurable — yet the algebra happily combines them.
+        """v0.9.1 P6 DEFENSE VERIFIED: cross-kind composition raises
+        IncompatibleUnitsError unless `force_incompatible=True` is set.
 
-        v0.9.0 acknowledges this as a USER RESPONSIBILITY (choose the
-        scale parameter wisely). Documenting the limitation as a KNOWN
-        TRADE-OFF, not a collapse.
+        Pre-v0.9.1: weighted_sum(latency, test_pass) silently combined
+        semantically-incommensurate values.
+        Post-v0.9.1: default rejects; caller must explicitly attest
+        that the scale choice is intended.
         """
+        from ldd_trace.metric_compose import IncompatibleUnitsError
         latency = positive_count("lat", lambda θ: θ["ms"], normalize_scale=1000.0)
         tests = bounded_rate("tests", lambda θ: (θ["fail"], θ["total"]))
-        store = TraceStore(tmp_path)
-        reg = MetricRegistry(store)
-        reg.register(latency)
-        reg.register(tests)
-        combined = weighted_sum("x", [(latency, 1.0), (tests, 1.0)])
-        reg.register(combined)
 
-        # Two scenarios that should NOT be semantically equivalent:
-        # A: 500ms latency + 50% test failure
-        # B: 1000ms latency + 0% test failure
-        scenario_A = {"ms": 500, "fail": 5, "total": 10}
-        scenario_B = {"ms": 1000, "fail": 0, "total": 10}
-        v_A = combined.observed(scenario_A)
-        v_B = combined.observed(scenario_B)
-        # Both evaluate to 0.5 — algebra treats them as equivalent
-        assert v_A == pytest.approx(0.5)
-        assert v_B == pytest.approx(0.5)
-        # KNOWN TRADE-OFF: user is responsible for choosing scales such
-        # that different-kind metrics normalize to meaningfully comparable values.
+        # DEFAULT (no force): cross-kind composition rejected
+        with pytest.raises(IncompatibleUnitsError, match="mixes kinds"):
+            weighted_sum("x", [(latency, 1.0), (tests, 1.0)])
+
+        # OPT-IN: force_incompatible=True lets it through (user attests)
+        combined = weighted_sum(
+            "x", [(latency, 1.0), (tests, 1.0)], force_incompatible=True
+        )
+        # Same-kind composition still works without force
+        tests2 = bounded_rate("t2", lambda θ: (θ["f"], θ["t"]))
+        ok = weighted_sum("y", [(tests, 1.0), (tests2, 1.0)])
+        # DEFENSE VERIFIED: user must explicitly attest for cross-kind.
 
 
 # ===========================================================================
@@ -344,18 +344,20 @@ class TestRegistryStateDivergence:
         # Session 2: new registry on same store
         store2 = TraceStore(tmp_path)
         reg2 = MetricRegistry(store2)
-        # The spec IS loaded from disk:
+
+        # v0.9.1 P2 DEFENSE VERIFIED:
+        #   1. list_names() now returns specs.keys() — single source of truth
+        assert "x" in reg2.list_names()  # DEFENSE: no longer lies
+        #   2. specs() and list_names() agree
         assert "x" in reg2.specs()
-        # But `list_names()` uses `_metrics` (callable objects), NOT `_specs`.
-        # After reopen, `_metrics` is empty — DOUBLE vulnerability:
-        #   1. list_names() LIES by omission — reports [] despite spec on disk
-        #   2. get("x") returns None even though specs() says "x" exists
-        assert "x" not in reg2.list_names()  # THE LIE
-        assert reg2.get("x") is None        # THE SILENT FAILURE
-        # VULNERABILITY CONFIRMED (and actually MORE severe than initial hypothesis):
-        # the two introspection APIs (specs() vs list_names()) disagree about
-        # what's registered. Agent using list_names() thinks nothing is registered;
-        # agent using specs() thinks "x" exists and calls get("x").observed(...) → crash.
+        #   3. has_callable() introspection — False because callable not re-registered
+        assert reg2.has_callable("x") is False
+        #   4. get() raises SpecExistsButCallableMissing instead of returning None
+        from ldd_trace.metric_registry import SpecExistsButCallableMissing
+        with pytest.raises(SpecExistsButCallableMissing, match="re-registered"):
+            reg2.get("x")
+        # DEFENSE VERIFIED: introspection APIs are consistent; agents get
+        # a CLEAR signal to re-register rather than a silent None.
 
 
 # ===========================================================================
@@ -481,29 +483,30 @@ class TestConcurrencyRaces:
 
 
 class TestGamingGuardLocale:
-    def test_gaming_guard_phrase_list_is_english_only_vulnerability(self) -> None:
-        """FINDING: GAMING_GUARD_PHRASES contains only English patterns
-        ("my current", "i want", etc.). A German-speaking agent phrasing
-        "belohnt meine aktuelle aktion" bypasses the guard.
+    def test_gaming_guard_multilingual_defense_in_v0_9_1(self) -> None:
+        """v0.9.1 L1 DEFENSE VERIFIED: MULTILINGUAL_GAMING_PHRASES covers
+        English + German + French + Spanish common self-reference patterns.
 
-        v0.9.0 is VULNERABLE. Defense: multi-language phrase list OR
-        LLM-based semantic check OR restrict metric descriptions to
-        domain vocabulary (not natural language).
+        Pre-v0.9.1: "belohnt meine aktuelle aktion" passed.
+        Post-v0.9.1: rejected at spec construction.
         """
-        # German self-referential phrasing — should be rejected but isn't
-        try:
-            spec = MetricSpec(
+        # German self-referential phrasing — now correctly rejected
+        with pytest.raises(ValueError, match="gaming-guard"):
+            MetricSpec(
                 name="gamed_de",
                 kind="bounded",
                 unit="rate",
                 description="belohnt meine aktuelle entscheidung auf diesem schritt",
             )
-            # Construction SUCCEEDED — guard bypassed
-            bypassed = True
-        except ValueError:
-            bypassed = False
-        assert bypassed is True
-        # VULNERABILITY: guard is locale-limited.
+        # French also rejected
+        with pytest.raises(ValueError, match="gaming-guard"):
+            MetricSpec(
+                name="gamed_fr",
+                kind="bounded",
+                unit="rate",
+                description="récompense mon action actuelle sur cette étape",
+            )
+        # DEFENSE VERIFIED: multilingual coverage (4 languages).
 
 
 # ===========================================================================

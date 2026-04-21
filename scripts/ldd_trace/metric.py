@@ -78,7 +78,7 @@ class MetricSpec:
         # Kind validation
         if self.kind not in ("bounded", "positive", "signed"):
             raise ValueError(f"invalid kind: {self.kind}")
-        # Gaming-guard — the bias-invariance check at the spec level
+        # Gaming-guard — English baseline + multilingual (v0.9.1 L1 fix)
         desc_lower = (self.description or "").lower()
         for phrase in GAMING_GUARD_PHRASES:
             if phrase in desc_lower:
@@ -87,6 +87,12 @@ class MetricSpec:
                     f"phrase {phrase!r} (spec must describe WHAT is measured, "
                     f"not reward the agent's current behavior)"
                 )
+        # v0.9.1 — multilingual extension (L1 fix)
+        try:
+            from ldd_trace.trust_guard import TrustGuard as _TG
+            _TG.check_description_multilingual(self.description or "")
+        except ImportError:  # pragma: no cover — circular import guard
+            pass
 
     def to_dict(self) -> dict:
         return {

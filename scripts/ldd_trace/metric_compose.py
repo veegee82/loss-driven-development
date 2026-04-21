@@ -1,4 +1,10 @@
-"""Metric composition algebra — v0.9.0.
+"""Metric composition algebra — v0.9.0, extended in v0.9.1 with
+P6 type-safe composition (fix for audit finding M4).
+
+v0.9.1 change: when composing metrics of different `kind`, the operator
+raises `IncompatibleUnitsError` unless caller passes `force_incompatible=True`
+with an attestation that the scale choice is semantically intended.
+
 
 Operators that take metrics and produce new metrics:
 
@@ -28,6 +34,28 @@ from ldd_trace.metric import Metric, MetricSpec
 
 def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
+
+
+class IncompatibleUnitsError(ValueError):
+    """Raised by composition operators when components have different
+    `kind` (bounded/positive/signed) without explicit opt-in. v0.9.1 P6
+    fix for audit finding M4.
+    """
+
+
+def _check_kind_compatibility(
+    components: List,
+    force_incompatible: bool,
+) -> None:
+    """Verify all components share the same kind, unless force_incompatible."""
+    kinds = {c[0].spec.kind if isinstance(c, tuple) else c.spec.kind for c in components}
+    if len(kinds) > 1 and not force_incompatible:
+        raise IncompatibleUnitsError(
+            f"composition mixes kinds {sorted(kinds)}. "
+            f"Pass force_incompatible=True and ensure `normalize_scale` is "
+            f"chosen so components map to semantically comparable [0,1] values. "
+            f"(Audit finding M4: cross-kind weighted sums are math-only sound.)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -143,11 +171,16 @@ def weighted_sum(
     description: str = "",
     version: int = 1,
     advisory_only: bool = True,
+    force_incompatible: bool = False,
 ) -> WeightedSumMetric:
     """Build a weighted-sum metric from (metric, weight) pairs.
 
     The resulting metric is kind='bounded' (output ∈ [0,1] by construction).
+
+    v0.9.1 P6 — cross-kind composition raises `IncompatibleUnitsError`
+    unless `force_incompatible=True` is set explicitly. See audit M4.
     """
+    _check_kind_compatibility(components, force_incompatible)
     spec = MetricSpec(
         name=name,
         kind="bounded",
@@ -168,7 +201,9 @@ def maximum(
     description: str = "",
     version: int = 1,
     advisory_only: bool = True,
+    force_incompatible: bool = False,
 ) -> MaxMetric:
+    _check_kind_compatibility(components, force_incompatible)
     spec = MetricSpec(
         name=name,
         kind="bounded",
@@ -189,7 +224,9 @@ def minimum(
     description: str = "",
     version: int = 1,
     advisory_only: bool = True,
+    force_incompatible: bool = False,
 ) -> MinMetric:
+    _check_kind_compatibility(components, force_incompatible)
     spec = MetricSpec(
         name=name,
         kind="bounded",

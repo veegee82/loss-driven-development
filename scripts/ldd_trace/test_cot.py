@@ -131,7 +131,8 @@ class TestCoTRunnerHappyPath:
     def test_happy_path_3_steps_correct(self, tmp_path: Path) -> None:
         store = TraceStore(tmp_path)
         llm = _make_llm_for_happy_path(n_steps=3, answer="42")
-        runner = CoTRunner(llm=llm, store=store)
+        # v0.9.1 — legacy tests use empty antitheses; opt-out of strict requirement
+        runner = CoTRunner(llm=llm, store=store, require_antithesis=False)
         chain = runner.run(
             task="test task", task_type="math", ground_truth="42", max_steps=10
         )
@@ -145,7 +146,8 @@ class TestCoTRunnerHappyPath:
     def test_trace_file_written(self, tmp_path: Path) -> None:
         store = TraceStore(tmp_path)
         llm = _make_llm_for_happy_path(n_steps=2, answer="x")
-        runner = CoTRunner(llm=llm, store=store)
+        # v0.9.1 — legacy tests use empty antitheses; opt-out of strict requirement
+        runner = CoTRunner(llm=llm, store=store, require_antithesis=False)
         runner.run(task="t", task_type="test", ground_truth="x")
         traces_path = tmp_path / ".ldd" / "cot_traces.jsonl"
         assert traces_path.exists()
@@ -157,7 +159,8 @@ class TestCoTRunnerHappyPath:
     def test_memory_file_written(self, tmp_path: Path) -> None:
         store = TraceStore(tmp_path)
         llm = _make_llm_for_happy_path(n_steps=2, answer="x")
-        runner = CoTRunner(llm=llm, store=store)
+        # v0.9.1 — legacy tests use empty antitheses; opt-out of strict requirement
+        runner = CoTRunner(llm=llm, store=store, require_antithesis=False)
         runner.run(task="t", task_type="test", ground_truth="x")
         mem_path = tmp_path / ".ldd" / "cot_memory.json"
         assert mem_path.exists()
@@ -195,7 +198,8 @@ class TestRevise:
             extract_answer_fn=lambda c: "X",
             verify_fn=lambda a, gt: True,
         )
-        runner = CoTRunner(llm=llm, store=store)
+        # v0.9.1 — legacy tests use empty antitheses; opt-out of strict requirement
+        runner = CoTRunner(llm=llm, store=store, require_antithesis=False)
         chain = runner.run(task="t", task_type="logic", ground_truth="X")
         assert len(chain.steps) == 2
         assert chain.steps[0].decision == "revise"
@@ -239,7 +243,8 @@ class TestBacktrack:
             extract_answer_fn=lambda c: "Y",
             verify_fn=lambda a, gt: True,
         )
-        runner = CoTRunner(llm=llm, store=store)
+        # v0.9.1 — legacy tests use empty antitheses; opt-out of strict requirement
+        runner = CoTRunner(llm=llm, store=store, require_antithesis=False)
         chain = runner.run(task="t", task_type="logic", ground_truth="Y")
         assert chain.backtrack_count >= 1
         assert chain.terminal == "complete"
@@ -267,7 +272,7 @@ class TestBacktrack:
             attack_queue=antitheses,
             synth_queue=synth,
         )
-        runner = CoTRunner(llm=llm, store=store, max_backtracks=2)
+        runner = CoTRunner(llm=llm, store=store, max_backtracks=2, require_antithesis=False)
         chain = runner.run(task="t", task_type="hard", ground_truth=None, max_steps=10)
         assert chain.terminal == "partial"
         assert chain.backtrack_count > 2
@@ -480,7 +485,8 @@ class TestBiasInvariance:
             extract_answer_fn=lambda c: "wrong",
             verify_fn=lambda ans, gt: ans == gt,  # strict equality
         )
-        runner = CoTRunner(llm=llm, store=store)
+        # v0.9.1 — legacy tests use empty antitheses; opt-out of strict requirement
+        runner = CoTRunner(llm=llm, store=store, require_antithesis=False)
         chain = runner.run(
             task="t", task_type="test", ground_truth="correct", max_steps=3
         )
@@ -506,7 +512,8 @@ class TestBiasInvariance:
             extract_answer_fn=lambda c: "A",
             verify_fn=lambda ans, gt: False,  # force wrong
         )
-        runner = CoTRunner(llm=llm, store=store)
+        # v0.9.1 — legacy tests use empty antitheses; opt-out of strict requirement
+        runner = CoTRunner(llm=llm, store=store, require_antithesis=False)
         chain = runner.run(task="t", task_type="x", ground_truth="B", max_steps=3)
         # predicted should be the per-step compute, independent of the (wrong) actual
         assert chain.predicted_chain_correct == pytest.approx(0.8, abs=0.01)

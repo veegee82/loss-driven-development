@@ -1,0 +1,88 @@
+// dialectical-cot.dot
+// Dialectical Chain-of-Thought — per-step 5-phase protocol embedded inside the
+// chain trajectory. Shows the 4th LDD optimizer layer (thought-loop).
+
+digraph dialectical_cot {
+    rankdir=TB;
+    bgcolor="transparent";
+    nodesep=0.35;
+    ranksep=0.5;
+
+    node [shape=box, style="filled,rounded", fontname="Helvetica", fontsize=10,
+          fillcolor="#F5F5F5", color="#666666"];
+    edge [fontname="Helvetica", fontsize=9, color="#444444"];
+
+    // Inputs
+    task [label="Task T\n(ground truth known\nfor verifiable tasks)",
+          fillcolor="#FFF5E1", color="#C89850", shape=note];
+
+    // Chain state
+    chain [label="Chain θ_k\n(partial trajectory)",
+           fillcolor="#E8F4F8", color="#5B8DB8", shape=folder];
+
+    // Per-step 5-phase box
+    subgraph cluster_step {
+        label=<<B>Per-step dialectical protocol</B>>;
+        labeljust="l";
+        style="rounded,dashed";
+        color="#4C8A4C";
+        fontname="Helvetica";
+        fontsize=11;
+        bgcolor="#F2FBF2";
+
+        step1 [label="1 · Thesis\nΔθ_step + prior",
+               fillcolor="#E8F8E8", color="#4C8A4C"];
+        step2 [label="2 · Antithesis\nprimers + independent",
+               fillcolor="#E8F8E8", color="#4C8A4C"];
+        step3 [label="3 · Synthesis\nE[step correct] = Σ·",
+               fillcolor="#FFF5DD", color="#B88830"];
+        step4 [shape=diamond, label="4 · Decide",
+               fillcolor="#FFEBE0", color="#B85040"];
+
+        commit [label="commit\n(E ≥ 0.7)",
+                fillcolor="#D8F0D8", color="#4C8A4C"];
+        revise [label="revise\n(0.4 ≤ E < 0.7)",
+                fillcolor="#FFF0D8", color="#B88830"];
+        reject [label="reject / backtrack\n(E < 0.4)",
+                fillcolor="#F8D8D8", color="#B85040"];
+
+        step1 -> step2 -> step3 -> step4;
+        step4 -> commit [label=" ≥0.7 "];
+        step4 -> revise [label=" 0.4-0.7 "];
+        step4 -> reject [label=" <0.4 "];
+    }
+
+    // Memory feeds priming
+    cot_mem [label="cot_memory.json\nper task-type:\n- step_effectiveness\n- common_failure_modes\n- calibration MAE",
+             fillcolor="#E8E8F8", color="#5050A8", shape=cylinder];
+
+    // Loop
+    append [label="append to chain\n(step 5: log)",
+            fillcolor="#F0F0F0", color="#888888"];
+    backtrack [label="backtrack to\nearlier branch",
+               fillcolor="#F0F0F0", color="#888888"];
+
+    // Verify
+    verify [label="verify(final, gt)\n(ground truth check)",
+            fillcolor="#FFEBE0", color="#B85040", shape=diamond];
+
+    // Calibration
+    calib [label="log calibration:\npredicted_chain vs actual\nupdate cot_memory",
+           fillcolor="#F0E8F8", color="#8050A8", shape=note];
+
+    // Flow
+    task -> chain [label=" init "];
+    chain -> step1 [label=" step k "];
+    cot_mem -> step2 [label=" failure-mode\n primers ", style=dashed];
+
+    commit -> append;
+    revise -> append;
+    append -> chain [label=" θ_{k+1} ", color="#5B8DB8"];
+
+    reject -> backtrack;
+    backtrack -> chain [label=" θ_{k-1} ", color="#B85040", style=dashed];
+
+    chain -> verify [label=" answer\n reached "];
+    verify -> calib;
+    calib -> cot_mem [label=" update ", color="#8050A8"];
+}

@@ -33,13 +33,14 @@ LDD encodes these four behaviors. Every other specialist skill (`root-cause-by-l
 
 ## 2. High-Level Structure
 
-LDD is organized as **three nested optimization loops**, each with its own parameter space:
+LDD is organized as **four nested optimization loops**, each with its own parameter space:
 
 | Loop | What is optimized | Gradient source | Budget |
 |---|---|---|---|
 | **Inner** (`θ` = code) | A code change makes a failing signal pass | Rubric / test outcomes | K_MAX = 5 iterations |
 | **Refinement** (`y` = deliverable) | A "good enough" artifact becomes "great" | Review rubric on the deliverable itself | Halved per iteration, stops on plateau |
 | **Outer** (`θ` = skill definition) | A recurring rubric violation across N tasks becomes a skill/rubric change | Cross-task statistics (`project_memory.json`) | Triggers at N ≥ 3 tasks |
+| **Thought** (`θ` = reasoning chain) *(v0.8.0)* | Each step of a chain-of-thought reaches the correct answer | Per-step dialectical synthesis with ground-truth calibration | Per-chain `max_steps`; backtracks capped at 3 |
 
 Orthogonal to the three loops, LDD provides **navigational instruments** that refine the gradient estimate without biasing the loss function:
 
@@ -193,6 +194,46 @@ $$
 The aggregator emits `drift_warning: true` when `MAE > 0.15 ∧ N ≥ 5`. This is the explicit signal that the agent's in-head priors are miscalibrated; the response is `method-evolution` (outer loop), not silent loss modification.
 
 Per-skill MAE is also tracked — a skill with good overall calibration but bad MAE on one skill-choice signals that the specific skill's behavior has drifted (e.g., the skill definition was updated).
+
+### 3.11a Thought-Loop — Dialectical CoT (v0.8.0, fourth optimizer layer)
+
+The three loops (inner/refine/outer) treat θ as code, deliverable, or skill respectively. The **thought-loop** treats θ as a **reasoning trajectory** (chain of thoughts) and applies the quantitative-dialectic protocol to each step.
+
+For a chain `[θ_0, θ_1, ..., θ_N]` where each `θ_k` is the partial reasoning state after step `k`:
+
+$$
+\theta_{k+1} = \theta_k \oplus \text{step}_k
+$$
+
+where `⊕` denotes chain-extension. Standard CoT is greedy: `step_k = \arg\max P(\cdot | \theta_k)` under the language model's distribution. Dialectical-CoT introduces a per-step gate:
+
+$$
+\mathbb{E}[\text{correct} | \text{thesis}_k] = (1 - \sum_i \Pr(\alpha_i)) \cdot \pi_k + \sum_i \Pr(\alpha_i) \cdot \text{clip}(\pi_k + \Delta_i, 0, 1)
+$$
+
+where `π_k` is the LLM's self-rated prior for the proposed step, `α_i` are antitheses (primers + independent), and `Δ_i` is the impact if `α_i` applies.
+
+**Decision rule**:
+
+- `E ≥ 0.7` → commit step, append to chain
+- `0.4 ≤ E < 0.7` → revise (synthesis rewrites the step addressing antitheses)
+- `E < 0.4` → reject; backtrack to an earlier chain state (budget-capped at `K_MAX_BACKTRACKS = 3`)
+
+**Chain-level prediction**: predicted correctness of the full chain is the product of per-step predicteds:
+
+$$
+\hat P_{\text{chain correct}} = \prod_{k=1}^{N} \mathbb{E}[\text{correct} | \text{thesis}_k]
+$$
+
+**Calibration loop** (extends §3.10 to chain level): for each (predicted, actual) pair over all chains in a task-type, track MAE; emit `drift_warning` when `MAE > 0.15 ∧ n ≥ 5`. Per-task-type partitioning prevents signal-mixing.
+
+**Memory layer** (`.ldd/cot_memory.json`): per-task-type step effectiveness, common failure modes, calibration MAE, step-decision distribution. Feeds primers back into the antithesis generation on subsequent chains via `cot_primers_for_task_type(task_type)`.
+
+**Cost model**: a chain of length `N` with `b` backtracks costs roughly `3N + b·(|Δ_backtrack|)` LLM calls versus `N` for greedy CoT. Break-even over greedy-CoT-with-retry occurs when greedy success rate on the task-class is below ~70%.
+
+**Related work**: Tree-of-Thoughts (Yao et al. 2023) MCTS-style, Chain-of-Verification (Dhuliawala et al. 2023) post-hoc critique, Self-Consistency (Wang et al. 2022) multiple samples. LDD's contribution is (a) explicit Hessian-interpretation of the antithesis, (b) the bias-invariance guarantee at the protocol level, and (c) the calibration loop that closes back into method-evolution.
+
+See `diagrams/dialectical-cot.svg` for the per-step protocol diagram and `skills/dialectical-cot/SKILL.md` for the full skill specification.
 
 ### 3.11 Bias Invariance Principle (Load-Bearing)
 

@@ -66,6 +66,7 @@ Twelve skills (see [`docs/ldd/convergence.md`](./docs/ldd/convergence.md)).
 | `drift-detection` | outer | pattern | Periodic full-repo scan for cumulative drift |
 | `docs-as-definition-of-done` | closes every loop | discipline | Before committing any behavior / API / CLI / config change |
 | `architect-mode` | **opt-in** | discipline (5-phase protocol) | Greenfield design / architecture / structural-decomposition tasks; activated via four paths (precedence: inline `LDD[mode=architect]:` flag > `/ldd-architect` command > trigger phrases "design" / "architect" / "from scratch" / "greenfield" > auto-dispatch when the 6-signal scorer sums to ≥ 4). Agent echoes the dispatch source in the trace header |
+| `dialectical-cot` | **thought** (4th loop, v0.8.0) | discipline | Verifiable multi-step reasoning tasks (math, code, logic, proofs). Applies the v0.7.0 quantitative dialectic at every step of a chain-of-thought. Uses per-task-type memory (`.ldd/cot_memory.json`) for primer generation. Requires ground-truth verification to close the calibration loop |
 
 ## The `LDD:` buzzword
 
@@ -77,7 +78,7 @@ Engineering is **gradient descent on code**. Tests are forward passes. The delta
 
 Docs are the **regularizer** — they pin the conceptual model; drift raises generalization loss silently.
 
-LDD separates three optimization loops: **inner** (θ = code), **refinement** (θ = deliverable, y-axis), **outer** (θ = skills / rubrics, θ-axis). Mixing them is the single biggest cause of "iterative work that never converges." Three navigational instruments layer on top without modifying the loss function:
+LDD separates **four** optimization loops: **inner** (θ = code), **refinement** (θ = deliverable, y-axis), **outer** (θ = skills / rubrics, θ-axis), **thought** (θ = reasoning chain, v0.8.0). Mixing them is the single biggest cause of "iterative work that never converges." Three navigational instruments layer on top without modifying the loss function:
 
 - **Project memory** (v0.5.2) — per-project aggregate at `.ldd/project_memory.json`; first-moment statistical priors over skill effectiveness
 - **Memory × dialectical coupling** (v0.6.0) — `prime-antithesis` surfaces memory-derived primers for the dialectical synthesis step; Bayesian-style `confidence(action) ∝ memory × dialectical × prior`

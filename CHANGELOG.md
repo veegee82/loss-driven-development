@@ -2,6 +2,58 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-04-21
+
+### Added — Dialectical Chain-of-Thought (thought-loop, the fourth LDD optimizer layer)
+
+v0.7.0 made the synthesis step of dialectical reasoning produce a number (`E[Δloss | thesis]`). v0.8.0 applies that machinery to each step of a multi-step reasoning chain — turning CoT from greedy-SGD-on-thoughts into **quantitative-gradient-SGD-on-thoughts** with per-chain calibration.
+
+### The new skill: `dialectical-cot`
+
+- `skills/dialectical-cot/SKILL.md` — full 5-step-per-step protocol specification with worked math-problem example. Metaphor: the climber who probes every step before committing weight.
+- Decision thresholds: `commit ≥ 0.7`, `revise 0.4–0.7`, `reject < 0.4` (calibratable via outer loop).
+- Hard rule: ≥ 1 antithesis per step MUST be independent of memory primers (anti-groupthink guard).
+- Bias invariance enforced: memory/primers/synthesis NEVER modify ground-truth verification.
+
+### Python harness
+
+- `scripts/ldd_trace/cot.py` — data classes (`Step`, `CoTChain`, `Antithesis`), `CoTRunner`, synthesis math (`compute_predicted_correct`, `decide_from_predicted`), gather_primers bridge to v0.6.0
+- `scripts/ldd_trace/cot_llm.py` — abstract `CotLLMClient` protocol; `MockCotLLMClient` (deterministic, for tests); `OpenRouterCotLLMClient` (real LLM via OpenRouter, stdlib-only HTTP, activates on `OPENROUTER_API_KEY` env var)
+- `scripts/ldd_trace/cot_memory.py` — `.ldd/cot_traces.jsonl` (append-only per-chain log) + `.ldd/cot_memory.json` (per-task-type aggregate)
+- CLI: `python -m ldd_trace cot run --task ... --task-type math --ground-truth ...`, `cot aggregate`, `cot health`
+
+### Memory & calibration
+
+Per-task-type partitioning prevents cross-type signal mixing:
+- `step_decision_distribution` per task_type
+- `common_failure_modes` harvested from revise/reject-step antitheses
+- `calibration.mae` per task_type; `drift_warning: true` when `MAE > 0.15 ∧ n ≥ 5`
+- `cot_primers_for_task_type(task_type)` feeds memory-sourced primers back into subsequent chains
+
+### Theory update
+
+- `docs/theory.md` §3.11a — formal specification of the Thought-Loop as the fourth optimizer layer, including chain-level prediction formula, decision rule, and calibration extension
+- New diagram: `diagrams/dialectical-cot.svg` — per-step protocol flow
+
+### Tests — 28 new, 87 total
+
+- Math tests for `compute_predicted_correct` (bias-invariance at the formula level)
+- Decision threshold tests
+- Happy-path CoT run (commit-only chain)
+- Revise test (antithesis forces narrower synthesis)
+- Backtrack test (reject triggers branch retry)
+- Backtrack-budget-exhaustion test (max_backtracks → partial terminal)
+- Memory aggregation tests (task-type partitioning, calibration MAE, drift warning, failure-mode harvesting)
+- Primer generation tests (empty memory, failure-mode-based primer, cross-type-leakage guard)
+- Bias-invariance tests: memory does NOT affect verify_answer outcome; predicted_correct is decoupled from ground_truth access
+- CLI smoke tests (graceful error when no API key / no memory)
+
+All green: `python -m pytest scripts/ldd_trace/ -q` → 87 passed.
+
+### Philosophical upshot
+
+The thought-loop treats reasoning itself as an optimizable parameter space. Previous LDD layers optimize code, deliverables, and skills. v0.8.0 optimizes *how the agent reasons* for a given task-type class — with the same bias-invariance discipline that guards the lower loops. This is not "just another CoT technique"; it's the generalization of LDD's framework to the reasoning-space manifold.
+
 ## [0.7.0] — 2026-04-21
 
 ### Added — The Quantitative Dialectic (skill-first, with code plumbing)

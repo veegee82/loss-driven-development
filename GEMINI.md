@@ -16,3 +16,4 @@ Twelve skills: ten reactive disciplines across three optimization loops (inner /
 @./skills/drift-detection/SKILL.md
 @./skills/docs-as-definition-of-done/SKILL.md
 @./skills/architect-mode/SKILL.md
+@./skills/dialectical-cot/SKILL.md

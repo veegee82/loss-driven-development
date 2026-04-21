@@ -14,6 +14,11 @@ import sys
 from pathlib import Path
 
 from ldd_trace.aggregator import aggregate_and_write, read_memory
+from ldd_trace.cot_memory import (
+    format_cot_health,
+    read_cot_memory,
+    update_cot_memory,
+)
 from ldd_trace.dialectical_prime import (
     format_antithesis_material,
     prime_antithesis,
@@ -189,6 +194,68 @@ def _cmd_health(args: argparse.Namespace) -> int:
         )
         return 1
     print(format_health(memory))
+    return 0
+
+
+def _cmd_cot_run(args: argparse.Namespace) -> int:
+    from ldd_trace.cot import CoTRunner
+    from ldd_trace.cot_llm import OpenRouterCotLLMClient
+
+    store = TraceStore(Path(args.project))
+    try:
+        llm = OpenRouterCotLLMClient(model=args.model) if args.model else OpenRouterCotLLMClient()
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print(
+            "\nEither set OPENROUTER_API_KEY env var, or use the Python API with "
+            "a custom CotLLMClient for offline / non-OpenRouter LLMs.",
+            file=sys.stderr,
+        )
+        return 1
+
+    runner = CoTRunner(llm=llm, store=store)
+    chain = runner.run(
+        task=args.task,
+        task_type=args.task_type,
+        ground_truth=args.ground_truth,
+        max_steps=args.max_steps,
+    )
+
+    # Print a compact summary
+    print(f"\n═══ CoT run summary ═══")
+    print(f"Task           : {chain.task}")
+    print(f"Task type      : {chain.task_type}")
+    print(f"Terminal       : {chain.terminal}")
+    print(f"Steps          : {len(chain.steps)}")
+    print(f"Backtracks     : {chain.backtrack_count}")
+    print(f"Total tokens   : {chain.total_tokens}")
+    if chain.predicted_chain_correct is not None:
+        print(f"Predicted corr.: {chain.predicted_chain_correct:.3f}")
+    print(f"Actual correct : {chain.actual_correct}")
+    print(f"Final answer   : {chain.final_answer}")
+    print(f"\nChain logged to: {store.trace_dir}/cot_traces.jsonl")
+    print(f"Memory updated : {store.trace_dir}/cot_memory.json")
+    return 0
+
+
+def _cmd_cot_aggregate(args: argparse.Namespace) -> int:
+    store = TraceStore(Path(args.project))
+    out = update_cot_memory(store)
+    print(f"cot_memory.json written to {out}")
+    return 0
+
+
+def _cmd_cot_health(args: argparse.Namespace) -> int:
+    store = TraceStore(Path(args.project))
+    memory = read_cot_memory(store)
+    if memory is None:
+        print(
+            f"no cot_memory.json at {store.trace_dir}; "
+            "run `ldd_trace cot run ...` (at least one chain)",
+            file=sys.stderr,
+        )
+        return 1
+    print(format_cot_health(memory))
     return 0
 
 
@@ -368,6 +435,52 @@ def build_parser() -> argparse.ArgumentParser:
     p_hl = sub.add_parser("health", help="Human-readable project-memory summary")
     _add_common_args(p_hl)
     p_hl.set_defaults(func=_cmd_health)
+
+    # --- v0.8.0 dialectical chain-of-thought ----------------------------
+    p_cot = sub.add_parser(
+        "cot",
+        help="Dialectical chain-of-thought subcommands (v0.8.0)",
+    )
+    cot_sub = p_cot.add_subparsers(dest="cot_cmd", required=True)
+
+    p_cot_run = cot_sub.add_parser(
+        "run",
+        help="Run a dialectical-CoT chain on a task (requires OPENROUTER_API_KEY)",
+    )
+    _add_common_args(p_cot_run)
+    p_cot_run.add_argument("--task", required=True, help="The task prompt / question")
+    p_cot_run.add_argument(
+        "--task-type",
+        default="general",
+        help="Task type (e.g. math, code, logic) — used for memory partitioning",
+    )
+    p_cot_run.add_argument(
+        "--ground-truth",
+        default=None,
+        help="Expected answer (string) for verification; enables calibration logging",
+    )
+    p_cot_run.add_argument(
+        "--max-steps", type=int, default=10, help="Maximum chain length",
+    )
+    p_cot_run.add_argument(
+        "--model",
+        default=None,
+        help="Override LLM model (default: openai/gpt-4o-mini via OpenRouter)",
+    )
+    p_cot_run.set_defaults(func=_cmd_cot_run)
+
+    p_cot_agg = cot_sub.add_parser(
+        "aggregate",
+        help="Re-aggregate .ldd/cot_traces.jsonl into .ldd/cot_memory.json",
+    )
+    _add_common_args(p_cot_agg)
+    p_cot_agg.set_defaults(func=_cmd_cot_aggregate)
+
+    p_cot_hl = cot_sub.add_parser(
+        "health", help="Human-readable CoT health report",
+    )
+    _add_common_args(p_cot_hl)
+    p_cot_hl.set_defaults(func=_cmd_cot_health)
 
     # --- v0.6.0 memory × dialectical coupling ---------------------------
     p_pa = sub.add_parser(

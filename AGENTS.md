@@ -67,6 +67,7 @@ Twelve skills (see [`docs/ldd/convergence.md`](./docs/ldd/convergence.md)).
 | `docs-as-definition-of-done` | closes every loop | discipline | Before committing any behavior / API / CLI / config change |
 | `architect-mode` | **opt-in** | discipline (5-phase protocol) | Greenfield design / architecture / structural-decomposition tasks; activated via four paths (precedence: inline `LDD[mode=architect]:` flag > `/ldd-architect` command > trigger phrases "design" / "architect" / "from scratch" / "greenfield" > auto-dispatch when the 6-signal scorer sums to ≥ 4). Agent echoes the dispatch source in the trace header |
 | `dialectical-cot` | **thought** (4th loop, v0.8.0) | discipline | Verifiable multi-step reasoning tasks (math, code, logic, proofs). Applies the v0.7.0 quantitative dialectic at every step of a chain-of-thought. Uses per-task-type memory (`.ldd/cot_memory.json`) for primer generation. Requires ground-truth verification to close the calibration loop |
+| `define-metric` | **extensible foundation** (v0.9.0) | discipline | Introduce a new agent-defined metric (complexity, latency, custom rubric) as a first-class loss component. Registration → advisory-only → calibration (n≥5, MAE≤0.15) → load-bearing. Enforces gaming-guard (self-referential descriptions rejected) and bias-invariance (metric observations never modified by registry/calibrator activity) |
 
 ## The `LDD:` buzzword
 

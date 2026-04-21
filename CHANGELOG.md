@@ -2,6 +2,102 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — 2026-04-21
+
+### Added — Metric Algebra (extensible foundation for agent-defined losses)
+
+v0.5.1–v0.8.0 introduced specific loss mechanisms (rubric rate, Δloss, chain correctness). v0.9.0 generalizes all of them into a **five-primitive algebra** that agents can extend without modifying LDD core.
+
+### The five primitives
+
+Defined in `scripts/ldd_trace/metric.py`:
+
+| Primitive | Signature | Role |
+|---|---|---|
+| `Metric` | `Observation → ℝ` | Any measurable quantity (three kinds: `bounded`, `positive`, `signed`) |
+| `Loss` | `θ → ℝ` | Metric bound to parameter space |
+| `Signal` | `(θ_before, θ_after) → ℝ` | Observable Δ under an action |
+| `Estimator` | `(Action, Context) → Prediction` | Predicts Signal before the action |
+| `Calibrator` | `stream[(pred, obs)] → drift_signal` | Tracks MAE, promotes advisory → load-bearing |
+
+Three concrete Metric classes ship: `BoundedRateMetric` (rate), `PositiveCountMetric` (count/latency/complexity), `SignedDeltaMetric` (signed Δ). Two Estimator implementations: `MeanHistoryEstimator` (v0.5.2's skill_effectiveness generalized) and `BayesianSynthesisEstimator` (v0.7.0's quantitative dialectic generalized).
+
+### Composition algebra
+
+Defined in `scripts/ldd_trace/metric_compose.py`:
+
+- `weighted_sum(name, [(m₁, w₁), (m₂, w₂), ...])` → `Σ wᵢ·normalize(Lᵢ) / Σ wᵢ`
+- `maximum(name, [m₁, m₂, ...])` → `max_i normalize(L_i)` (any-fail)
+- `minimum(name, [m₁, m₂, ...])` → `min_i normalize(L_i)` (all-pass)
+
+All composed metrics output ∈ [0, 1] by construction. Output-range preservation is the load-bearing property for cross-metric composition.
+
+### Registry + Calibration gate
+
+Defined in `scripts/ldd_trace/metric_registry.py`:
+
+- `.ldd/metrics.json` — spec storage + promotion state (advisory vs load-bearing)
+- `.ldd/metric_calibrations.jsonl` — append-only log of (metric_name, predicted, observed) pairs
+- **Gate**: a metric goes from `advisory_only=True` to `is_load_bearing=True` iff `n_samples ≥ 5 AND MAE ≤ 0.15`. Until the gate passes, the metric cannot be used as a decision authority.
+
+### Gaming-guard
+
+`MetricSpec.__post_init__` rejects any spec whose description contains self-referential phrases (e.g., "my current action", "rewards my approach"). This prevents agents from registering metrics that game the optimizer toward their current behavior. The phrase list is tested by property-based coverage (`TestGamingGuard::test_any_self_ref_phrase_rejected`).
+
+### New skill: `define-metric`
+
+`skills/define-metric/SKILL.md` — the skill-level protocol. Metaphor: the apprentice at the instrument workshop — new instruments start advisory, calibration against trusted instruments promotes them. Six-step protocol: specify → accessor → register → compose (optional) → calibrate ≥5 times → auto-promote.
+
+### CLI surface
+
+```bash
+python -m ldd_trace metric list      --project .
+python -m ldd_trace metric status    --project .
+python -m ldd_trace metric calibrate --project . --name X --predicted 0.3 --observed 0.28
+```
+
+### Tests — 82 new, 169 total
+
+Evidence-based testing across three tiers:
+
+- **Unit tests** (`test_metric.py`, 48 tests): spec validation, gaming-guard, each metric type's semantics, Loss/Signal, both Estimators, Registry, Calibrator gate behavior
+- **Property-based tests** (`test_metric_properties.py`, 23 tests via hypothesis): algebraic laws — normalize bounds, normalize idempotency for bounded, weighted-sum homogeneity + commutativity, max/min idempotency + commutativity + duality, bias-invariance under registry/calibrator activity, gaming-guard phrase-coverage, distributional agreement with stdlib max/min
+- **LDD E2E scenarios** (`test_metric_e2e.py`, 11 tests): realistic end-to-end workflows — agent-introduces-custom-metric, calibration-gate-promotes-after-evidence, poorly-calibrated-metric-stays-advisory, composition-drives-multi-objective-decision, bias-invariance-under-intense-registry-activity, gaming-guard-blocks-self-ref-spec, persistence-across-sessions, MeanHistoryEstimator, BayesianSynthesisEstimator-replicates-v0.7.0, full-workflow-end-to-end
+
+All green: `python -m pytest scripts/ldd_trace/ -q` → 169 passed.
+
+### Backward compatibility
+
+Every prior LDD loss is now expressible in the new abstraction (test explicitly verifies this):
+
+| Prior | Expressed as |
+|---|---|
+| v0.5.1 test-pass-rate | `BoundedRateMetric` |
+| v0.5.2 skill Δloss_mean | `MeanHistoryEstimator` |
+| v0.7.0 quantitative dialectic | `BayesianSynthesisEstimator` |
+| v0.7.0 MAE drift detection | `Calibrator.can_promote` |
+| v0.8.0 chain-level predicted | `weighted_sum` or custom estimator |
+
+### Theoretical framing
+
+`docs/theory.md` §3.11b — formal spec of the Metric Algebra with composition formulas, calibration gate, backward-compat mapping, algebraic laws. Updated §2 still shows four optimizer loops (Metric Algebra is horizontal, not a new loop).
+
+New diagram: `diagrams/metric-algebra.svg` — the five primitives + composition + gate.
+
+### Dogfood — built with LDD on itself
+
+v0.9.0 was built as an LDD task on the loss-driven-development repo itself. `.ldd/trace.log` captures the iteration trace:
+
+```
+Trajectory : █▅▃·   1.000 → 0.630 → 0.408 → 0.215 → 0.000  ↓
+```
+
+Four inner-loop iterations: scaffold → core + unit tests → property tests → E2E tests → close. Loss reduced from 1.000 to 0.000 (169/169 tests green) under K_MAX=5 budget.
+
+### Philosophical upshot
+
+LDD was a fixed skill set for SGD on code/deliverable/skill/thought. With Metric Algebra, it becomes a **kernel**: agents define new objectives; the framework enforces the same discipline (prediction → observation → calibration → method-evolution) with bias-invariance guarantees. The framework is now **self-extensible** under hard invariants.
+
 ## [0.8.0] — 2026-04-21
 
 ### Added — Dialectical Chain-of-Thought (thought-loop, the fourth LDD optimizer layer)

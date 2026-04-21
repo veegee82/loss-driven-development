@@ -235,6 +235,70 @@ $$
 
 See `diagrams/dialectical-cot.svg` for the per-step protocol diagram and `skills/dialectical-cot/SKILL.md` for the full skill specification.
 
+### 3.11b Metric Algebra (v0.9.0, extensible foundation)
+
+v0.5.1–v0.8.0 introduced specific loss instances (rubric violations, Δloss, chain correctness). v0.9.0 generalizes all of them into an algebra of five primitives that agents can extend without touching LDD core.
+
+**Primitives**:
+
+| Primitive | Signature | Role |
+|---|---|---|
+| `Metric`     | `Observation → ℝ` | Any measurable quantity; three concrete kinds: `bounded` (rate ∈ [0,1]), `positive` (count, latency ≥ 0), `signed` (Δ ∈ ℝ) |
+| `Loss`       | `θ → ℝ` | A Metric bound to the parameter space θ; `L(θ) := metric.observed(θ)` |
+| `Signal`     | `(θ_before, θ_after) → ℝ` | `S(a, θ) = L(θ ⊕ a) − L(θ)`; the observable Δ |
+| `Estimator`  | `(Action, Context) → (predicted_Signal, confidence)` | Predicts Signal before the action |
+| `Calibrator` | `stream[(predicted, observed)] → drift_signal` | Tracks MAE; promotes `advisory_only → load_bearing` on gate pass |
+
+**Composition algebra** — three operators produce new metrics from existing ones, with algebraic laws enforced by property tests:
+
+$$
+\begin{aligned}
+L_{\text{weighted-sum}} &= \frac{\sum_i w_i \cdot \text{normalize}(L_i)}{\sum_i w_i} \\
+L_{\text{max}}          &= \max_i \text{normalize}(L_i)     \quad \text{(any-fail)} \\
+L_{\text{min}}          &= \min_i \text{normalize}(L_i)     \quad \text{(all-pass)}
+\end{aligned}
+$$
+
+**Algebraic laws** (verified by hypothesis in `test_metric_properties.py`):
+
+1. **Bounds**: `normalize(·) ∈ [0, 1]` for any input (test coverage: ~10⁴ random values per metric type)
+2. **Weighted-sum homogeneity**: scaling all weights by λ > 0 does not change output
+3. **Weighted-sum commutativity**: component order doesn't matter when weights paired correctly
+4. **Max/min idempotency**: `max(L, L) ≡ L` and `min(L, L) ≡ L`
+5. **Max/min commutativity**: `max(L₁, L₂) ≡ max(L₂, L₁)`
+6. **Bias-invariance**: `metric.observed(θ)` is invariant under registry/calibrator activity
+
+**Calibration gate** — a new metric is `advisory_only = True` at registration. It becomes `load_bearing = True` iff both:
+
+$$
+n \geq n_{\min} = 5 \quad \wedge \quad \text{MAE} = \frac{1}{n}\sum_i |\hat L_i - L_i| \leq \epsilon_{\max} = 0.15
+$$
+
+This generalizes v0.7.0's drift detection to arbitrary agent-defined metrics.
+
+**Gaming-guard** — metric specifications with self-referential descriptions (phrases like "my current action", "rewards my approach") are rejected at construction time. Property test `TestGamingGuard` enforces coverage over all guard phrases.
+
+**Backward compatibility** — every prior LDD loss is expressible:
+
+| Prior | Expressed as |
+|---|---|
+| v0.5.1 test-pass-rate | `BoundedRateMetric(accessor=failing/total)` |
+| v0.5.2 skill Δloss_mean | `MeanHistoryEstimator` |
+| v0.7.0 quantitative dialectic | `BayesianSynthesisEstimator` |
+| v0.7.0 MAE drift | `Calibrator.can_promote` |
+| v0.8.0 chain-level predicted | `weighted_sum` of per-step predicteds |
+
+The test `TestE2E_BayesianSynthesisEstimatorReplicates_v0_7_0` in `test_metric_e2e.py` explicitly verifies that v0.7.0's worked example (prior=0.8, primer prob=0.5, impact=-0.4 → E=0.6) reproduces exactly under the generic estimator.
+
+**Why this matters**:
+
+1. **Domain portability** — LDD becomes applicable to any domain where metrics can be defined (infra cost, ML val_loss, security scanner output, custom agent rubrics)
+2. **Agent autonomy** — an LLM can propose `L_complexity = cyclomatic_complexity × 0.3 + maintainability_index × 0.7` and LDD enforces the same discipline (prediction → observation → calibration → promotion) on the agent-authored metric
+3. **External tool plug-in** — any CLI/API that produces a scalar becomes a metric via a one-line accessor
+4. **Calibration accountability** — agent-authored metrics self-identify as trustworthy or drifting via the MAE gate
+
+See `diagrams/metric-algebra.svg` for the primitive composition flow and `skills/define-metric/SKILL.md` for the agent-facing protocol.
+
 ### 3.11 Bias Invariance Principle (Load-Bearing)
 
 All navigational instruments (memory, dialectical, calibration, suggestions) MUST satisfy:

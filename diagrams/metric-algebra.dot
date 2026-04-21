@@ -1,0 +1,102 @@
+// metric-algebra.dot
+// The five primitives of v0.9.0 Metric Algebra — Metric, Loss, Signal,
+// Estimator, Calibrator — plus composition operators and the calibration gate.
+
+digraph metric_algebra {
+    rankdir=TB;
+    bgcolor="transparent";
+    nodesep=0.4;
+    ranksep=0.5;
+
+    node [shape=box, style="filled,rounded", fontname="Helvetica", fontsize=10,
+          fillcolor="#F5F5F5", color="#666666"];
+    edge [fontname="Helvetica", fontsize=9, color="#444444"];
+
+    // Top row — five primitives
+    subgraph cluster_primitives {
+        label=<<B>Five primitives</B>>;
+        labeljust="l";
+        style="rounded,dashed";
+        color="#5B8DB8";
+        bgcolor="#F4F9FC";
+        fontname="Helvetica";
+        fontsize=11;
+
+        metric [label="Metric\nObservation → ℝ\n\nkind ∈ {bounded, positive, signed}\nnormalize() → [0, 1]",
+                fillcolor="#E8F4F8", color="#5B8DB8"];
+        loss [label="Loss\nθ → ℝ\n\nL(θ) = metric.observed(θ)",
+              fillcolor="#E8F4F8", color="#5B8DB8"];
+        signal [label="Signal\n(θ_before, θ_after) → ℝ\n\nS(a, θ) = L(θ ⊕ a) − L(θ)",
+                fillcolor="#E8F4F8", color="#5B8DB8"];
+        estimator [label="Estimator\n(Action, Context) →\n(predicted_Signal, confidence)",
+                   fillcolor="#E8F4F8", color="#5B8DB8"];
+        calibrator [label="Calibrator\nstream[(pred, obs)] →\ndrift_signal",
+                    fillcolor="#E8F4F8", color="#5B8DB8"];
+
+        metric -> loss -> signal;
+        estimator -> calibrator [style=invis];
+    }
+
+    // Middle — composition algebra
+    subgraph cluster_compose {
+        label=<<B>Composition algebra</B>>;
+        labeljust="l";
+        style="rounded,dashed";
+        color="#B88830";
+        bgcolor="#FFFBF0";
+        fontname="Helvetica";
+        fontsize=11;
+
+        ws [label="WeightedSum\nΣ w_i · normalize(L_i) / Σ w_i",
+            fillcolor="#FFF5DD", color="#B88830"];
+        mx [label="Max\nmax_i normalize(L_i)\n(any-fail)",
+            fillcolor="#FFF5DD", color="#B88830"];
+        mn [label="Min\nmin_i normalize(L_i)\n(all-pass)",
+            fillcolor="#FFF5DD", color="#B88830"];
+    }
+
+    // Right — calibration gate
+    subgraph cluster_gate {
+        label=<<B>Calibration gate</B>>;
+        labeljust="l";
+        style="rounded,dashed";
+        color="#4C8A4C";
+        bgcolor="#F2FBF2";
+        fontname="Helvetica";
+        fontsize=11;
+
+        advisory [label="advisory_only = True\n(default at registration)",
+                  fillcolor="#FFF0D8", color="#B88830"];
+        gate [shape=diamond, label="n ≥ 5\n∧\nMAE ≤ 0.15",
+              fillcolor="#FFEBE0", color="#B85040"];
+        load_bearing [label="load_bearing = True\n(usable as gate)",
+                      fillcolor="#D8F0D8", color="#4C8A4C"];
+    }
+
+    // Bottom — storage
+    registry [label=".ldd/metrics.json\n(specs + promotion)",
+              shape=cylinder, fillcolor="#F0E8F8", color="#8050A8"];
+    calibs [label=".ldd/metric_calibrations.jsonl\n(append-only pairs)",
+            shape=cylinder, fillcolor="#F0E8F8", color="#8050A8"];
+
+    // Bias-invariance note
+    note [label="Bias invariance:\nnone of these primitives modifies\nL(θ). Memory informs search;\nL is externally specified.",
+          shape=note, fillcolor="#F8F8F8", color="#888888", fontsize=9];
+
+    // Flows
+    metric -> ws [label=" component "];
+    metric -> mx [label=" component "];
+    metric -> mn [label=" component "];
+
+    metric -> registry [label=" register ", style=dashed];
+    registry -> advisory [label=" state "];
+
+    estimator -> calibrator [label=" predicts "];
+    calibrator -> gate [label=" MAE "];
+    gate -> load_bearing [label=" yes "];
+    gate -> advisory [label=" no ", style=dashed];
+
+    calibrator -> calibs [label=" append "];
+
+    note -> metric [style=dotted, arrowhead=none, color="#888888"];
+}

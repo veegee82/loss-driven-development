@@ -197,6 +197,66 @@ def _cmd_health(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_metric_list(args: argparse.Namespace) -> int:
+    from ldd_trace.metric_registry import MetricRegistry
+    store = TraceStore(Path(args.project))
+    reg = MetricRegistry(store)
+    specs = reg.specs()
+    if not specs:
+        print("no metrics registered (in .ldd/metrics.json)")
+        return 0
+    print(f"\n{'name':<32}  {'kind':<9}  {'v':>3}  {'unit':<15}  {'load_bearing':<12}  description")
+    print("-" * 110)
+    for name, spec in sorted(specs.items()):
+        promo = reg.promotion(name)
+        lb = "yes" if promo and promo.is_load_bearing else "no"
+        desc = (spec.description or "")[:40]
+        comp = f"[{spec.composition}]" if spec.composition else ""
+        print(f"{name:<32}  {spec.kind:<9}  {spec.version:>3}  {spec.unit:<15}  {lb:<12}  {comp} {desc}")
+    return 0
+
+
+def _cmd_metric_status(args: argparse.Namespace) -> int:
+    from ldd_trace.metric_registry import Calibrator, MetricRegistry
+    store = TraceStore(Path(args.project))
+    reg = MetricRegistry(store)
+    cal = Calibrator(reg)
+    specs = reg.specs()
+    if not specs:
+        print("no metrics registered")
+        return 0
+    print(f"\n{'name':<32}  {'load_bearing':<12}  {'n_samples':>9}  {'mae':>7}")
+    print("-" * 70)
+    for name in sorted(specs.keys()):
+        promo = reg.promotion(name)
+        lb = "yes" if promo and promo.is_load_bearing else "advisory"
+        n = cal.n_samples(name)
+        mae = cal.mae(name)
+        mae_str = f"{mae:.3f}" if mae is not None else "n/a"
+        print(f"{name:<32}  {lb:<12}  {n:>9}  {mae_str:>7}")
+    return 0
+
+
+def _cmd_metric_calibrate(args: argparse.Namespace) -> int:
+    from ldd_trace.metric_registry import Calibrator, MetricRegistry
+    store = TraceStore(Path(args.project))
+    reg = MetricRegistry(store)
+    cal = Calibrator(reg)
+    if reg.specs().get(args.name) is None:
+        print(f"error: metric {args.name!r} not registered", file=sys.stderr)
+        return 1
+    cal.log(args.name, predicted=args.predicted, observed=args.observed)
+    n = cal.n_samples(args.name)
+    mae = cal.mae(args.name)
+    print(f"logged: {args.name}  predicted={args.predicted}  observed={args.observed}")
+    print(f"        n={n}  mae={mae:.3f}" if mae is not None else f"        n={n}")
+    if cal.can_promote(args.name):
+        promoted = cal.try_promote(args.name)
+        if promoted:
+            print(f"        → promoted to load_bearing=True")
+    return 0
+
+
 def _cmd_cot_run(args: argparse.Namespace) -> int:
     from ldd_trace.cot import CoTRunner
     from ldd_trace.cot_llm import OpenRouterCotLLMClient
@@ -435,6 +495,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_hl = sub.add_parser("health", help="Human-readable project-memory summary")
     _add_common_args(p_hl)
     p_hl.set_defaults(func=_cmd_health)
+
+    # --- v0.9.0 Metric Algebra ------------------------------------------
+    p_m = sub.add_parser(
+        "metric",
+        help="Metric Algebra subcommands (v0.9.0) — register/list/calibrate/status",
+    )
+    m_sub = p_m.add_subparsers(dest="metric_cmd", required=True)
+
+    p_ml = m_sub.add_parser("list", help="List registered metrics")
+    _add_common_args(p_ml)
+    p_ml.set_defaults(func=_cmd_metric_list)
+
+    p_ms = m_sub.add_parser("status", help="Show calibration + promotion status")
+    _add_common_args(p_ms)
+    p_ms.set_defaults(func=_cmd_metric_status)
+
+    p_mc = m_sub.add_parser(
+        "calibrate",
+        help="Log one (predicted, observed) pair and attempt promotion if ready",
+    )
+    _add_common_args(p_mc)
+    p_mc.add_argument("--name", required=True, help="Metric name")
+    p_mc.add_argument("--predicted", type=float, required=True)
+    p_mc.add_argument("--observed", type=float, required=True)
+    p_mc.set_defaults(func=_cmd_metric_calibrate)
 
     # --- v0.8.0 dialectical chain-of-thought ----------------------------
     p_cot = sub.add_parser(

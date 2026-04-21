@@ -14,6 +14,10 @@ import sys
 from pathlib import Path
 
 from ldd_trace.aggregator import aggregate_and_write, read_memory
+from ldd_trace.dialectical_prime import (
+    format_antithesis_material,
+    prime_antithesis,
+)
 from ldd_trace.renderer import render_trace
 from ldd_trace.retrieval import (
     check_in_flight,
@@ -187,6 +191,31 @@ def _cmd_health(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_prime_antithesis(args: argparse.Namespace) -> int:
+    store = TraceStore(Path(args.project))
+    memory = read_memory(store)
+    if memory is None:
+        print(
+            f"no project_memory.json at {store.trace_dir}; "
+            "run `ldd_trace aggregate` first (need ≥ 1 closed task)",
+            file=sys.stderr,
+        )
+        return 1
+    current = store.current_task()
+    files_list = None
+    if args.files:
+        files_list = [f.strip() for f in args.files.split(",") if f.strip()]
+    material = prime_antithesis(
+        memory=memory,
+        thesis=args.thesis,
+        current=current,
+        files=files_list,
+        store=store,
+    )
+    print(format_antithesis_material(material))
+    return 0 if material.has_signal else 0  # non-zero exit would be misleading
+
+
 def _cmd_render(args: argparse.Namespace) -> int:
     store = TraceStore(Path(args.project))
     if not store.exists():
@@ -330,6 +359,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_hl = sub.add_parser("health", help="Human-readable project-memory summary")
     _add_common_args(p_hl)
     p_hl.set_defaults(func=_cmd_health)
+
+    # --- v0.6.0 memory × dialectical coupling ---------------------------
+    p_pa = sub.add_parser(
+        "prime-antithesis",
+        help="Generate memory-informed antithesis material for the "
+        "dialectical-reasoning skill (v0.6.0)",
+    )
+    _add_common_args(p_pa)
+    p_pa.add_argument(
+        "--thesis",
+        required=True,
+        help="One-line description of the planned action / decision to challenge",
+    )
+    p_pa.add_argument(
+        "--files",
+        default=None,
+        help="Comma-separated files the current task touches (for similar-task retrieval)",
+    )
+    p_pa.set_defaults(func=_cmd_prime_antithesis)
 
     return p
 

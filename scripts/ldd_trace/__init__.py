@@ -15,7 +15,7 @@ Public API:
 """
 from __future__ import annotations
 
-__version__ = "0.5.2"
+__version__ = "0.6.0"
 
 from ldd_trace.renderer import (
     Iteration,
@@ -26,6 +26,12 @@ from ldd_trace.renderer import (
     trend_arrow,
 )
 from ldd_trace.store import TraceStore, TraceEntry
+from ldd_trace.dialectical_prime import (
+    AntithesisMaterial,
+    Primer,
+    format_antithesis_material,
+    prime_antithesis,
+)
 
 __all__ = [
     "__version__",
@@ -37,4 +43,8 @@ __all__ = [
     "render_trace",
     "TraceStore",
     "TraceEntry",
+    "AntithesisMaterial",
+    "Primer",
+    "format_antithesis_material",
+    "prime_antithesis",
 ]

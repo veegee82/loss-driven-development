@@ -99,6 +99,58 @@ A good antithesis hits at least 3 of these:
 
 If you can check none of these, your antithesis is cosmetic. Try again.
 
+## Memory-informed antithesis generation (v0.6.0)
+
+SGD framing: dialectical reasoning is **local Hessian probing** — it discovers orthogonal directions in θ-space where the proposed gradient-step reacts non-monotonically. When a project has accumulated `.ldd/trace.log` and `.ldd/project_memory.json` (per `using-ldd` § "Persisted trace"), that memory provides **1st-moment statistical evidence** (past failure modes, plateau patterns, terminal distributions) that can sharpen antithesis generation — without biasing the loss function itself.
+
+### How to invoke
+
+Before running the three moves, check if project memory has signal for the thesis:
+
+```bash
+python -m ldd_trace prime-antithesis \
+    --project . \
+    --thesis "one-line description of the planned action" \
+    [--files a.py,b.py,c.py]
+```
+
+The tool emits **structured primers** — each phrased as a *question the antithesis must answer*, not a prescription. Primers come from:
+
+| Source | Triggers when |
+|---|---|
+| `skill_failure_mode` | Thesis names a skill whose historical regression + plateau rate is ≥ 30% |
+| `plateau_pattern` | Current in-flight task has ≥ 2 consecutive plateau iterations |
+| `similar_task` | File-overlap with a past task that terminated non-complete |
+| `terminal_analysis` | Project-wide non-complete rate ≥ 15% (n ≥ 5 tasks) |
+
+If no primers fire, run the standard dialectical pass with generic counter-cases. The tool never fabricates material.
+
+### Agent contract when primers are present
+
+1. **Each primer becomes a required antithesis point** — address it explicitly in the antithesis section; don't silently ignore it.
+2. **Generate ≥ 1 additional antithesis NOT sourced from the primers** — guards against memory-groupthink (the agent only reasoning about past failure modes and missing novel ones).
+3. **Synthesis MUST reconcile or reject each primer** — acknowledging a primer-pointed risk without addressing it is a Red Flag.
+4. **Emit the trace via `ldd_trace append` at iteration close** — completing the loop: memory fed in, memory fed out.
+
+### Why this preserves the loss-invariant
+
+The primers are **evidence**, not weights. They do not alter L(θ). Specifically:
+
+- Memory can flag "skill X has 40% regression rate" — but it's the dialectical synthesis that decides whether this task is the exception. The final action is chosen via reasoning, not by statistical auto-apply.
+- The `check` CLI reports warnings; the `prime-antithesis` CLI reports material. Neither is enforcement.
+- Rubric items are unchanged; rubric scoring is unchanged; the only thing changed is *which counter-cases the agent proactively considers*.
+
+### When memory disagrees with dialectical
+
+| `check` / primer | Dialectical reasons | Synthesis action |
+|---|---|---|
+| Statistical green | Reasoning green | High confidence commit |
+| Statistical green | Reasoning identifies an unaddressed contract | Defer; fix the contract first |
+| Statistical red (regression warning) | Reasoning can defend this-case-is-different | Commit with narrow scope + explicit hedge; flag for post-review |
+| Statistical red | Reasoning red | Do NOT commit; pivot to alternative |
+
+Both sources signal green = posterior very high confidence. Memory-only or reasoning-only green = medium confidence (posterior Bayesian update). Both red = highest-confidence rejection of thesis.
+
 ## Presenting to the User
 
 Show the **synthesis** as the recommendation. Surface the antithesis only when the tension is **load-bearing** — when the user needs to see the rejected alternative to judge the trade-off themselves.

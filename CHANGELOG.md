@@ -2,6 +2,61 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-04-21
+
+### Added — memory × dialectical coupling (`prime-antithesis` + skill update)
+
+v0.5.2 gave LDD a 1st-moment project memory (aggregate historical stats). v0.6.0 **couples it with 2nd-order reasoning** (the `dialectical-reasoning` skill). In SGD terms:
+
+- **Memory (v0.5.2)** = 1st moment — average of past gradient directions (bias-guarded priors over skill-effectiveness and failure modes).
+- **Dialectical (pre-0.6.0)** = 2nd moment / Hessian probing — local adversarial probing of the proposed gradient step for orthogonal directions where L reacts non-monotonically.
+- **v0.6.0 coupling** = a Bayesian-style update: `confidence(action) ∝ memory_likelihood × dialectical_likelihood × prior`.
+
+New tool: `python -m ldd_trace prime-antithesis --project . --thesis "..."`. Pulls structured primers from `project_memory.json` and formats them as **questions the antithesis must answer**, not prescriptions. Four primer sources:
+
+| Source | Fires when |
+|---|---|
+| `skill_failure_mode` | Thesis names a skill with ≥ 30% regression+plateau rate (n ≥ 3) |
+| `plateau_pattern` | Current in-flight task has ≥ 2 consecutive near-zero Δ |
+| `similar_task` | File-overlap with a non-completed past task (jaccard ≥ 0.3) |
+| `terminal_analysis` | Project-wide non-complete rate ≥ 15% (n ≥ 5 tasks) |
+
+Skill update: `skills/dialectical-reasoning/SKILL.md` gains a new section "Memory-informed antithesis generation" that cross-references the tool + enforces three agent-contract rules:
+1. Each primer becomes a required antithesis point
+2. Generate ≥ 1 antithesis NOT sourced from primers (anti-groupthink guard)
+3. Synthesis MUST explicitly reconcile or reject each primer
+
+### Loss invariant preserved (no bias injection)
+
+Primers are **evidence**, not weights:
+- No auto-apply: dialectical synthesis decides, memory surfaces
+- No ranking: severity ("high"/"warn"/"info") is a visibility hint, not an optimizer weight
+- No filtering: memory can't suppress a primer once the statistical threshold is met
+- Rubric items and scoring are unchanged; only the *considered-counter-case set* is enriched
+
+A `TestBiasInvariant` test class verifies that primers are phrased as questions (not directives) and that no prescriptive language ("MUST", "DO NOT") appears in primer material — only in the agent contract (which is about process, not code).
+
+### Why this closes the v0.5.2 blind spot
+
+v0.5.2's memory can name "skill X has 40% regression rate here" — but it can't tell you *whether this task is the exception*. That requires reasoning. Without dialectical coupling, memory signals either get ignored (agent overrides) or over-applied (agent cargo-cults). The v0.6.0 contract forces both sources through a synthesis, making the decision auditable.
+
+Concrete benefit on the three failure modes from v0.5.2:
+- **Plateau**: memory names resolvers, dialectical asks "is the *parameterization* wrong or just the *attempt*?" — dialectical escalates layer when memory alone would just pivot skill
+- **Local minimum**: memory can't see it (L=0 from memory's POV); dialectical IS the generalization-gap probe (layer-5 / regularizer)
+- **Wrong decision**: memory gives rate, dialectical gives causal defensibility — agreement on both = commit, disagreement = investigate
+
+### Tests — 14 new, 51 total
+
+- 2 skill-failure-mode primer tests (fires for retry-variant, silent for root-cause-by-layer)
+- 2 plateau-pattern primer tests (fires on 2-streak, silent on healthy task)
+- 2 terminal-analysis primer tests (threshold boundary behavior)
+- 1 combined-priming test (plateau + bad-skill = 2 primers)
+- 2 formatter tests (empty + populated)
+- 3 CLI integration tests (help / error-on-missing-memory / full-flow)
+- 2 bias-invariant tests (evidence-not-decision, no-ranking-weights)
+
+All green: `python -m pytest scripts/ldd_trace/ -q` → 51 passed.
+
 ## [0.5.2] — 2026-04-21
 
 ### Added — trace-based project memory (`aggregate` / `suggest` / `check` / `similar` / `health`)

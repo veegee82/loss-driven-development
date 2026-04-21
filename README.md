@@ -246,17 +246,38 @@ After Phase 5 closes, architect-mode **hands off explicitly** to default LDD —
 
 **Measured effect size**: largest in the bundle. Δloss = +10 / 10, 100 % of rubric items flipped between RED (base LLM produces plausibly-good but audit-failing design doc) and GREEN (all 5 phases completed, all 10 rubric items satisfied). Raw RED + GREEN + score in [`tests/fixtures/architect-mode/runs/20260420T190302Z-clean/`](./tests/fixtures/architect-mode/runs/20260420T190302Z-clean/).
 
-#### Mental model — the auto-dispatch flow
+#### Mental model — how architect-mode thinks
 
-As of v0.4.0, the coding agent can enter architect-mode **on its own** when the task shape warrants it — without the user having to type `LDD[mode=architect]:` or any trigger phrase. This closes the "user described greenfield but didn't know the magic word" failure mode: the dispatch decision is now the agent's responsibility, with a mandatory trace echo so the user can override in one follow-up.
+Architect-mode treats "what should this be?" as a **structured search under discipline**, not as a creative-writing prompt. Each of the five phases is a deliberate mental move that blocks a known failure mode of freeform LLM design work:
 
-![Architect-mode auto-dispatch flow](./docs/diagrams/architect-auto-dispatch.svg)
+![Architect-mode mental model — the 5-phase discipline](./docs/diagrams/architect-mental-model.svg)
 
-The pipeline is **Task → Signal extraction → Score → {mode, creativity, ack-flow}**. Signals come from the task text: greenfield wording (weight +3), ≥ 3 new components named (+2), cross-layer scope (+2), ambiguous requirements (+2), and two negative signals (explicit bug-fix −5, single-file known-solution −3). The scorer runs a weighted sum; ≥ 4 trips architect-mode. Threshold is a **hard gate**, not an average — this keeps the decision auditable and discrete, consistent with LDD's refusal of continuous dials (see [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) § Creativity levels on why integer tuning is an anti-pattern).
+- **Phase 1 — compress the ask into constraints *before* imagining solutions.** Every requirement is pulled out of prose into a table with source and uncertainty column. The effect: solutions cannot silently drift off-spec later, because the spec is no longer prose — it is a checklist Phase 5 has to satisfy line by line. Hidden assumptions surface in the uncertainty column instead of living in the agent's head.
+- **Phase 2 — declare what the design is *not* before saying what it is.** The ≥ 3 non-goals are scope-bounding commitments. They exist because every greenfield design silently expands until review; pre-committing to "this system will not do X / Y / Z" is cheaper than cutting X / Y / Z after the code lands.
+- **Phase 3 — force three candidates on a *load-bearing* axis.** Cosmetic variants ("monolith in Go vs. monolith in Rust") are rejected; the three candidates must differ in a structural axis that will drive future change cost (sync vs. async vs. event-sourced; monolith vs. 2-service vs. mesh; pull vs. push vs. hybrid). This blocks the dominant failure mode of freeform design — collapsing to the first plausible shape without having considered the alternatives.
+- **Phase 4 — score, then attack the winner.** A 3 × 6 matrix (requirements coverage / boundary clarity / evolution paths / dependency explicitness / test strategy / rollback plan) is filled in explicitly, then the winner is run through a dialectical pass: the strongest honest counter-case is argued against it and the design is either revised or defended on the record. This is the step that converts "plausibly good" into "survived its own antithesis".
+- **Phase 5 — ship a package, not a PDF.** One commit: an architecture doc with 9 fixed sections, a scaffold of empty modules that imports cleanly, ≥ 1 failing test per component, and a measurable success metric per requirement. The failing tests become `loss_0` for the regular inner loop — architect-mode does not pretend to implement the system, it hands off to reactive LDD with the gradient signal already wired up.
 
-Once mode = architect is picked, a second pass infers creativity from the same task signals: regulatory / compliance / no-new-tech language → `conservative`; research / novelty / "invent" / "experiment" language → `inventive`; neither dominant → `standard` (the default). Conservative beats inventive on ties — risk-averse default. For `inventive`, the existing per-task acknowledgment flow still runs; auto-dispatch is allowed to **propose** the level but not to bypass the ack gate. Without a literal `acknowledged`, the run silently downgrades to `standard`. Full per-level rubric and loss-function consequences live in [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) § Creativity levels.
+**What you walk away with.** Five concrete artifacts on disk, not vibes:
 
-The agent echoes the decision in the trace-header `Dispatched` line so the user sees it and can override in one message: `auto (signals: greenfield=+3, cross-layer=+2)` vs. `inline-flag` vs. `command` vs. `trigger-phrase: "..."`. Silent auto-dispatch is a trace-integrity violation — the echo is load-bearing, not cosmetic. This preserves LDD's precedence rule (inline flag > command > trigger phrase > auto-dispatch > bundle default; see [`docs/ldd/hyperparameters.md`](./docs/ldd/hyperparameters.md) § Precedence) while letting the agent make the call when the user stayed silent on mode. The same ML-lens framing applies as elsewhere in LDD ([`docs/ldd/convergence.md`](./docs/ldd/convergence.md) § 7): creativity is a choice of **loss function**, not a freedom slider, and auto-dispatch only moves the signal → objective mapping from the user's prefix to the task's shape.
+1. A requirement table the next session can audit implementation progress against.
+2. A non-goals list reviewers can appeal to when scope creeps.
+3. Three alternative shapes on record — including the two that lost, so future "why didn't we do X?" questions have an answer older than institutional memory.
+4. A scoring matrix plus the antithesis that was argued against the winner.
+5. A compilable scaffold with failing tests — the inner loop can start reducing loss on day 1 without a "where do I begin?" phase.
+
+**Benefits over freeform "design a thing" prompting.** The usual LLM output for "design X" is fluent prose that hides assumptions, commits to one shape, and leaves no hook for the next session. Architect-mode fixes each failure concretely: hidden assumptions die in Phase 1's uncertainty column; the one-shape default dies in Phase 3's load-bearing axis rule; fluency-over-rigor dies in Phase 4's dialectical attack on the winner; the hand-off gap dies in Phase 5's scaffold + failing tests. Measured outcome is in the eval fixture — 10/10 rubric items flip from violated to satisfied against the same base model (see the "Measured effect size" paragraph above).
+
+**When this pays off.** The cost is real — five phases is heavier than "just design it" — so the payoff is shaped like the problem:
+
+| Task shape | Architect-mode pays? |
+|---|---|
+| Greenfield service / new module with multiple components | **Yes** — largest Δloss in the bundle |
+| Cross-layer structural decision ("how should we split this?") | **Yes** — the candidate + scoring phases are the whole point |
+| Bug fix, small refactor, known-solution single-file edit | **No** — reactive LDD is cheaper and correct |
+| Reviewing an existing design doc | **No** — use `iterative-refinement` instead |
+
+Activation (manual flag, slash command, trigger phrases, and the v0.4.0 auto-dispatch by which the agent can enter the mode itself when the task shape warrants it) is documented in [`docs/ldd/architect.md`](./docs/ldd/architect.md) § Activation and [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md).
 
 #### Creativity — three loss functions, not a freedom dial
 

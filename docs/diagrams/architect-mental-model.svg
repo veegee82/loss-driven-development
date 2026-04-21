@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1100" width="960" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">LDD architect-mode mental model — the 5-phase discipline</title>
+  <desc id="desc">A fuzzy problem "what should this be?" flows through five disciplined phases — constraints, non-goals, three candidates on a load-bearing axis, scoring with dialectical attack, and a shippable package — and hands off to reactive LDD with the failing tests from the scaffold serving as loss_0. Each phase shows the mental move it enforces, the artifact it produces on disk, and the freeform-design failure mode it blocks.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="480" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#222">How architect-mode thinks — 5 phases, 1 commit</text>
+  <text x="480" y="50" text-anchor="middle" font-size="11" fill="#555">From a fuzzy "what should this be?" to a scaffold whose failing tests become loss_0 for reactive LDD</text>
+
+  <!-- Input pill -->
+  <rect x="320" y="72" width="320" height="50" rx="25" ry="25" fill="#e8f4fd" stroke="#1f77b4" stroke-width="1.5"/>
+  <text x="480" y="93" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f4e79">"What should this be?"</text>
+  <text x="480" y="110" text-anchor="middle" font-size="10" fill="#555">fuzzy greenfield problem — prose, no scaffold, no gradient yet</text>
+
+  <line x1="480" y1="122" x2="480" y2="148" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Phase 1 -->
+  <rect x="120" y="148" width="720" height="120" rx="10" ry="10" fill="#f5ebfd" stroke="#9467bd" stroke-width="1.5"/>
+  <circle cx="160" cy="180" r="20" fill="#9467bd"/>
+  <text x="160" y="186" text-anchor="middle" font-size="15" font-weight="bold" fill="#ffffff">1</text>
+  <text x="195" y="175" font-size="14" font-weight="bold" fill="#5a3a75">Constraints before solutions</text>
+  <text x="195" y="197" font-size="11" fill="#333">Mental move: compress the ask into a table — every requirement gets a source and an uncertainty flag.</text>
+  <line x1="195" y1="212" x2="820" y2="212" stroke="#d7c4eb" stroke-width="0.8"/>
+  <text x="195" y="232" font-size="10.5" font-weight="bold" fill="#1d6b1d">→ produces:</text>
+  <text x="275" y="232" font-size="10.5" fill="#333">requirement table with an uncertainty column the next session can audit against.</text>
+  <text x="195" y="252" font-size="10.5" font-weight="bold" fill="#b03030">× blocks:</text>
+  <text x="275" y="252" font-size="10.5" fill="#333">hidden assumptions, silent spec drift during implementation.</text>
+
+  <line x1="480" y1="268" x2="480" y2="294" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Phase 2 -->
+  <rect x="120" y="294" width="720" height="120" rx="10" ry="10" fill="#f5ebfd" stroke="#9467bd" stroke-width="1.5"/>
+  <circle cx="160" cy="326" r="20" fill="#9467bd"/>
+  <text x="160" y="332" text-anchor="middle" font-size="15" font-weight="bold" fill="#ffffff">2</text>
+  <text x="195" y="321" font-size="14" font-weight="bold" fill="#5a3a75">Non-goals before goals</text>
+  <text x="195" y="343" font-size="11" fill="#333">Mental move: declare ≥ 3 concrete things the design will NOT do, before saying what it will.</text>
+  <line x1="195" y1="358" x2="820" y2="358" stroke="#d7c4eb" stroke-width="0.8"/>
+  <text x="195" y="378" font-size="10.5" font-weight="bold" fill="#1d6b1d">→ produces:</text>
+  <text x="275" y="378" font-size="10.5" fill="#333">non-goals list reviewers can appeal to when scope starts creeping in review.</text>
+  <text x="195" y="398" font-size="10.5" font-weight="bold" fill="#b03030">× blocks:</text>
+  <text x="275" y="398" font-size="10.5" fill="#333">silent scope expansion, late cuts after code lands.</text>
+
+  <line x1="480" y1="414" x2="480" y2="440" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Phase 3 -->
+  <rect x="120" y="440" width="720" height="120" rx="10" ry="10" fill="#f5ebfd" stroke="#9467bd" stroke-width="1.5"/>
+  <circle cx="160" cy="472" r="20" fill="#9467bd"/>
+  <text x="160" y="478" text-anchor="middle" font-size="15" font-weight="bold" fill="#ffffff">3</text>
+  <text x="195" y="467" font-size="14" font-weight="bold" fill="#5a3a75">Three candidates on a load-bearing axis</text>
+  <text x="195" y="489" font-size="11" fill="#333">Mental move: force three structurally different shapes — sync vs. async vs. event-sourced, mono vs. 2-service vs. mesh.</text>
+  <line x1="195" y1="504" x2="820" y2="504" stroke="#d7c4eb" stroke-width="0.8"/>
+  <text x="195" y="524" font-size="10.5" font-weight="bold" fill="#1d6b1d">→ produces:</text>
+  <text x="275" y="524" font-size="10.5" fill="#333">three candidate sketches on record — losers archived in the doc, not forgotten.</text>
+  <text x="195" y="544" font-size="10.5" font-weight="bold" fill="#b03030">× blocks:</text>
+  <text x="275" y="544" font-size="10.5" fill="#333">collapse to the first plausible shape; cosmetic-variant theater (Go vs. Rust monolith).</text>
+
+  <line x1="480" y1="560" x2="480" y2="586" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Phase 4 -->
+  <rect x="120" y="586" width="720" height="120" rx="10" ry="10" fill="#f5ebfd" stroke="#9467bd" stroke-width="1.5"/>
+  <circle cx="160" cy="618" r="20" fill="#9467bd"/>
+  <text x="160" y="624" text-anchor="middle" font-size="15" font-weight="bold" fill="#ffffff">4</text>
+  <text x="195" y="613" font-size="14" font-weight="bold" fill="#5a3a75">Score the matrix, then attack the winner</text>
+  <text x="195" y="635" font-size="11" fill="#333">Mental move: fill a 3 × 6 scoring table, then run a dialectical pass — argue the strongest honest counter-case.</text>
+  <line x1="195" y1="650" x2="820" y2="650" stroke="#d7c4eb" stroke-width="0.8"/>
+  <text x="195" y="670" font-size="10.5" font-weight="bold" fill="#1d6b1d">→ produces:</text>
+  <text x="275" y="670" font-size="10.5" fill="#333">winning shape + scoring matrix + antithesis on record; either revised or defended.</text>
+  <text x="195" y="690" font-size="10.5" font-weight="bold" fill="#b03030">× blocks:</text>
+  <text x="275" y="690" font-size="10.5" fill="#333">fluency without rigor — "plausibly good" designs that fail audit later.</text>
+
+  <line x1="480" y1="706" x2="480" y2="732" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Phase 5 -->
+  <rect x="120" y="732" width="720" height="120" rx="10" ry="10" fill="#f5ebfd" stroke="#9467bd" stroke-width="1.5"/>
+  <circle cx="160" cy="764" r="20" fill="#9467bd"/>
+  <text x="160" y="770" text-anchor="middle" font-size="15" font-weight="bold" fill="#ffffff">5</text>
+  <text x="195" y="759" font-size="14" font-weight="bold" fill="#5a3a75">Ship a package, not a PDF</text>
+  <text x="195" y="781" font-size="11" fill="#333">Mental move: one commit — 9-section doc + compilable scaffold + ≥ 1 failing test per component + measurable success metric.</text>
+  <line x1="195" y1="796" x2="820" y2="796" stroke="#d7c4eb" stroke-width="0.8"/>
+  <text x="195" y="816" font-size="10.5" font-weight="bold" fill="#1d6b1d">→ produces:</text>
+  <text x="275" y="816" font-size="10.5" fill="#333">scaffold whose failing tests are the already-wired gradient signal for the next session.</text>
+  <text x="195" y="836" font-size="10.5" font-weight="bold" fill="#b03030">× blocks:</text>
+  <text x="275" y="836" font-size="10.5" fill="#333">the design → implementation gap; "where do I begin?" at the start of the inner loop.</text>
+
+  <line x1="480" y1="852" x2="480" y2="878" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Handoff pill -->
+  <rect x="260" y="878" width="440" height="58" rx="29" ry="29" fill="#e6fbe6" stroke="#2ca02c" stroke-width="1.5"/>
+  <text x="480" y="902" text-anchor="middle" font-size="13" font-weight="bold" fill="#1d6b1d">Hand-off → reactive LDD inner loop</text>
+  <text x="480" y="921" text-anchor="middle" font-size="10.5" fill="#333">loss_0 = count of failing tests from the scaffold — no "begin" phase, gradient already wired</text>
+
+  <!-- Legend -->
+  <rect x="120" y="970" width="720" height="110" rx="8" ry="8" fill="#ffffff" stroke="#888" stroke-width="1"/>
+  <text x="480" y="992" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">Reading the diagram</text>
+
+  <circle cx="155" cy="1014" r="10" fill="#9467bd"/>
+  <text x="175" y="1018" font-size="10.5" fill="#333"><tspan font-weight="bold">Mental move</tspan> — what the agent is disciplined to do, not merely produce</text>
+
+  <text x="145" y="1040" font-size="10.5" font-weight="bold" fill="#1d6b1d">→ produces</text>
+  <text x="225" y="1040" font-size="10.5" fill="#333">the on-disk artifact that remains after the phase closes — inspectable, reviewable</text>
+
+  <text x="145" y="1062" font-size="10.5" font-weight="bold" fill="#b03030">× blocks</text>
+  <text x="225" y="1062" font-size="10.5" fill="#333">the specific freeform-design failure mode the phase is the counter-weight to</text>
+</svg>

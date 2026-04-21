@@ -1,0 +1,18 @@
+{
+  "model": "deepseek/deepseek-chat-v3.1",
+  "temperature": 0.7,
+  "scenarios": {
+    "inner-three-iters": {
+      "red_chars": "1976",
+      "green_chars": "2025"
+    },
+    "all-three-loops": {
+      "red_chars": "4545",
+      "green_chars": "3721"
+    },
+    "regression-and-recovery": {
+      "red_chars": "625",
+      "green_chars": "1782"
+    }
+  }
+}

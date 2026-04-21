@@ -11,6 +11,8 @@ The skills in this bundle are **portable markdown** — they work in any agent t
 | `capture-red-green.py` | Paired RED/GREEN captures for multi-scenario fixtures (skill content prepended as system message on GREEN) | `method-evolution`, multi-scenario fixture measurement (e.g. `architect-mode-auto-dispatch`) |
 | `evolve-skill.sh` | RED/GREEN rerun of a skill against its fixture (terminal-driven) | `method-evolution` |
 | `render-diagrams.sh` | Regenerate SVG from `.dot` sources | (maintenance) |
+| `demo-trace-chart.py` | Render the v0.5.0 LDD trace block (sparkline, mini chart, per-iter bars, trend arrow) from a hard-coded 6-iteration task — pure renderer, no I/O, no LLM calls | `using-ldd` (trace visualization) |
+| `demo-e2e-trace.py` | Executed E2E demo: optimizes a real `compute_average()` through all three loops (inner / refine / outer), running actual rubric checks against actual code and re-rendering the trace after each iteration. `--fast` skips per-iter pauses | `using-ldd` + `loop-driven-engineering` |
 
 ## Requirements
 
@@ -19,6 +21,7 @@ The skills in this bundle are **portable markdown** — they work in any agent t
 - `capture-red-green.py` — same API-key + stdlib requirements as `capture-clean-baseline.py`. Takes `--fixture` + `--skill-files` + `--scenarios` / `--scenarios-file` + `--run-dir`; writes paired `red.md` / `green.md` per scenario under `<fixture>/<run-dir>/<scenario>/`.
 - `evolve-skill.sh` — `bash`, a subagent / LLM session you can paste into. No API key needed (terminal-driven workflow).
 - `render-diagrams.sh` — `graphviz` (`dot`).
+- `demo-trace-chart.py`, `demo-e2e-trace.py` — Python 3.10+, stdlib only. No API key, no deps. Run standalone.
 
 ## Capturing distributions — quick recipe
 

@@ -136,7 +136,7 @@ git clone https://github.com/veegee82/loss-driven-development.git
 gemini extensions install ./loss-driven-development
 ```
 
-`gemini-extension.json` registers the extension; `GEMINI.md` `@`-imports the eleven skills (the `using-ldd` entry-point first).
+`gemini-extension.json` registers the extension; `GEMINI.md` `@`-imports the twelve skills (the `using-ldd` entry-point first, followed by the ten reactive disciplines and `architect-mode`).
 
 ### Aider · Cursor · Copilot CLI · Continue.dev · generic
 
@@ -351,28 +351,58 @@ The agent echoes the active budget in every trace block header, so you never won
 
 ### Live trace — see the loop happen in real time
 
-Every non-trivial LDD task emits a **visible trace block** inline in the chat so you can audit what's running without reading the agent's mind:
+Every non-trivial LDD task emits a **visible trace block** inline in the chat so you can audit what's running without reading the agent's mind. The block is re-emitted **after every iteration** (v0.5.0+) so you watch the loss descend in real time — not a single summary at the end of the task:
 
 ```
 ╭─ LDD trace ─────────────────────────────────────────╮
-│ Task   : checkout test is failing
-│ Loop   : inner
-│ Budget : k=1/5
+│ Task       : fix JSON parser bug across 3 functions
+│ Loops      : inner → refine → outer  (all three fired)
+│ Loss-type  : normalized [0,1]  (raw counts in parens)
+│ Budget     : inner k=3/5 · refine k=2/3 · outer k=1/1
 │
-│ Iteration 1:
-│   *Invoking reproducibility-first*
-│     Branch A → reproduced 2/2, deterministic
-│   *Invoking root-cause-by-layer*
-│     Layer 4: domain↔transport boundary leak
-│     Layer 5: implicit-over-explicit contract
-│   loss_1: 0 (E2E green)
+│ Trajectory : █▆▃▂··   0.500 → 0.375 → 0.125 → 0.100 → 0.000 → 0.000  ↓
+│
+│ Loss curve (auto-scaled, linear):
+│   0.50 ┤ ●  ●
+│   0.25 ┤       ●
+│   0.00 ┤          ●  ●  ●
+│        └─i1─i2─i3─r1─r2─o1→  iter
+│        Phase prefixes: i=inner · r=refine · o=outer
+│
+│ Iteration i1 (inner, reactive)    loss=0.500  (4/8)
+│   *reproducibility-first* + *root-cause-by-layer* → guard empty list, filter None values
+│ Iteration i2 (inner, reactive)    loss=0.375  (3/8)   Δ −0.125 ↓
+│   *e2e-driven-iteration* → isinstance-based filter for non-numeric types
+│ Iteration i3 (inner, reactive)    loss=0.125  (1/8)   Δ −0.250 ↓
+│   *loss-backprop-lens* → sibling-signature generalization check 3/3 green
+│ Iteration r1 (refine)             loss=0.100  (1/10)  Δ −0.025 ↓
+│   *iterative-refinement* → docstring sections + ValueError on all-invalid
+│ Iteration r2 (refine)             loss=0.000  (0/10)  Δ −0.100 ↓
+│   *iterative-refinement* → runtime invariants via assert
+│ Iteration o1 (outer)              loss=0.000  (0/8)   Δ ±0.000 →
+│   *method-evolution* → skill rubric updated; 3 sibling tasks no longer regress
 │
 │ Close:
-│   Fix at layer: 4 (transport signature made explicit)
-│   Docs synced : yes (README §usage updated)
+│   Fix at layer: 4 (input-contract) · 5 (deterministic-before-LLM)
+│   Docs synced : yes (SKILL.md + rubric updated)
 │   Terminal    : complete
 ╰─────────────────────────────────────────────────────╯
 ```
+
+#### Mental model — the four visible channels
+
+The numeric `loss_k = …` line gives the *value*. Four parallel channels, introduced in v0.5.0, make the *trajectory* AND the *work done per iteration* auditable at a glance:
+
+| Channel | When | What it shows |
+|---|---|---|
+| **Trajectory sparkline** (`▁▂▃▄▅▆▇█`) + trend arrow (`↓`/`↑`/`→`) | ≥ 2 iterations | Micro-dynamics — 8-level resolution, separates a converged tail where losses differ by 0.05. Auto-scaled to `max(loss_observed)`; zero renders as `·`. The arrow reflects the **first-vs-last** delta, not local direction — so a run that regresses in the middle but ends below its start still reads `↓` end-to-end. |
+| **Mini ASCII chart** (`┤` axis + `●` markers) | ≥ 3 iterations | Macro-trajectory — y-axis auto-scaled to nearest `0.25`-step multiple, values snap to gridlines. Tail convergence honestly collapses to the baseline row. X-axis labels (`i1`, `r2`, `o1`) align to data columns; phase prefix encodes which loop the iteration belongs to. |
+| **Per-iteration mode + info line** | every iteration | Audit surface — the iteration label carries a mode parenthetical (`(inner, reactive)`, `Phase p1 (architect, inventive)`, `(refine)`, `(outer)`) so the reader can tell which discipline was active per iteration, AND an indented continuation line with `*<skill-name>*` + a one-line description of the concrete change the iteration produced. The user can walk the skill's work step-by-step. |
+| **Per-step Δ + arrow** | every iteration after the first | Local magnitude and direction of this step's change (`Δ −0.125 ↓`, `Δ +0.167 ↑`, `Δ ±0.000 →`). Distinct from the end-to-end trend arrow on the sparkline line — per-step captures local motion, sparkline captures net motion. |
+
+The sparkline and chart MUST agree on the final `loss_k`. The deterministic rendering recipe (sparkline indexing, chart snap, trend-arrow band) is specified in [`skills/using-ldd/SKILL.md`](./skills/using-ldd/SKILL.md) § Loss visualization so renders are reproducible across agents and sessions.
+
+**Measurement**: the v0.5.0 fixture at [`tests/fixtures/using-ldd-trace-visualization/`](./tests/fixtures/using-ldd-trace-visualization/) exercises three scenarios (monotonic inner loop, full three-loop run, non-monotonic regression-recovery). Captured at `deepseek/deepseek-chat-v3.1`, T=0.7, via OpenRouter. **Per-scenario Δloss: +2 / +4 / +4; bundle-normalized = 0.833** — RED never emits any of the four channels, GREEN consistently emits the mode+info line and sparkline, with the mini chart and trend arrow emitted on the longer scenarios. The non-monotonic scenario 3 validates that GREEN correctly applies the first-vs-last rule (`↓` end-to-end despite the local `↑` at i2).
 
 In project directories, LDD also appends one line per skill invocation to `.ldd/trace.log`:
 
@@ -414,7 +444,7 @@ If you see none of these in an interaction where you expected them, LDD is insta
 
 Run them manually, wire them into CI, or ignore them. The skills don't depend on them.
 
-Also ships: [`commands/`](./commands/) — six Claude-Code slash commands (`/loss-driven-development:ldd-trace`, `ldd-status`, `ldd-explain`, `ldd-config`, `ldd-set`, `ldd-reset`, `ldd-architect`) for trace inspection, session-level hyperparameter overrides, and architect-mode activation. See the "Using LDD" and "Architect mode" sections above.
+Also ships: [`commands/`](./commands/) — seven Claude-Code slash commands (`/loss-driven-development:ldd-trace`, `ldd-status`, `ldd-explain`, `ldd-config`, `ldd-set`, `ldd-reset`, `ldd-architect`) for trace inspection, session-level hyperparameter overrides, and architect-mode activation. See the "Using LDD" and "Architect mode" sections above.
 
 ## Relation to `superpowers`
 

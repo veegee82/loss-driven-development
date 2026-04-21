@@ -187,7 +187,13 @@ Use `/loss-driven-development:ldd-config` to see the full stack with per-key pro
 
 For every non-trivial LDD task, emit a **visible trace block** inline in your reply so the user can see what discipline is running, how the loss is moving, and which skill fired. The user wants to audit this in real-time; the block is part of the deliverable, not an internal monologue.
 
-**Emit ONE block per task** (not per skill invocation — that would clutter). Update it as the loop progresses; if the task spans multiple messages, re-emit the current state of the trace at the end of each message.
+**Emit the trace block AFTER EVERY ITERATION** (not per skill invocation — within one iteration multiple skills may fire; they share ONE block emitted at iteration close). Each emission is the *full current-state block* — header + all iterations so far + sparkline + chart + per-iteration mode+info lines. The user watches the loss descend in real time; they do not wait until the task closes to see progress.
+
+Re-emit also at the end of each message if the task spans multiple messages, and at loop close (the final block carries the Close section with terminal status + layer fix + docs-sync verdict). Consecutive emissions grow monotonically: iteration k's emission differs from iteration k−1's by exactly one new iteration appended, the sparkline extended by one char, the chart extended by one column, and the trajectory-trend-arrow possibly flipped.
+
+**Post-hoc reconstruction exception:** when the user hands you a COMPLETED task's iteration data (losses, skill names, actions already known) and asks you to render the trace, emit ONE final block with all iterations — the per-iteration rule does not apply because no real iterations are happening; repeating the growing block 3× in sequence would just be the same data printed three times. The `tests/fixtures/using-ldd-trace-visualization/` fixture exercises this exception (all three scenarios are post-hoc).
+
+**Budget warning:** per-iteration emission multiplies trace-block token cost by the iteration count. For tight-context sessions, the Compression rule below (info-lines collapsed to skill-name-only) mitigates this — but the visualization channels (sparkline, chart, mode indicator, trend arrow) are never dropped, they are the audit surface.
 
 ### Trace block format
 
@@ -242,6 +248,98 @@ Normalization makes Δloss **comparable across skills** (drift-detection with 6 
 
 **Anti-pattern:** never compute a normalized float from a count that has no natural max (commit counts, latency, token usage). Those stay absolute with units — trying to normalize them invents a denominator and produces fake precision.
 
+### Loss visualization — sparkline, mini chart, mode+info line, trend arrow
+
+The numeric loss per iteration gives the user the value. To make the **trajectory** auditable at a glance AND the **work done per iteration** reviewable at a glance, the trace block carries four parallel channels. Mandatory thresholds:
+
+| Channel | When mandatory | What it is |
+|---|---|---|
+| **Trajectory sparkline** | ≥ 2 iterations | Single-line Unicode-block series (`▁▂▃▄▅▆▇█`), one char per iteration, auto-scaled to `max(loss_observed)`. Zero values render as `·`. Sits on a `Trajectory:` line inside the trace block. |
+| **Trend arrow** | ≥ 2 iterations | Single glyph at the end of the sparkline line: `↓` net descent, `↑` net regression, `→` flat. Reflects **first-vs-last** loss delta, NOT local or majority direction. |
+| **Mini ASCII loss-curve chart** | ≥ 3 iterations | Multi-line chart: y-axis auto-scaled to smallest `0.25`-step multiple `≥ max(loss)`, values snap round-half-up to the nearest gridline; x-axis labels are the iteration labels (`i1`, `r2`, `o1`, …) with label first-char aligned to the data marker column. Data marker: `●`. |
+| **Per-iteration mode + info line** | every iteration | The iteration-label line names the loop AND the mode (e.g. `(inner, reactive)`, `Phase p1 (architect, inventive)`, `(refine)`, `(outer)`) so the reader can tell at a glance which discipline was active. An indented continuation line carries `*<skill-name>*` + a one-line description of what concrete change the iteration produced — so the user can follow the skill's work step-by-step without scrolling elsewhere. |
+
+The sparkline gives **micro-dynamics** (8-level resolution — separates a converged tail where losses differ by 0.05). The mini chart gives **macro-trajectory** (tail convergence collapses to the baseline row, which is visually honest — the loss IS flat below the snap step). The mode+info line gives **audit surface** — which mode, which skill, which action, per iteration. Consistency constraint: the sparkline's last bar, the chart's last marker, and the final iteration's `loss=` value must all reflect the same number.
+
+**Mode-indicator grammar (per iteration label):**
+
+- Inner loop, default discipline → `Iteration i<k> (inner, reactive)`
+- Inner loop replaced by architect-mode → `Phase p<k> (architect, <creativity>)` where `<creativity>` is one of `standard` / `conservative` / `inventive`. The word `Phase` (not `Iteration`) signals the 5-phase protocol is running.
+- Refine loop → `Iteration r<k> (refine)` — no mode/creativity (refine is always y-axis work on a deliverable)
+- Outer loop → `Iteration o<k> (outer)` — no mode/creativity (outer is always θ-axis work on a skill/rubric)
+
+A session that fires architect-mode in the inner layer and then hands off to reactive inner iterations renders both in the same trace: `Phase p1..p5` followed by `Iteration i1..i<k>`.
+
+**Delta column (≥ 2 iterations):** every iteration after iter 1 appends `Δ <±value> <arrow>` to its loss line, where arrow is `↓` (progress), `↑` (regression), or `→` (plateau, `|Δ| < 0.0005`). This is the *per-step* arrow — distinct from the *end-to-end* trend arrow on the sparkline line.
+
+**Rendering recipe (deterministic — copy verbatim):**
+
+```
+sparkline char  : ▁▂▃▄▅▆▇█ indexed by round(v / max(v) * 7); v == 0 → ·
+trend arrow     : ↓ if (last − first) < −0.005 · ↑ if > +0.005 · → otherwise
+chart y-axis    : ylim = ceil(max(v) / 0.25) * 0.25 ; rows at 0, 0.25, 0.50, … , ylim
+chart data snap : row = floor(v / 0.25 + 0.5) * 0.25    (round-half-up)
+chart x-axis    : "└─" + "─".join(labels) + "→  iter"   (label first-char = col start)
+mode indicator  : (<loop>, <mode>[, <creativity>])  as specified above
+info line       : "  *<skill-name>* → <one-line description of change produced>"
+```
+
+**Example — inner (reactive) → refine → outer, 6 iterations:**
+
+```
+│ Trajectory : █▆▃▂··   0.500 → 0.375 → 0.125 → 0.100 → 0.000 → 0.000  ↓
+│
+│ Loss curve (auto-scaled, linear):
+│   0.50 ┤ ●  ●
+│   0.25 ┤       ●
+│   0.00 ┤          ●  ●  ●
+│        └─i1─i2─i3─r1─r2─o1→  iter
+│        Phase prefixes: i=inner · r=refine · o=outer
+│
+│ Iteration i1 (inner, reactive)    loss=0.500  (4/8)
+│   *reproducibility-first* + *root-cause-by-layer* → guard empty list, filter None values
+│ Iteration i2 (inner, reactive)    loss=0.375  (3/8)   Δ −0.125 ↓
+│   *e2e-driven-iteration* → isinstance-based filter for non-numeric types
+│ Iteration i3 (inner, reactive)    loss=0.125  (1/8)   Δ −0.250 ↓
+│   *loss-backprop-lens* → sibling-signature generalization check 3/3 green
+│ Iteration r1 (refine)             loss=0.100  (1/10)  Δ −0.025 ↓
+│   *iterative-refinement* → docstring sections + ValueError on all-invalid
+│ Iteration r2 (refine)             loss=0.000  (0/10)  Δ −0.100 ↓
+│   *iterative-refinement* → runtime invariants via assert
+│ Iteration o1 (outer)              loss=0.000  (0/8)   Δ ±0.000 →
+│   *method-evolution* → skill rubric updated; 3 sibling tasks no longer regress
+```
+
+**Example — architect (inventive) hand-off into reactive inner:**
+
+```
+│ Phase p1 (architect, inventive)   loss=0.857  (6/7)
+│   constraints: 7 requirements named; 2 uncertainties flagged (consistency bound, write throughput)
+│ Phase p2 (architect, inventive)   loss=0.714  (5/7)   Δ −0.143 ↓
+│   non-goals: 3 concrete scope boundaries (no global consensus, no strict serializability, …)
+│ Phase p3 (architect, inventive)   loss=0.429  (3/7)   Δ −0.286 ↓
+│   candidates: 3/3 on partial-order axis (MPO-CRDT, version-vector-with-dominance, lattice-merge)
+│ Phase p4 (architect, inventive)   loss=0.143  (1/7)   Δ −0.286 ↓
+│   scoring: MPO-CRDT wins 0.778; antithesis on write amplification survived with mitigation
+│ Phase p5 (architect, inventive)   loss=0.000  (0/7)   Δ −0.143 ↓
+│   deliverable: arch.md + scaffold + 6 failing tests + acknowledgment accepted @ 2026-04-21T12:14Z
+│ Iteration i1 (inner, reactive)    loss=0.857  (6/7)
+│   *e2e-driven-iteration* → first failing scaffold test now compiles (schema bound)
+```
+
+**Non-monotonic trajectories** — the end-to-end trend arrow is computed from `last − first`, so a run that regresses in the middle but recovers below the starting loss is still `↓`. Example: `0.667 → 0.833 → 0.167` ends at `−0.500` vs. start → `↓`, even though i1→i2 is a local `↑`. The per-step `Δ` arrows on each iteration line carry the local direction; the sparkline arrow carries the net direction. Don't conflate them.
+
+**Compression rule (tight context):** if the trace would exceed one screenful, collapse the info-lines to a single word each (the skill name), but never drop the mode indicator or the sparkline — those are load-bearing for audit. The user wants to know *which discipline* fired at *which iteration* even when full prose doesn't fit.
+
+**Loss-type-specific rendering:**
+
+- `normalized [0,1]` or `rate` → chart and trend arrow use `[0,1]` directly.
+- `absolute (with unit)` → sparkline auto-scales to `max_observed`; put the unit in the trajectory label (`Trajectory (ms):  ▇▅▁  …`). The mini chart is omitted for absolute loss (no natural [0,1] denominator — see the anti-pattern above); sparkline + mode+info line + trend arrow remain.
+
+**Why no per-iteration magnitude bar** — an earlier draft of this spec included a 20-character `█`/`░` bar per iteration. It was removed in favor of the mode+info line because the information density is strictly worse: the bar re-encodes data already carried by the sparkline and chart, while the mode+info line carries *new* information (which skill fired, what concrete action it produced) the user cannot reconstruct from loss numbers alone.
+
+**Architect-mode trace-block header:** the variant block (next subsection) uses phases instead of iterations. The header carries `mode: architect, creativity: <level>` and a `Dispatched:` line explaining how architect-mode was selected. The same four visualization channels apply, with `p1`..`p5` labels in place of `i1`/`r1`/`o1`.
+
 ### Architect-mode variant of the trace block
 
 When `mode=architect` is active, the trace uses **phases** instead of iterations. The 5 phases are prescribed by the `architect-mode` skill. Example:
@@ -276,10 +374,13 @@ Phase completion is reported as it happens (the block grows as the task progress
 
 ### When to emit
 
-- **Always** on any invocation triggered by `LDD:` prefix or any trigger-phrase match
-- **Always** when closing a loop (final block with terminal status)
+- **Always** on any invocation triggered by `LDD:` prefix or any trigger-phrase match (initial block carries header + budget, no iterations yet)
+- **After every iteration** during live task execution — re-emit the full current-state block so the user watches the loss descend in real time (per v0.5.0 rule above)
+- **Always** when closing a loop (final block with Close section: terminal status + layer fix + docs-sync verdict)
+- **At the end of each message** if the task spans multiple messages (re-emit current state)
 - **On request** when the user types the `/ldd-trace` command or asks for the current state
 - **Not** for trivial one-shot replies (file read, single grep, typo fix) where no skill fires
+- **Not** per-iteration when reconstructing a post-hoc trace from completed data the user supplied (one final block suffices — repeating the same iterations 3× adds no information)
 
 ### Persisted trace at `.ldd/trace.log`
 

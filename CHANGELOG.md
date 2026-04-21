@@ -2,6 +2,65 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-04-21
+
+### Added — trace visualization (sparkline, mini chart, mode+info line, trend arrow)
+
+The LDD trace block now carries four parallel channels alongside the numeric loss values, making the trajectory AND the per-iteration skill work both auditable at a glance. Closes two friction points in one release: "loss numbers on their own are hard to eyeball" (solved by sparkline + chart) and "the user can't tell which skill did what per iteration" (solved by the mandatory mode-indicator + info line).
+
+**The four channels** (in `skills/using-ldd/SKILL.md` § Loss visualization — sparkline, mini chart, mode+info line, trend arrow):
+
+| Channel | Mandatory at | Purpose |
+|---|---|---|
+| **Trajectory sparkline** (`▁▂▃▄▅▆▇█`, auto-scaled, zero → `·`) | ≥ 2 iterations | Micro-dynamics — 8-level resolution across the full run |
+| **Trend arrow** (`↓` / `↑` / `→`, first-vs-last delta) | ≥ 2 iterations | Net direction at the end of the sparkline; distinct from per-step `Δ` arrows |
+| **Mini ASCII loss-curve chart** (`┤` y-axis + `●` markers + labeled x-axis) | ≥ 3 iterations | Macro-trajectory with `0.25`-step snap and per-phase labels (`i1`, `r2`, `o1`) |
+| **Per-iteration mode + info line** | every iteration | The iteration label carries a mode parenthetical — `(inner, reactive)`, `Phase p1 (architect, <creativity>)` with creativity ∈ {standard, conservative, inventive}, `(refine)`, or `(outer)` — so the reader can tell which discipline was active per iteration. An indented continuation line carries `*<skill-name>*` + a one-line description of what concrete change the iteration produced. Gives the user an audit trail without scrolling elsewhere |
+
+The sparkline and chart MUST agree on the final `loss_k`. The SKILL.md section specifies a deterministic rendering recipe (sparkline indexing via `round(v/max * 7)`, chart snap via `floor(v/0.25 + 0.5) * 0.25`, trend arrow via first-vs-last delta with ±0.005 plateau band, mode-indicator grammar per loop/mode) so renders are reproducible across agents and sessions.
+
+**Non-monotonic trajectories are first-class.** The end-to-end trend arrow is computed from `last − first`, so `0.667 → 0.833 → 0.167` (i1→i2 regression, i2→i3 recovery) still reads `↓` at the end of the sparkline — even though the per-step `Δ` arrow on i2 correctly shows `↑` locally. Sparkline arrow = net direction; per-step `Δ` arrow = local direction. The SKILL.md text calls this distinction out explicitly to prevent conflation.
+
+**Mode-indicator grammar.** The parenthetical on each iteration line uses the four-way split: `(inner, reactive)` for default inner work, `Phase pk (architect, <creativity>)` when architect-mode replaces the inner loop (note: word `Phase` not `Iteration`, signaling the 5-phase protocol), `(refine)` for y-axis deliverable work, `(outer)` for θ-axis method work. A session that runs architect inner → hands off to reactive inner renders both in the same trace: `Phase p1..p5` followed by `Iteration i1..i<k>`.
+
+**Why no per-iteration `█`/`░` bar** (explicit design non-choice). An earlier draft of the spec included a 20-char magnitude bar per iteration. It was removed because information density is strictly worse than the mode+info line — bars re-encode data already carried by the sparkline and chart, while the mode+info line carries *new* information (which skill, what action) the user cannot reconstruct from loss numbers alone.
+
+### Changed — trace emission cadence: once-per-task → after every iteration (live)
+
+Prior to v0.5.0 the rule was "emit ONE block per task; re-emit at message end if the task spans messages." The rule is now **emit after every iteration** during live task execution — the user watches the loss descend in real time rather than waiting until task close. Consecutive emissions grow monotonically by exactly one iteration (plus one sparkline char, one chart column, and a possibly-flipped trend arrow).
+
+The per-skill-invocation anti-pattern is preserved: within one iteration multiple skills may fire (e.g. `reproducibility-first` + `root-cause-by-layer`), they still share ONE block emitted at iteration close. The rule discriminates iterations from skill-invocations, not the emission from existence.
+
+**Post-hoc reconstruction exception** (new in v0.5.0): when the user hands you a completed task's iteration data and asks you to render the trace, emit ONE final block — there are no real iterations happening, so repeating the growing block would print the same data 3× without adding information. The `tests/fixtures/using-ldd-trace-visualization/` fixture exercises this exception (all three scenarios are post-hoc reconstructions).
+
+**Budget trade-off acknowledged.** Per-iteration emission multiplies trace-block token cost by the iteration count. For tight-context sessions, the existing compression rule (info-lines collapsed to skill-name-only) mitigates; the visualization channels are never dropped. The audit-transparency gain was judged worth the token cost — a user who cannot see their loop's progress until close is a user who will ask "is it still running?" after 90 seconds of silence.
+
+### Changed — trace block example in README reflects v0.5.0 format
+
+The inline trace example in `README.md` § "Live trace — see the loop happen in real time" was replaced with a 6-iteration three-loop run rendered in full v0.5.0 format (sparkline, chart, per-iteration mode+info + `Δ` column, close). A new subsection `#### Mental model — the four visible channels` follows, explaining each granularity and the consistency rule, and linking to the authoritative SKILL.md section and the v0.5.0 fixture.
+
+### Tests — new fixture `tests/fixtures/using-ldd-trace-visualization/`
+
+Three RED/GREEN scenarios, captured at `deepseek/deepseek-chat-v3.1`, T=0.7, via OpenRouter (cheaper than v0.4.0's `gpt-5-mini`; total capture spend ≈ $0.05). Scored against a 4-item rubric measuring channel emission + mode-indicator grammar + per-iteration skill-info + net-direction-arrow correctness.
+
+| Scenario | RED loss | GREEN loss | Δloss |
+|---|---:|---:|---:|
+| inner-three-iters | 4 / 4 | 2 / 4 | **+2** |
+| all-three-loops | 4 / 4 | 0 / 4 | **+4** |
+| regression-and-recovery | 4 / 4 | 0 / 4 | **+4** |
+
+Every scenario clears the Δloss ≥ 1 release gate. Bundle-scoped normalized Δloss for this fixture: `0.833`, well above the bundle target of `≥ 0.30`. Scenario `inner-three-iters` lost 2 items in GREEN (mini chart and trend arrow not emitted — base-model rendering skip at T=0.7 on the shortest scenario); sparkline and mode+info line transferred cleanly. Scenarios 2 and 3 hit all four items; scenario 3 validates the subtlest discriminator — GREEN correctly reads the non-monotonic prompt and emits `↓` end-to-end while keeping the per-step `Δ +0.167 ↑` on i2.
+
+### Updated
+
+- `skills/using-ldd/SKILL.md` — new `### Loss visualization — sparkline, mini chart, mode+info line, trend arrow` subsection (4-channel mandatory thresholds, mode-indicator grammar, deterministic rendering recipe, 6-iteration reactive-inner worked example, architect→inner hand-off worked example, non-monotonic-trajectory rule, compression rule, loss-type-specific rendering)
+- `README.md` — trace example block replaced with v0.5.0 format; new `#### Mental model — the four visible channels` subsection with fixture link + measurement summary
+- `tests/fixtures/using-ldd-trace-visualization/` — new fixture (scenario.md + rubric.md + runs/20260421T122248Z-clean/)
+- `scripts/demo-trace-chart.py` — new demo helper, renders the trace block from a hard-coded 6-iteration task with mode-indicator + info lines. Pure renderer, no skill invocations, no LLM calls; functions (`sparkline`, `mini_chart`, `trend_arrow`, `render_trace`) are directly liftable into a future renderer module under `skills/using-ldd/`
+- `scripts/demo-e2e-trace.py` — new executed-demo helper. Optimizes a real Python function (`compute_average`) through all three loops (inner → refine → outer), running actual rubric checks against actual compiled code at every iteration and re-rendering the trace block after each. Supports `--fast` for piping; default pauses 0.5s per iteration for live-feel. No simulation — every loss value is computed from `exec()` + call + rubric assertion
+- `scripts/README.md` — new rows for both demo helpers
+- `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `gemini-extension.json` — version bumped `0.4.0` → `0.5.0`
+
 ## [0.4.0] — 2026-04-21
 
 ### Added — auto-dispatch for architect-mode

@@ -286,6 +286,48 @@ def aggregate(store: TraceStore) -> dict:
     top_failure = sorted(failure_paths_count.items(), key=lambda x: -x[1])[:5]
 
     # ------------------------------------------------------------------
+    # Calibration — v0.7.0. Mean |prediction_error| over all iterations
+    # that carried a predicted_Δloss field. Guards against silent drift
+    # between predicted and observed loss movement.
+    # ------------------------------------------------------------------
+    prediction_errors: List[float] = []
+    predictions_by_skill: Dict[str, List[float]] = {}
+    for t in completed:
+        for e in t.iterations:
+            err_str = e.fields.get("prediction_error")
+            if err_str is None:
+                continue
+            try:
+                # err format: "±N.NNN" or "+N.NNN" / "-N.NNN"
+                err_clean = err_str.replace("±", "").replace("+", "")
+                err_val = float(err_clean)
+                prediction_errors.append(abs(err_val))
+                skill = e.fields.get("skill", "(unknown)")
+                predictions_by_skill.setdefault(skill, []).append(abs(err_val))
+            except ValueError:
+                continue
+
+    calibration = {
+        "n_predictions": len(prediction_errors),
+        "mean_abs_error": (
+            round(sum(prediction_errors) / len(prediction_errors), 4)
+            if prediction_errors
+            else None
+        ),
+        "by_skill": {
+            s: {
+                "n": len(errs),
+                "mean_abs_error": round(sum(errs) / len(errs), 4),
+            }
+            for s, errs in predictions_by_skill.items()
+        },
+        "drift_warning": (
+            len(prediction_errors) >= 5
+            and sum(prediction_errors) / len(prediction_errors) > 0.15
+        ),
+    }
+
+    # ------------------------------------------------------------------
     # Assemble memory
     # ------------------------------------------------------------------
     memory = {
@@ -308,6 +350,7 @@ def aggregate(store: TraceStore) -> dict:
         },
         "skill_effectiveness": skill_effectiveness,
         "plateau_resolution_patterns": plateau_resolutions,
+        "calibration": calibration,
         "common_closing_paths": [
             {"path": list(p), "count": c} for p, c in top_closing
         ],

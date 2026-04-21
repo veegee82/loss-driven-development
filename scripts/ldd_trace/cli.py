@@ -64,6 +64,7 @@ def _cmd_append(args: argparse.Namespace) -> int:
         mode=args.mode,
         creativity=args.creativity,
         baseline=args.baseline,
+        predicted_delta=args.predicted_delta,
     )
     print(render_trace(store.to_task()))
     return 0
@@ -286,6 +287,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--baseline",
         action="store_true",
         help="Mark this as pre-iteration baseline (k=0), no Δloss computed",
+    )
+    p_app.add_argument(
+        "--predicted-delta",
+        type=float,
+        default=None,
+        help="v0.7.0 — predicted Δloss from the quantitative dialectic protocol. "
+        "When provided, the aggregator computes prediction_error and mean |error| "
+        "as a calibration metric.",
     )
     p_app.set_defaults(func=_cmd_append)
 

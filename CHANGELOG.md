@@ -2,6 +2,54 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-04-21
+
+### Added — The Quantitative Dialectic (skill-first, with code plumbing)
+
+The v0.6.0 coupling made memory feed dialectical reasoning via narrative primers. v0.7.0 makes the coupling **numeric** — not by computing gradients in Python, but by prescribing a **5-step numeric protocol** in `skills/dialectical-reasoning/SKILL.md` that the agent walks in-head during synthesis.
+
+This is the point where "gradient via dialectic" stops being metaphor and becomes a reasoning discipline: *LDD is a skill, so the discipline lives in the skill text, not in the tool.* The Python side adds only the calibration substrate.
+
+### The protocol (skill text)
+
+New section in `dialectical-reasoning/SKILL.md` specifies:
+
+- **Step 1 — Thesis** carries `predicted_Δloss` + `confidence_factor`, drawn from `project_memory.json`.
+- **Step 2 — Antithesis primers** map to `{probability, impact}` pairs — each primer from `prime-antithesis` now has a numeric interpretation, not just prose.
+- **Step 3 — Synthesis** computes `E[Δloss | thesis] = Σ (prob × impact) + (1 − Σprob) × predicted`.
+- **Step 4 — Decision rule**: commit if `E[Δloss | thesis] < 0` AND no alternative dominates by > 0.1; reject if an alternative dominates by > 0.1 or `E[Δloss | thesis] ≥ 0`; else escalate (ambiguous).
+- **Step 5 — Calibration** logs `predicted_Δloss` at commit; aggregator compares to observed `actual_Δloss` after close.
+
+A worked example (retry-variant vs. root-cause-by-layer in a plateau scenario) walks the five steps end-to-end with actual numbers.
+
+Five hard rules preserve the loss invariant:
+1. No fabricated numbers (`n < 3` → confidence = low, prediction = unknown).
+2. Prediction is advisory, not gate — agent may override with stated reasoning.
+3. Calibration is mandatory — commit without `--predicted-delta` = v0.7.0 protocol was not applied.
+4. No cross-project numbers (per-project memory only).
+5. Within ambiguity band (|Δ| < 0.1) → user decision.
+
+### Code support for the protocol
+
+- `ldd_trace append --predicted-delta <float>` — new optional arg. When provided, the trace line carries `predicted_Δloss=X` AND the computed `prediction_error = predicted − actual`.
+- `aggregator` — new `calibration` section in `project_memory.json`:
+  - `n_predictions`, `mean_abs_error`, per-skill `mean_abs_error`
+  - `drift_warning: true` when `mean_abs_error > 0.15` over `n ≥ 5` samples — explicit outer-loop signal that the agent's in-head priors are mis-calibrated
+- `health` render surfaces the calibration block when predictions exist, so the user sees drift at a glance.
+
+### Why no auto-apply anywhere
+
+All of this is additive to the reasoning protocol. The loss function `L(θ)` is unchanged; the rubric is unchanged; the actual observed Δloss is measured exactly as before. What changes is that the agent's *search direction* is now guided by explicit, auditable, calibratable priors rather than implicit gut-feel. If calibration degrades, the aggregator tells the agent so — and `method-evolution` fires on outer loop, not a silent loss-modification.
+
+### Tests — 8 new, 59 total
+
+- 2 tests for `predicted_delta` field recording (with/without)
+- 3 tests for `calibration` aggregation (good calibration, drift warning, empty)
+- 2 tests for health rendering (with/without predictions)
+- 1 CLI integration test (`append --predicted-delta` round-trips through trace.log)
+
+All green: `python -m pytest scripts/ldd_trace/ -q` → 59 passed.
+
 ## [0.6.0] — 2026-04-21
 
 ### Added — memory × dialectical coupling (`prime-antithesis` + skill update)

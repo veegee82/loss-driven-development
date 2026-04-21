@@ -344,6 +344,21 @@ def format_health(memory: dict) -> str:
                 f"│   {key:<28}  n={info['n_observed']}  top_resolvers=[{top3_str}]"
             )
 
+    calib = memory.get("calibration", {})
+    if calib.get("n_predictions", 0) > 0:
+        mae = calib.get("mean_abs_error", 0.0)
+        drift = calib.get("drift_warning", False)
+        marker = "⚠ drift" if drift else "ok"
+        lines.append("│")
+        lines.append(
+            f"│ Calibration : n={calib['n_predictions']} predictions "
+            f"mean|err|={mae:.3f} [{marker}]"
+        )
+        for skill, info in sorted(calib.get("by_skill", {}).items()):
+            lines.append(
+                f"│              {skill:<32} n={info['n']} mean|err|={info['mean_abs_error']:.3f}"
+            )
+
     lines.append("│")
     lines.append(
         "│ Bias guards : "

@@ -99,6 +99,141 @@ A good antithesis hits at least 3 of these:
 
 If you can check none of these, your antithesis is cosmetic. Try again.
 
+## The Quantitative Dialectic — gradient via dialectic (v0.7.0)
+
+The three moves above are **qualitative**. v0.7.0 adds a **numeric protocol the agent walks in-head** during the synthesis step, turning dialectical reasoning from "I considered the alternatives" into "I computed and rejected alternative A because E[Δloss | A] > E[Δloss | B] by 0.44."
+
+This is the point where "gradient via dialectic" is actual math — but the math is done by the agent using skill-prescribed reasoning, not by Python. LDD is a skill; the discipline lives here, not in the tool.
+
+### When to apply the numeric layer
+
+Apply when **all** of:
+
+- `project_memory.json` exists (≥ 1 closed task in `.ldd/trace.log`)
+- The thesis names a concrete skill / decision path with historical data
+- The stakes are non-trivial (architectural, cross-layer, or high-blast-radius)
+
+Skip when: project has no memory yet, or thesis is fully novel (no historical stats), or change is trivial.
+
+### The 5-step numeric protocol
+
+**Step 1 — Thesis carries predicted Δloss**
+
+State the proposal AND its predicted Δloss, drawn from memory:
+
+```
+Thesis: apply skill X at position Y
+  predicted_Δloss   = memory.skill_effectiveness[X].delta_mean_abs    = <number>
+  confidence_factor = clamp(log(1+n)/log(1+10), 0, 1)                 = <number>
+  source            = lifetime | last_30_days
+```
+
+Confidence scales with sample size. Below n=3, confidence → 0, predicted_Δloss becomes advisory only.
+
+**Step 2 — Each antithesis primer carries {probability, impact}**
+
+Instead of narrative counter-cases, each primer maps to numbers:
+
+```
+Primer [skill_failure_mode]:
+  prob_applies = memory.skill[X].regression_rate + memory.skill[X].plateau_rate
+  impact       = reg_rate × Δ_reg + pla_rate × 0                      # no-progress contributes 0
+
+Primer [plateau_pattern, current streak = k]:
+  prob_applies = 1.0 (we ARE in the plateau)
+  impact_if_stay_same_layer  = ≈ 0  (continued plateau)
+  impact_if_pivot_to_resolver = memory.skill[resolver].delta_mean_abs
+
+Primer [terminal_analysis]:
+  prob_applies = project.non_complete_rate
+  impact       = Σ terminal_rate × typical_Δ_for_that_terminal
+```
+
+**Step 3 — Synthesis computes expected Δloss via Bayesian combination**
+
+```
+E[Δloss | thesis] = Σ_primer (prob_primer × impact_primer)
+                  + (1 − Σ prob_primer) × thesis.predicted_Δloss
+```
+
+If alternatives exist (e.g., plateau primer suggests `root-cause-by-layer`), compute `E[Δloss | alternative]` the same way.
+
+**Step 4 — Decision rule**
+
+Commit the thesis when:
+
+- `E[Δloss | thesis] < 0` (progress expected), AND
+- No alternative dominates by more than 0.1 in expected Δloss (otherwise pivot)
+
+Reject the thesis when:
+
+- `E[Δloss | thesis] ≥ 0` (regression or plateau expected), OR
+- An alternative dominates by > 0.1 (strong evidence for pivot)
+
+Ambiguous (within 0.1): escalate to the user — the numbers don't decide, and pretending they do is false precision.
+
+**Step 5 — Calibration at iteration close**
+
+After running the iteration and measuring actual Δloss:
+
+```
+actual_Δloss      = observed_loss_post − observed_loss_pre
+prediction_error  = predicted_Δloss − actual_Δloss
+```
+
+Log both via `python -m ldd_trace append ... --predicted-delta <value>`. Over N iterations the aggregator exposes `mean(|prediction_error|)` as calibration accuracy — if consistently poor (> 0.15), the agent's internal priors are mis-calibrated and the outer loop fires (`method-evolution`).
+
+### Worked example
+
+Scenario: in-flight task, streak=2 plateau, agent considering `retry-variant`.
+
+```
+[Memory context, project_memory.json]
+  retry-variant        : delta_mean_abs=+0.025, reg=25%, pla=75%, n=4
+  root-cause-by-layer  : delta_mean_abs=−0.42,  reg=0%,  pla=0%,  n=5
+  plateau_pattern[≥2]  : resolvers=[root-cause-by-layer×3], n=3
+
+[Step 1] Thesis: apply retry-variant
+  predicted_Δloss   = +0.025                    ← EXPECTED to regress
+  confidence_factor = log(5)/log(11) = 0.67
+
+[Step 2] Primers:
+  Primer 1 (skill_failure_mode, retry-variant):
+    prob = 0.25 + 0.75 = 1.00                   ← always hits failure mode here
+    impact = 0.25 × (+0.05) + 0.75 × 0 = +0.0125
+  Primer 2 (plateau_pattern, resolver != retry-variant):
+    prob = 1.00
+    impact_if_stay = ≈ 0                         ← continued plateau
+    impact_if_pivot = −0.42                      ← resolver's historical Δ
+
+[Step 3] Synthesis:
+  E[Δloss | thesis=retry-variant]        ≈ +0.025 (primer 1 confirms regression prior)
+  E[Δloss | alternative=root-cause]      ≈ −0.42
+  Δ_between                              = 0.445  (alternative dominates by > 0.1)
+
+[Step 4] DECISION: REJECT thesis. Commit root-cause-by-layer.
+  predicted_Δloss_this_iteration = −0.42
+
+[Step 5] Post-iteration (after running):
+  observed_Δloss = −0.35
+  prediction_error = −0.42 − (−0.35) = −0.07     ← slight over-prediction, within ±0.15 band
+  Log: ldd_trace append ... --predicted-delta -0.42 --loss-norm <post>
+```
+
+### Hard rules
+
+1. **No fabricated numbers.** If `n < 3` for a skill, state `confidence = low, predicted_Δloss = unknown` — don't invent from prose.
+2. **Prediction is advisory, not gate.** Agent may override with reasoning, but must state the exception explicitly ("this case is different because …") and log it.
+3. **Calibration is mandatory.** Commit without `--predicted-delta` → v0.7.0 quantitative dialectic was not applied; log states so.
+4. **No cross-project numbers.** Memory is per-project; calibration is per-project. Global averages would bias L via signal-mixing.
+5. **Within-ambiguity-band → user decision.** If `|E[thesis] − E[best_alternative]| < 0.1`, the numbers don't decide. Escalate.
+
+### Why this doesn't bias L(θ)
+
+The numbers inform the **search direction**, not the **objective function**. The rubric still counts violations; the actual Δloss is measured post-hoc; what's different is that the agent's *proposed* direction is now guided by explicit, auditable priors rather than implicit gut-feel. Priors existed before — v0.7.0 only surfaces them, quantifies them, and calibrates them over time.
+
+If calibration degrades (prediction error widens), v0.7.0 tells the agent explicitly: "your priors are drifting; method-evolution." That's outer-loop, not loss-modification.
+
 ## Memory-informed antithesis generation (v0.6.0)
 
 SGD framing: dialectical reasoning is **local Hessian probing** — it discovers orthogonal directions in θ-space where the proposed gradient-step reacts non-monotonically. When a project has accumulated `.ldd/trace.log` and `.ldd/project_memory.json` (per `using-ldd` § "Persisted trace"), that memory provides **1st-moment statistical evidence** (past failure modes, plateau patterns, terminal distributions) that can sharpen antithesis generation — without biasing the loss function itself.

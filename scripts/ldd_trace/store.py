@@ -197,6 +197,7 @@ class TraceStore:
         creativity: Optional[str] = None,
         baseline: bool = False,
         notes: Optional[str] = None,
+        predicted_delta: Optional[float] = None,
     ) -> TraceEntry:
         prev_same_loop = [e for e in self.iterations() if e.loop == loop]
         delta: Optional[float] = None
@@ -220,6 +221,19 @@ class TraceStore:
         if delta is not None:
             sign = "-" if delta < 0 else ("+" if delta > 0 else "±")
             fields["Δloss_norm"] = f"{sign}{abs(delta):.3f}" if sign != "±" else "±0.000"
+        if predicted_delta is not None:
+            # v0.7.0 calibration — log predicted Δloss from the dialectical pass
+            p_sign = "-" if predicted_delta < 0 else ("+" if predicted_delta > 0 else "±")
+            fields["predicted_Δloss"] = (
+                f"{p_sign}{abs(predicted_delta):.3f}" if p_sign != "±" else "±0.000"
+            )
+            # Also compute prediction_error if we have an actual delta
+            if delta is not None:
+                err = predicted_delta - delta
+                e_sign = "-" if err < 0 else ("+" if err > 0 else "±")
+                fields["prediction_error"] = (
+                    f"{e_sign}{abs(err):.3f}" if e_sign != "±" else "±0.000"
+                )
         if notes:
             fields["notes"] = notes
         entry = TraceEntry(

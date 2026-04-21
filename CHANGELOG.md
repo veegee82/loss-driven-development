@@ -2,6 +2,56 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-04-21
+
+### Added — auto-dispatch for architect-mode
+
+The coding agent can now enter architect-mode **on its own** when the task description carries enough structural signals — without the user having to type `LDD[mode=architect]:`, invoke `/ldd-architect`, or use an explicit trigger phrase. Closes the "user described greenfield but didn't know the magic word" failure mode.
+
+**The 6-signal scorer** (in `skills/using-ldd/SKILL.md` § Auto-dispatch for architect-mode): greenfield `+3`, names ≥ 3 new components `+2`, cross-layer scope `+2`, ambiguous requirements `+2`, explicit bugfix `−5`, single-file known-solution `−3`. Weighted sum ≥ 4 → architect-mode. Hard gate, not average; tie-break at exactly 4 goes architect.
+
+**Creativity inference** from the same task signals: regulatory / compliance / no-new-tech / tight team+deadline cues → `conservative`; research / novelty / "invent" / "experiment" cues → `inventive`; neither → `standard` (default). Conservative beats inventive on ties. The per-task acknowledgment flow for `inventive` is unchanged — auto-dispatch proposes the level but does not bypass the ack gate; without a literal `acknowledged` reply, the run silently downgrades to `standard`.
+
+**Explicit user triggers always win.** Precedence order (highest first): inline `LDD[mode=…]` / `LDD[creativity=…]` flags > `/ldd-architect` command arg > trigger-phrase match > auto-dispatch (this pipeline) > bundle default. `LDD[mode=reactive]:` on a task with auto-score 6 stays reactive.
+
+### Changed — trace header extended with dispatch source
+
+Every architect-mode trace block now carries a `Dispatched:` line naming one of `inline-flag`, `command`, `trigger-phrase: "<phrase>"`, or `auto (signals: <top-2 by absolute weight>)`. Silent auto-dispatch is a trace-integrity violation — the user must be able to see WHY architect-mode was entered and override with one follow-up message. Example:
+
+```
+│ Dispatched : auto (signals: greenfield=+3, cross-layer=+2)
+│ mode: architect, creativity: standard
+```
+
+### Changed — README mental-model wiring
+
+New subsection `Mental model — the auto-dispatch flow` under the architect-mode README block. Linked mental model per LDD's own docs-as-DoD rule: cites `skills/using-ldd/SKILL.md` (trigger table), `skills/architect-mode/SKILL.md` § creativity, `docs/ldd/convergence.md` (loss-function framing), `docs/ldd/hyperparameters.md` (precedence). Embeds an SVG of the Task → Signal-extraction → Score → {mode, creativity, ack-flow} → Trace-echo pipeline (`docs/diagrams/architect-auto-dispatch.svg`; self-contained, no `feDropShadow`, GitHub-safe).
+
+### Tests — new fixture `tests/fixtures/architect-mode-auto-dispatch/`
+
+Four RED/GREEN scenarios, captured at `openai/gpt-5-mini`, T=0.7, via `scripts/capture-red-green.py` (new helper — paired RED/GREEN captures with skill content as system-message on the GREEN side). Scored against a 4-item rubric measuring dispatch-correctness:
+
+| Scenario | RED loss | GREEN loss | Δloss |
+|---|---:|---:|---:|
+| bugfix-skip | 1 / 4 | 0 / 4 | **+1** |
+| greenfield-inventive | 4 / 4 | 0 / 4 | **+4** |
+| regulated-conservative | 4 / 4 | 0 / 4 | **+4** |
+| typical-standard | 4 / 4 | 0 / 4 | **+4** |
+
+Every scenario clears the Δloss ≥ 1 release gate. Bundle-scoped normalized Δloss for this fixture: `0.813`, above the bundle target of `≥ 0.30`. Dominant driver is the trace-echo discipline (item 3) — the base model has no reason to invent a `Dispatched:` line, so this item flips RED → GREEN in every scenario.
+
+### Updated
+
+- `skills/using-ldd/SKILL.md` — new `## Auto-dispatch for architect-mode` section (scorer, creativity inference, precedence, worked example); trigger-table entry for architect-mode mentions the fourth path; architect trace-block example extended with `Dispatched:` line
+- `skills/architect-mode/SKILL.md` — new `## Auto-dispatch by the coding agent` section summarizing the scorer and pointing at the authoritative spec in `using-ldd/SKILL.md`; description field mentions auto-dispatch
+- `README.md` — new `### Mental model — the auto-dispatch flow` subsection with SVG
+- `docs/diagrams/architect-auto-dispatch.svg` — new diagram, 12 KB, 820 × 940 viewBox, no `feDropShadow`, no external refs
+- `tests/fixtures/architect-mode-auto-dispatch/` — new fixture (scenario.md + rubric.md + runs/20260421T002928Z-clean/)
+- `scripts/capture-red-green.py` — new paired-capture helper (OpenRouter / OpenAI / Anthropic fallback, retry-once-with-30s-backoff, no `print()`)
+- `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` + `gemini-extension.json` — version 0.3.2 → 0.4.0
+
+No breaking changes. Existing opt-in paths (inline flag / command / trigger phrases) continue to work unchanged and take precedence over the new auto-dispatch.
+
 ## [0.3.2] — 2026-04-20
 
 ### Changed — normalized loss as canonical trace form

@@ -1,0 +1,22 @@
+{
+  "model": "openai/gpt-5-mini",
+  "temperature": 0.7,
+  "scenarios": {
+    "bugfix-skip": {
+      "red_chars": "1107",
+      "green_chars": "1850"
+    },
+    "greenfield-inventive": {
+      "red_chars": "13450",
+      "green_chars": "2589"
+    },
+    "regulated-conservative": {
+      "red_chars": "15723",
+      "green_chars": "2883"
+    },
+    "typical-standard": {
+      "red_chars": "11398",
+      "green_chars": "12385"
+    }
+  }
+}

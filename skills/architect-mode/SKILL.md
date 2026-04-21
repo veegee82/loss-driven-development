@@ -1,6 +1,6 @@
 ---
 name: architect-mode
-description: Use when the user wants an architecture, design, or structure invented from requirements — greenfield service, new module, system decomposition, or the conceptual/structural layer "between X and Y" where X is the problem and Y is the delivered system. NOT the default mode. Opt-in via `LDD[mode=architect]:` prefix, the `/ldd-architect` command, or phrases like "design", "architect", "from scratch", "greenfield", "how should I structure". Supports three creativity levels (`conservative` | `standard` | `inventive`) that change the loss function, not the amount of structure.
+description: Use when the user wants an architecture, design, or structure invented from requirements — greenfield service, new module, system decomposition, or the conceptual/structural layer "between X and Y" where X is the problem and Y is the delivered system. NOT the default mode. Opt-in via four paths — inline `LDD[mode=architect]:` prefix, the `/ldd-architect` command, trigger phrases like "design" / "architect" / "from scratch" / "greenfield", or auto-dispatch when the task's 6-signal scorer sums to ≥ 4. Supports three creativity levels (`conservative` | `standard` | `inventive`) that change the loss function, not the amount of structure.
 ---
 
 # Architect Mode
@@ -115,6 +115,29 @@ Signals that trigger this mode:
 - Refactor with preserved behavior → `refactor.md` task type (inner loop with step-size calibration)
 - Polishing a finished design doc → `iterative-refinement` (y-axis)
 - Evolving the LDD bundle itself → `method-evolution` (outer loop)
+
+## Auto-dispatch by the coding agent
+
+The agent MAY enter architect-mode on its own — without an explicit `LDD[mode=architect]:` flag, `/ldd-architect` command, or trigger-phrase match — when the task description carries enough structural signals. This covers the case where a user describes a greenfield design without using the dispatch vocabulary (`"design"`, `"architect"`, `"greenfield"`); the signals in the task shape itself are enough to warrant the 5-phase discipline.
+
+**Full scorer + creativity-inference table + precedence rule live in [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch for architect-mode.** Summary here:
+
+- **Score ≥ 4 (weighted sum of 6 signals) → architect-mode.** Dominant positive signals are greenfield (+3), ≥ 3 new components (+2), cross-layer scope (+2), ambiguous requirements (+2). Negatives: explicit bug-fix (−5), single-file known-solution (−3).
+- **Creativity is inferred from the same task signals:** regulatory / no-new-tech / tight-team-deadline cues → `conservative`; research / novelty / experiment cues → `inventive`; neither → `standard`.
+- **Explicit user triggers always win** (inline flag > command > trigger phrase > auto-dispatch > bundle default). If the user wrote `LDD[mode=reactive]:` on a task with auto-score 6, the agent stays reactive.
+- **The `inventive` acknowledgment flow is unchanged.** Auto-dispatch can *propose* `inventive`, but without the literal `acknowledged` reply the run silently downgrades to `standard`. The scorer is allowed to nominate; the ack gate is not.
+
+### Mandatory trace echo when auto-dispatch fires
+
+When the agent enters architect-mode via auto-dispatch (not via an explicit flag / command / trigger phrase), it MUST echo the decision AND the top-2 signals in the trace-block header. The user gets to see and override the agent's judgment with one follow-up:
+
+```
+│ Dispatched : auto (signals: greenfield=+3, cross-layer=+2)
+```
+
+Without the echo, the user cannot distinguish "I asked for architect-mode" from "the agent chose architect-mode on my behalf" — and the audit trail for the decision is lost. Silent auto-dispatch is a trace-integrity violation.
+
+Other valid `Dispatched` values: `inline-flag`, `command`, `trigger-phrase: "<phrase>"`. See [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § "Architect-mode variant of the trace block" for the full format.
 
 ## The architect protocol
 

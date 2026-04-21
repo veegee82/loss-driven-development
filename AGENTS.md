@@ -63,7 +63,7 @@ Twelve skills (see [`docs/ldd/convergence.md`](./docs/ldd/convergence.md)).
 | `method-evolution` | outer | pattern | Same rubric violation in 3+ distinct tasks |
 | `drift-detection` | outer | pattern | Periodic full-repo scan for cumulative drift |
 | `docs-as-definition-of-done` | closes every loop | discipline | Before committing any behavior / API / CLI / config change |
-| `architect-mode` | **opt-in** | discipline (5-phase protocol) | Greenfield design / architecture / structural-decomposition tasks; activated via `LDD[mode=architect]:`, `/ldd-architect`, or auto-trigger phrases ("design", "architect", "from scratch", "greenfield") |
+| `architect-mode` | **opt-in** | discipline (5-phase protocol) | Greenfield design / architecture / structural-decomposition tasks; activated via four paths (precedence: inline `LDD[mode=architect]:` flag > `/ldd-architect` command > trigger phrases "design" / "architect" / "from scratch" / "greenfield" > auto-dispatch when the 6-signal scorer sums to ≥ 4). Agent echoes the dispatch source in the trace header |
 
 ## The `LDD:` buzzword
 

@@ -47,7 +47,7 @@ The bundle deliberately exposes **four core knobs** that apply to every LDD run 
 - **When to change:**
   - Switch to `architect` when starting a greenfield system, proposing a new module, or when the user explicitly asks for "architecture" / "design" / "structure for X"
   - Stay on `reactive` for bug fixes, feature additions, refactors, incident response — the default 95 % of the time
-  - Architect mode is strictly opt-in; an auto-trigger on phrases like "design" / "architect" / "greenfield" / "from scratch" flips it temporarily for that one task, then reverts. The agent reports the mode in the trace header so you always see what's active.
+  - Architect mode is strictly opt-in; an auto-trigger on phrases like "design" / "architect" / "greenfield" / "from scratch" flips it temporarily for that one task, then reverts. As of v0.4.0, the coding agent can also enter architect-mode via a task-shape auto-dispatch scorer (greenfield `+3`, ≥ 3 new components `+2`, cross-layer `+2`, ambiguous `+2`, bugfix `−5`, single-file `−3`; score ≥ 4 trips architect). The agent reports the mode AND the dispatch source (`inline-flag` / `command` / `trigger-phrase` / `auto (signals: …)`) in the trace header so you always see what's active and can override with one reply. Full scorer: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch for architect-mode.
 
 ### 5. `creativity` — architect-mode loss-function selection
 
@@ -142,6 +142,26 @@ inline `LDD[...]` flags      ← wins
     ↓
 bundle defaults              ← loses
 ```
+
+### Extra precedence layer for `mode` (architect vs. reactive)
+
+The `mode` key has two additional value-sources on top of the generic chain above, both sitting BELOW inline flags and /ldd-set and ABOVE bundle defaults. Full chain:
+
+```
+inline LDD[mode=…] flag
+    ↓
+/ldd-architect command arg / /ldd-set mode=…
+    ↓
+.ldd/config.yaml
+    ↓
+trigger-phrase match in the dispatch table ("design" / "architect" / "greenfield" / …)
+    ↓
+auto-dispatch scorer (score ≥ 4)     ← v0.4.0; lowest before default
+    ↓
+bundle default (mode=reactive)
+```
+
+Same ordering for `creativity`: inline flag → command → session → config → trigger-phrase → auto-inferred-from-task-signals → bundle default (`standard`). `inventive` additionally requires per-task user acknowledgment regardless of which layer proposed it.
 
 ## Natural-language override
 

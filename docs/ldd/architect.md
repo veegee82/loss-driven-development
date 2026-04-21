@@ -84,7 +84,7 @@ Full per-level spec: [`../../skills/architect-mode/SKILL.md`](../../skills/archi
 
 ## Activation
 
-Three opt-in paths (precedence: inline > session > project-config):
+Four opt-in paths (precedence: inline flag > command arg > trigger-phrase > auto-dispatch > bundle default):
 
 ```
 LDD[mode=architect]: design a billing service for 50M users
@@ -97,7 +97,9 @@ LDD[mode=architect]: design a billing service for 50M users
 mode: architect
 ```
 
-Auto-trigger phrases (design, architect, greenfield, from scratch, decompose, structure for X) also flip the mode temporarily — the user sees `mode: architect` in the trace header whenever it's active.
+Auto-trigger phrases (design, architect, greenfield, from scratch, decompose, structure for X) flip the mode temporarily — the user sees `mode: architect` in the trace header whenever it's active.
+
+**Auto-dispatch (v0.4.0+)** — the coding agent itself can score the task against 6 signals (greenfield `+3`, ≥ 3 new components `+2`, cross-layer `+2`, ambiguous `+2`, bugfix `−5`, single-file `−3`). Score ≥ 4 trips architect-mode even when no trigger phrase matched — and creativity is inferred from the same signals (regulated → `conservative`, research → `inventive`, else `standard`). The agent MUST echo the dispatch source (`auto (signals: …)` vs. `inline-flag` vs. `command` vs. `trigger-phrase: "…"`) in the trace header so the user can override with one follow-up message. Full scorer + inference table: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch for architect-mode.
 
 ## Full skill
 

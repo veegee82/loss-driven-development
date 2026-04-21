@@ -28,7 +28,103 @@ When the user's message contains any of these patterns, invoke the paired skill.
 | "same thing keeps happening across tasks", "the skill itself might be wrong" | `method-evolution` |
 | "is this codebase healthy", release-candidate review, weekly check | `drift-detection` |
 | "about to commit", "ready to merge", "declaring this done" | `docs-as-definition-of-done` |
-| "design X", "architect Y", "greenfield", "from scratch", "how should I structure", "propose an architecture", "decompose this problem", "what's the right shape for X" | `architect-mode` (opt-in — temporarily flips `mode=architect`; see skill for the 5-phase protocol and the hand-off back to reactive) |
+| "design X", "architect Y", "greenfield", "from scratch", "how should I structure", "propose an architecture", "decompose this problem", "what's the right shape for X" | `architect-mode` (opt-in — four paths: inline `LDD[mode=architect]:` flag / `/ldd-architect` command / these trigger phrases / the auto-dispatch scorer below; see skill for the 5-phase protocol and the hand-off back to reactive) |
+
+## Auto-dispatch for architect-mode
+
+When the user hasn't explicitly asked for architect-mode (no `LDD[mode=architect]:` flag, no `/ldd-architect` command, no trigger phrase in the dispatch table above), the agent MAY still enter architect-mode if the task description itself carries enough structural signals. This auto-dispatch exists so greenfield design tasks don't silently degrade into reactive "just start coding" just because the user didn't know the magic phrase.
+
+**Auto-dispatch is the fourth and lowest-priority path.** Explicit user triggers always beat it (see "Precedence" below). The agent is making a judgment call on the user's behalf; the user must be able to see it and override it trivially.
+
+### Mode signal scorer
+
+Score the incoming task against the 6 signals. Sum the weights. **Score ≥ 4 → architect-mode.** Otherwise stay reactive.
+
+| Signal | Weight | Direction | Detect via |
+|---|---|---|---|
+| Greenfield (no existing code to modify; "from scratch", "new service", "new module", "no existing codebase") | **+3** | architect | User ask explicitly names absence of prior code, or uses one of the literal phrases |
+| ≥ 3 new components / services / subsystems to build | **+2** | architect | Task ask lists three or more concrete nouns that each need design (service, store, worker, CLI, UI, scheduler, …) |
+| Cross-layer or cross-package scope (≥ 2 layers or packages touched) | **+2** | architect | Ask spans data + control layers, or names ≥ 2 packages / tiers (e.g. ingestion + storage + delivery; API + DB + background worker) |
+| Ambiguous requirements — no clear constraints stated; needs invention | **+2** | architect | Ask lacks concrete constraints (latency, throughput, stack, timeline); user is implicitly delegating the shape of the answer |
+| Explicit bug-fix / typo / rename / one-line change | **−5** | skip | Ask literally names `"fix"`, `"typo"`, `"rename"`, `"off-by-one"`, `"one-line"`, or points at a file:line |
+| Single file, no layer boundary, known-solution domain | **−3** | skip | Ask mentions one file / one function / one known pattern to apply |
+
+Tie-break at exactly 4: go architect. The threshold is the gate, not the average.
+
+### Creativity inference (applied only if mode = architect)
+
+Once architect-mode is chosen, pick the creativity level from the same task signals:
+
+| Level | Triggering signals in the task | Notes |
+|---|---|---|
+| `conservative` | `"regulated"`, `"compliance"`, `"HIPAA"`, `"PCI"`, `"SOC2"`, `"migration of production"`, `"existing stack only"`, `"no new tech"`, `"on-call context"`, `"tight deadline on small team"`, `"6-week deadline"` + `"team of 2"` | Any one hit → `conservative` |
+| `standard` (default) | none of the other levels' signals dominate | Picked when architect-mode fires but no conservative/inventive cue is present |
+| `inventive` | `"research"`, `"novel paradigm"`, `"experiment"`, `"prototype a new"`, `"invent"`, `"no known solution fits"`, `"from scratch"` + domain without known patterns | Auto-dispatch **proposes** `inventive` but the existing per-task acknowledgment flow from `architect-mode` SKILL.md § Creativity levels still runs — without literal `acknowledged`, silently downgrade to `standard` |
+
+Conservative beats inventive on a tie (risk-averse default).
+
+### Precedence — highest wins
+
+```
+inline LDD[mode=…] / LDD[creativity=…] flags     ← highest
+    ↓
+/ldd-architect [creativity] command arg
+    ↓
+trigger-phrase match in the dispatch table above
+    ↓
+auto-dispatch score ≥ 4                          ← lowest
+    ↓
+bundle default (mode=reactive, creativity=standard)
+```
+
+If the user wrote `LDD[mode=reactive]:` on a task whose auto-score would be 6, the agent stays reactive. If the user wrote `LDD[mode=architect, creativity=conservative]:` the agent does NOT recompute — it uses exactly what was asked for.
+
+### Mandatory echo
+
+When auto-dispatch fires (mode = architect was chosen without an explicit trigger), the agent MUST echo the decision in the trace header. The user needs to see it and be able to override with one follow-up message. Format:
+
+```
+dispatched: auto (signals: greenfield=+3, cross-layer=+2)
+```
+
+Use the top-2 signals by absolute weight. When the score is below 4 and the agent consciously **did not** enter architect-mode, emit:
+
+```
+dispatched: auto (skip: explicit-bugfix=-5)
+```
+
+…only if the user could reasonably have expected architect-mode to fire (greenfield-sounding ask, or prior turn in session mentioned design). Otherwise the reactive default is silent.
+
+### Worked example
+
+> User: *"design a webhook replay service that stores every inbound webhook and lets partners replay arbitrary subsets; ~500/min, 6-8 week timeline, team of 2"*
+
+Scorer run:
+
+- Greenfield (`"design … service"`, no existing code referenced): **+3**
+- ≥ 3 components (intake + store + replay + CLI): **+2**
+- Cross-layer (ingestion + persistence + delivery): **+2**
+- Ambiguous (no stack chosen, no retention named): **+2**
+- Bug-fix / rename: **0**
+- Single file: **0**
+- **Total: +9 → architect.**
+
+Creativity inference:
+
+- Conservative signals (`"regulated"` / `"compliance"` / …): none
+- Inventive signals (`"research"` / `"novel"` / …): none
+- → `standard`
+
+Trace header echoes:
+
+```
+dispatched: auto (signals: greenfield=+3, components≥3=+2)
+mode: architect, creativity: standard
+```
+
+### Relation to trigger phrases
+
+The dispatch table above (with phrases like "design X" / "greenfield") already fires architect-mode when a literal phrase matches — that path stays. Auto-dispatch is for the case where **no** literal phrase matched but the task shape still warrants architect-mode. In practice the two paths overlap heavily on classic greenfield asks; auto-dispatch catches the less-verbal users and the cross-layer asks that don't use design vocabulary.
 
 ## The "LDD:" buzzword
 
@@ -153,6 +249,7 @@ When `mode=architect` is active, the trace uses **phases** instead of iterations
 ```
 ╭─ LDD trace (mode: architect, creativity: standard) ─╮
 │ Task       : design a billing service for 50M users
+│ Dispatched : auto (signals: greenfield=+3, cross-layer=+2)
 │ Loop       : architect (5-phase protocol)
 │ Budget     : phase <k>/5, no K_MAX (phases are sequential, not iterative)
 │ Loss-fn    : L = rubric_violations  (standard baseline; λ=0)
@@ -169,7 +266,7 @@ When `mode=architect` is active, the trace uses **phases** instead of iterations
 ╰─────────────────────────────────────────────────────╯
 ```
 
-Header shows `mode: architect` and `creativity: <level>` explicitly. The `Loss-fn` line names the objective being minimized; the `Loss-type` line names how the loss is displayed (which of the three display modes applies for this run).
+Header shows `mode: architect` and `creativity: <level>` explicitly. The `Dispatched` line shows how architect-mode was selected — one of `inline-flag`, `command`, `trigger-phrase: "<phrase>"`, or `auto (signals: <top-2>)` — so the user can verify (and override) the decision in one follow-up message. The `Loss-fn` line names the objective being minimized; the `Loss-type` line names how the loss is displayed (which of the three display modes applies for this run).
 
 For `creativity: conservative` the `Loss-fn` line reads: `L = rubric_violations + λ · novelty_penalty`. The rubric max becomes 11 (standard 10 + novelty-penalty #11); `Loss-type : normalized [0,1] (weighted violations / 11)`. Scoring cells in Phase 4 are displayed as normalized floats too: `A: 0.667 (20.0/30.0)` instead of raw `A: 20.0/30.0` alone.
 

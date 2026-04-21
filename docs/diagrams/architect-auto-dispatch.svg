@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 940" width="820" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">LDD architect-mode auto-dispatch flow</title>
+  <desc id="desc">Task text flows into a signal extractor, a score accumulator, a threshold gate at 4, then into creativity inference, optional ack flow for inventive, and a trace header echo. A parallel side-branch shows explicit user flags bypassing the pipeline.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#666"/>
+    </marker>
+    <marker id="arrow-bypass" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8e44ad"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="410" y="28" text-anchor="middle" font-size="16" font-weight="bold" fill="#222">LDD architect-mode auto-dispatch flow</text>
+  <text x="410" y="48" text-anchor="middle" font-size="11" fill="#555">Task text to {mode, creativity, ack} — with explicit user flags bypassing the pipeline</text>
+
+  <!-- Task text box -->
+  <rect x="260" y="70" width="300" height="48" rx="8" ry="8" fill="#e8f4fd" stroke="#1f77b4" stroke-width="1.5"/>
+  <text x="410" y="92" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f4e79">Task text (user ask)</text>
+  <text x="410" y="108" text-anchor="middle" font-size="10" fill="#555">raw prompt — no LDD[] flag, no /ldd-architect, no trigger phrase</text>
+
+  <!-- Arrow to signal extractor -->
+  <line x1="410" y1="118" x2="410" y2="142" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Signal extractor box -->
+  <rect x="130" y="142" width="560" height="220" rx="8" ry="8" fill="#fff9e6" stroke="#d4a017" stroke-width="1.5"/>
+  <text x="410" y="162" text-anchor="middle" font-size="13" font-weight="bold" fill="#8a6a0a">1. Signal extractor — 6 weighted signals</text>
+
+  <!-- Signal rows -->
+  <g font-size="11" fill="#333">
+    <!-- headers -->
+    <text x="150" y="186" font-weight="bold" fill="#555">Signal</text>
+    <text x="560" y="186" font-weight="bold" fill="#555" text-anchor="end">Weight</text>
+    <text x="625" y="186" font-weight="bold" fill="#555">Direction</text>
+    <line x1="150" y1="190" x2="670" y2="190" stroke="#ccc" stroke-width="0.5"/>
+
+    <text x="150" y="208">Greenfield ("from scratch", "new service")</text>
+    <text x="560" y="208" text-anchor="end" font-weight="bold" fill="#2a7f2a">+3</text>
+    <text x="625" y="208" fill="#2a7f2a">architect</text>
+
+    <text x="150" y="228">Names ≥ 3 new components / subsystems</text>
+    <text x="560" y="228" text-anchor="end" font-weight="bold" fill="#2a7f2a">+2</text>
+    <text x="625" y="228" fill="#2a7f2a">architect</text>
+
+    <text x="150" y="248">Cross-layer / cross-package scope (≥ 2)</text>
+    <text x="560" y="248" text-anchor="end" font-weight="bold" fill="#2a7f2a">+2</text>
+    <text x="625" y="248" fill="#2a7f2a">architect</text>
+
+    <text x="150" y="268">Ambiguous requirements (needs invention)</text>
+    <text x="560" y="268" text-anchor="end" font-weight="bold" fill="#2a7f2a">+2</text>
+    <text x="625" y="268" fill="#2a7f2a">architect</text>
+
+    <text x="150" y="288">Explicit "bug fix" / "typo" / "rename"</text>
+    <text x="560" y="288" text-anchor="end" font-weight="bold" fill="#b03030">−5</text>
+    <text x="625" y="288" fill="#b03030">skip</text>
+
+    <text x="150" y="308">Single file, no layer boundary, known domain</text>
+    <text x="560" y="308" text-anchor="end" font-weight="bold" fill="#b03030">−3</text>
+    <text x="625" y="308" fill="#b03030">skip</text>
+  </g>
+
+  <text x="410" y="340" text-anchor="middle" font-size="10" fill="#666" font-style="italic">weights applied independently — sum them</text>
+
+  <!-- Arrow to score accumulator -->
+  <line x1="410" y1="362" x2="410" y2="386" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Score accumulator -->
+  <rect x="290" y="386" width="240" height="48" rx="8" ry="8" fill="#e6fbe6" stroke="#2ca02c" stroke-width="1.5"/>
+  <text x="410" y="408" text-anchor="middle" font-size="13" font-weight="bold" fill="#1d6b1d">2. Score accumulator</text>
+  <text x="410" y="424" text-anchor="middle" font-size="11" fill="#333">Σ weights = score</text>
+
+  <!-- Arrow to threshold -->
+  <line x1="410" y1="434" x2="410" y2="458" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Threshold diamond -->
+  <polygon points="410,458 510,498 410,538 310,498" fill="#fef4ea" stroke="#ff7f0e" stroke-width="1.5"/>
+  <text x="410" y="494" text-anchor="middle" font-size="13" font-weight="bold" fill="#a04f08">3. score ≥ 4 ?</text>
+  <text x="410" y="510" text-anchor="middle" font-size="10" fill="#555">hard gate, not average</text>
+
+  <!-- No branch → reactive -->
+  <line x1="310" y1="498" x2="180" y2="498" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="245" y="490" text-anchor="middle" font-size="11" fill="#555" font-weight="bold">no</text>
+  <rect x="60" y="478" width="120" height="42" rx="8" ry="8" fill="#eeeeee" stroke="#888" stroke-width="1.5"/>
+  <text x="120" y="496" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">mode = reactive</text>
+  <text x="120" y="512" text-anchor="middle" font-size="10" fill="#555">(default, silent)</text>
+
+  <!-- Yes branch → creativity inferrer -->
+  <line x1="410" y1="538" x2="410" y2="572" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="422" y="558" font-size="11" fill="#2a7f2a" font-weight="bold">yes → architect</text>
+
+  <!-- Creativity inferrer -->
+  <rect x="210" y="572" width="400" height="86" rx="8" ry="8" fill="#f5ebfd" stroke="#9467bd" stroke-width="1.5"/>
+  <text x="410" y="592" text-anchor="middle" font-size="13" font-weight="bold" fill="#5a3a75">4. Creativity inferrer (same task signals)</text>
+  <g font-size="10" fill="#333">
+    <text x="225" y="614"><tspan font-weight="bold" fill="#5a3a75">conservative</tspan> — "regulated" / "compliance" / "no new tech" / tight team+deadline</text>
+    <text x="225" y="632"><tspan font-weight="bold" fill="#5a3a75">standard</tspan> — default when architect fires but no cons/inv signals dominate</text>
+    <text x="225" y="650"><tspan font-weight="bold" fill="#5a3a75">inventive</tspan> — "research" / "novel" / "experiment" / "invent"</text>
+  </g>
+
+  <!-- Arrow down -->
+  <line x1="410" y1="658" x2="410" y2="682" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Ack flow branch (only inventive) -->
+  <polygon points="410,682 510,716 410,750 310,716" fill="#fef4ea" stroke="#ff7f0e" stroke-width="1.5"/>
+  <text x="410" y="713" text-anchor="middle" font-size="12" font-weight="bold" fill="#a04f08">creativity =</text>
+  <text x="410" y="727" text-anchor="middle" font-size="12" font-weight="bold" fill="#a04f08">inventive ?</text>
+
+  <!-- no side (straight to trace) -->
+  <line x1="510" y1="716" x2="660" y2="716" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="585" y="708" text-anchor="middle" font-size="11" fill="#555">no</text>
+
+  <!-- yes → ack -->
+  <line x1="310" y1="716" x2="180" y2="716" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="248" y="708" text-anchor="middle" font-size="11" fill="#555">yes</text>
+
+  <rect x="40" y="694" width="140" height="72" rx="8" ry="8" fill="#ffffff" stroke="#9467bd" stroke-width="1.5"/>
+  <text x="110" y="714" text-anchor="middle" font-size="12" font-weight="bold" fill="#5a3a75">5. Ack flow</text>
+  <text x="110" y="730" text-anchor="middle" font-size="10" fill="#333">ask user once.</text>
+  <text x="110" y="744" text-anchor="middle" font-size="10" fill="#333">reply "acknowledged"?</text>
+  <text x="110" y="760" text-anchor="middle" font-size="10" fill="#555" font-style="italic">else → standard</text>
+
+  <!-- ack → trace -->
+  <path d="M 110 766 Q 110 800 220 800 L 620 800" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Trace header echo -->
+  <rect x="560" y="694" width="220" height="72" rx="8" ry="8" fill="#e8f4fd" stroke="#1f77b4" stroke-width="1.5"/>
+  <text x="670" y="714" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f4e79">6. Trace header echo</text>
+  <text x="670" y="732" text-anchor="middle" font-size="10" fill="#333">Dispatched: auto (signals:</text>
+  <text x="670" y="746" text-anchor="middle" font-size="10" fill="#333">greenfield=+3, cross-layer=+2)</text>
+  <text x="670" y="760" text-anchor="middle" font-size="10" fill="#555" font-style="italic">mandatory — user can override</text>
+
+  <!-- Bypass side branch: explicit user flag -->
+  <rect x="40" y="70" width="200" height="58" rx="8" ry="8" fill="#ffffff" stroke="#8e44ad" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="140" y="90" text-anchor="middle" font-size="12" font-weight="bold" fill="#5a2b78">Explicit user flag</text>
+  <text x="140" y="105" text-anchor="middle" font-size="10" fill="#333">LDD[mode=architect]: / /ldd-architect</text>
+  <text x="140" y="119" text-anchor="middle" font-size="10" fill="#333">/ trigger-phrase match</text>
+
+  <!-- bypass arrow going down-left, around the whole pipeline, to the trace echo -->
+  <path d="M 240 110 Q 780 150 795 400 Q 810 650 790 694" fill="none" stroke="#8e44ad" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow-bypass)"/>
+  <text x="790" y="260" text-anchor="end" font-size="10" fill="#5a2b78" font-style="italic">bypass — auto scorer not run</text>
+  <text x="790" y="274" text-anchor="end" font-size="10" fill="#5a2b78" font-style="italic">(Dispatched: inline-flag /</text>
+  <text x="790" y="288" text-anchor="end" font-size="10" fill="#5a2b78" font-style="italic">command / trigger-phrase)</text>
+
+  <!-- Precedence legend -->
+  <rect x="260" y="830" width="520" height="90" rx="8" ry="8" fill="#ffffff" stroke="#888" stroke-width="1"/>
+  <text x="520" y="850" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">Precedence (highest wins)</text>
+  <text x="280" y="870" font-size="10" fill="#333">1. inline <tspan font-family="monospace">LDD[mode=…]</tspan> / <tspan font-family="monospace">LDD[creativity=…]</tspan> flag</text>
+  <text x="280" y="884" font-size="10" fill="#333">2. <tspan font-family="monospace">/ldd-architect [creativity]</tspan> command arg</text>
+  <text x="280" y="898" font-size="10" fill="#333">3. trigger-phrase match in the dispatch table</text>
+  <text x="280" y="912" font-size="10" fill="#333">4. auto-dispatch score ≥ 4 (this pipeline) — lowest priority; bundle default if none fire</text>
+
+  <!-- Left column legend box -->
+  <rect x="40" y="830" width="200" height="90" rx="8" ry="8" fill="#ffffff" stroke="#888" stroke-width="1"/>
+  <text x="140" y="850" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">Color legend</text>
+  <rect x="54" y="862" width="14" height="10" fill="#fff9e6" stroke="#d4a017"/>
+  <text x="74" y="871" font-size="10" fill="#333">signal / rubric</text>
+  <rect x="54" y="878" width="14" height="10" fill="#e6fbe6" stroke="#2ca02c"/>
+  <text x="74" y="887" font-size="10" fill="#333">accumulator / measure</text>
+  <rect x="54" y="894" width="14" height="10" fill="#fef4ea" stroke="#ff7f0e"/>
+  <text x="74" y="903" font-size="10" fill="#333">gate / decision</text>
+  <rect x="54" y="908" width="14" height="10" fill="#f5ebfd" stroke="#9467bd"/>
+  <text x="74" y="917" font-size="10" fill="#333">creativity / method layer</text>
+</svg>

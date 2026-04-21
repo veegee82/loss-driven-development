@@ -246,6 +246,18 @@ After Phase 5 closes, architect-mode **hands off explicitly** to default LDD —
 
 **Measured effect size**: largest in the bundle. Δloss = +10 / 10, 100 % of rubric items flipped between RED (base LLM produces plausibly-good but audit-failing design doc) and GREEN (all 5 phases completed, all 10 rubric items satisfied). Raw RED + GREEN + score in [`tests/fixtures/architect-mode/runs/20260420T190302Z-clean/`](./tests/fixtures/architect-mode/runs/20260420T190302Z-clean/).
 
+#### Mental model — the auto-dispatch flow
+
+As of v0.4.0, the coding agent can enter architect-mode **on its own** when the task shape warrants it — without the user having to type `LDD[mode=architect]:` or any trigger phrase. This closes the "user described greenfield but didn't know the magic word" failure mode: the dispatch decision is now the agent's responsibility, with a mandatory trace echo so the user can override in one follow-up.
+
+![Architect-mode auto-dispatch flow](./docs/diagrams/architect-auto-dispatch.svg)
+
+The pipeline is **Task → Signal extraction → Score → {mode, creativity, ack-flow}**. Signals come from the task text: greenfield wording (weight +3), ≥ 3 new components named (+2), cross-layer scope (+2), ambiguous requirements (+2), and two negative signals (explicit bug-fix −5, single-file known-solution −3). The scorer runs a weighted sum; ≥ 4 trips architect-mode. Threshold is a **hard gate**, not an average — this keeps the decision auditable and discrete, consistent with LDD's refusal of continuous dials (see [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) § Creativity levels on why integer tuning is an anti-pattern).
+
+Once mode = architect is picked, a second pass infers creativity from the same task signals: regulatory / compliance / no-new-tech language → `conservative`; research / novelty / "invent" / "experiment" language → `inventive`; neither dominant → `standard` (the default). Conservative beats inventive on ties — risk-averse default. For `inventive`, the existing per-task acknowledgment flow still runs; auto-dispatch is allowed to **propose** the level but not to bypass the ack gate. Without a literal `acknowledged`, the run silently downgrades to `standard`. Full per-level rubric and loss-function consequences live in [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) § Creativity levels.
+
+The agent echoes the decision in the trace-header `Dispatched` line so the user sees it and can override in one message: `auto (signals: greenfield=+3, cross-layer=+2)` vs. `inline-flag` vs. `command` vs. `trigger-phrase: "..."`. Silent auto-dispatch is a trace-integrity violation — the echo is load-bearing, not cosmetic. This preserves LDD's precedence rule (inline flag > command > trigger phrase > auto-dispatch > bundle default; see [`docs/ldd/hyperparameters.md`](./docs/ldd/hyperparameters.md) § Precedence) while letting the agent make the call when the user stayed silent on mode. The same ML-lens framing applies as elsewhere in LDD ([`docs/ldd/convergence.md`](./docs/ldd/convergence.md) § 7): creativity is a choice of **loss function**, not a freedom slider, and auto-dispatch only moves the signal → objective mapping from the user's prefix to the task's shape.
+
 #### Creativity — three loss functions, not a freedom dial
 
 Architect mode supports three discrete creativity levels. Per LDD's neural-code-network framing, they are **three different loss functions**, not three amounts of freedom:

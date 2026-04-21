@@ -8,6 +8,7 @@ The skills in this bundle are **portable markdown** — they work in any agent t
 |---|---|---|
 | `drift-scan.py` | Periodic repo drift indicators (seven-indicator scan) | `drift-detection` |
 | `capture-clean-baseline.py` | Capture RED baselines via direct LLM API (no agent harness) | `method-evolution`, distribution sampling, any fixture measurement |
+| `capture-red-green.py` | Paired RED/GREEN captures for multi-scenario fixtures (skill content prepended as system message on GREEN) | `method-evolution`, multi-scenario fixture measurement (e.g. `architect-mode-auto-dispatch`) |
 | `evolve-skill.sh` | RED/GREEN rerun of a skill against its fixture (terminal-driven) | `method-evolution` |
 | `render-diagrams.sh` | Regenerate SVG from `.dot` sources | (maintenance) |
 
@@ -15,6 +16,7 @@ The skills in this bundle are **portable markdown** — they work in any agent t
 
 - `drift-scan.py` — Python 3.10+, `git`, `grep`. No third-party deps.
 - `capture-clean-baseline.py` — Python 3.10+ plus one API key: `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`. Uses stdlib `urllib` — no third-party deps.
+- `capture-red-green.py` — same API-key + stdlib requirements as `capture-clean-baseline.py`. Takes `--fixture` + `--skill-files` + `--scenarios` / `--scenarios-file` + `--run-dir`; writes paired `red.md` / `green.md` per scenario under `<fixture>/<run-dir>/<scenario>/`.
 - `evolve-skill.sh` — `bash`, a subagent / LLM session you can paste into. No API key needed (terminal-driven workflow).
 - `render-diagrams.sh` — `graphviz` (`dot`).
 

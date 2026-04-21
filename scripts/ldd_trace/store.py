@@ -382,3 +382,110 @@ def _raw_max(raw: str) -> int:
         return int(raw.split("/", 1)[1])
     except ValueError:
         return 1
+
+
+# ---------------------------------------------------------------------------
+# Task segmentation — v0.5.2
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TaskSlice:
+    """One task's worth of trace entries: meta → iterations → optional close.
+
+    A trace.log accumulates multiple tasks over time; the aggregator operates
+    on completed slices, the current-task detector operates on the last slice
+    (which may lack a close entry if the task is still in flight).
+    """
+
+    meta: TraceEntry
+    iterations: List[TraceEntry] = field(default_factory=list)
+    close: Optional[TraceEntry] = None
+
+    @property
+    def is_closed(self) -> bool:
+        return self.close is not None
+
+    @property
+    def terminal(self) -> Optional[str]:
+        return self.close.fields.get("terminal") if self.close else None
+
+    @property
+    def k_count(self) -> int:
+        """Number of non-baseline iterations."""
+        return sum(1 for e in self.iterations if e.fields.get("baseline") != "true")
+
+    @property
+    def loops_used(self) -> List[str]:
+        out: List[str] = []
+        for e in self.iterations:
+            if e.loop not in out:
+                out.append(e.loop)
+        return out
+
+    def loss_series(self, loop: str) -> List[float]:
+        return [e.get_float("loss_norm") for e in self.iterations if e.loop == loop]
+
+
+def segment_tasks(entries: List[TraceEntry]) -> List[TaskSlice]:
+    """Partition a flat entry list into task slices.
+
+    Rules:
+        meta   → starts a new task slice (closes the previous if any)
+        iter   → appended to current slice
+        close  → attached to current slice (does not close the slice reference —
+                 a future meta may still follow; the close marks `is_closed`)
+
+    Tolerance rule (v0.5.2): if the first entry is an iteration without a
+    preceding meta (legacy/hand-written trace.log), a synthetic meta is
+    created so the orphan iterations form a valid slice. This is pragmatic
+    — trace.log files from before v0.5.2 may skip the meta header.
+    """
+    slices: List[TaskSlice] = []
+    current: Optional[TaskSlice] = None
+    for e in entries:
+        if e.kind == "meta":
+            if current is not None:
+                slices.append(current)
+            current = TaskSlice(meta=e)
+        elif current is None:
+            # Legacy/hand-written trace: synthesize a meta so iteration
+            # entries are not silently dropped.
+            synthetic_meta = TraceEntry(
+                timestamp=e.timestamp,
+                loop="meta",
+                kind="meta",
+                fields={"task": "(legacy-trace, no meta header)", "loops": ""},
+            )
+            current = TaskSlice(meta=synthetic_meta)
+            if e.kind == "iter":
+                current.iterations.append(e)
+            elif e.kind == "close":
+                current.close = e
+        elif e.kind == "iter":
+            current.iterations.append(e)
+        elif e.kind == "close":
+            current.close = e
+    if current is not None:
+        slices.append(current)
+    return slices
+
+
+# add segmentation helpers to TraceStore as methods by monkey-patching
+# (keeps the class tightly scoped above; helpers below are pure on entries)
+
+def _ts_segment_tasks(self: "TraceStore") -> List[TaskSlice]:
+    return segment_tasks(self.read_all())
+
+
+def _ts_current_task(self: "TraceStore") -> Optional[TaskSlice]:
+    slices = self.segment_tasks()
+    return slices[-1] if slices else None
+
+
+def _ts_completed_tasks(self: "TraceStore") -> List[TaskSlice]:
+    return [s for s in self.segment_tasks() if s.is_closed]
+
+
+TraceStore.segment_tasks = _ts_segment_tasks  # type: ignore[attr-defined]
+TraceStore.current_task = _ts_current_task  # type: ignore[attr-defined]
+TraceStore.completed_tasks = _ts_completed_tasks  # type: ignore[attr-defined]

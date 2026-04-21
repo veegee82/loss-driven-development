@@ -15,7 +15,7 @@ Public API:
 """
 from __future__ import annotations
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 
 from ldd_trace.renderer import (
     Iteration,

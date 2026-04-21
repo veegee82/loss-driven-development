@@ -1,6 +1,6 @@
 {
   "name": "loss-driven-development",
   "description": "LDD — loss-driven development for the AI-era coding loop. Twelve portable skills across three reactive loops plus opt-in architect-mode for greenfield design.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "contextFileName": "GEMINI.md"
 }

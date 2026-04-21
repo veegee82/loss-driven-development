@@ -2,6 +2,68 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] — 2026-04-21
+
+### Added — trace-based project memory (`aggregate` / `suggest` / `check` / `similar` / `health`)
+
+v0.5.1 made per-iteration trace emission cheap. v0.5.2 makes the accumulating trace.log **useful** as a project-level memory — the agent reads historical patterns to detect plateaus and flag regressive skill-choices, without biasing the loss itself.
+
+Five new CLI subcommands on top of the v0.5.1 tool:
+
+```bash
+python -m ldd_trace aggregate --project .          # write .ldd/project_memory.json
+python -m ldd_trace health    --project .          # human-readable project state
+python -m ldd_trace suggest   --project . [--top-n 5]  # empirical skill ranking
+python -m ldd_trace check     --project . [--next-skill X]  # in-flight warnings
+python -m ldd_trace similar   --project . --files a,b,c     # file-overlap retrieval
+```
+
+`ldd_trace close` auto-runs `aggregate` as a side effect — project_memory.json is never stale.
+
+### Core design constraint — memory must not bias the loss
+
+The loss function `L(θ)` (rubric violations) stays pure. Memory informs NAVIGATION (which skill next, when to escalate, where to warm-start) but NEVER redefines progress.
+
+Four explicit bias-guards, each tested:
+
+| Bias | Risk | Guard |
+|---|---|---|
+| Survivorship | "complete-only" skill stats inflate effectiveness | aggregate counts **every** terminal state; per-skill `by_terminal` breakdown exposed |
+| Regression-to-mean | Skills that fire on hard bugs show trivially higher Δ | report both `delta_mean_abs` **and** `delta_mean_relative` (Δ / prev_loss) |
+| Recency drift | Weighting recent heavier masks skill-version drift | both lifetime and last-30-day windows shown; caller chooses |
+| Confirmation | Agent self-curation skews aggregate | aggregation is deterministic on raw trace; agent never filters |
+
+Each guard is both documented (`bias_guards` block in `project_memory.json`) and test-enforced (`test_e2e_memory.py::TestAggregatorBiasGuards`).
+
+### The two use cases the memory unlocks
+
+1. **Plateau detection** — current task shows ≥ 2 consecutive near-zero Δ → `check` emits HIGH-severity warning citing historical resolvers ("past plateaus resolved by root-cause-by-layer (3) over 3 observations"). Agent sees empirical exit-path, not just "you're stuck."
+2. **Wrong-decision detection** — next planned skill has ≥ 30% historical regression-rate → `check` warns before the bad step. Scoped to same project (no cross-project contamination).
+
+Both are retrospectively validated against the narralog trace: at narralog's actual i3 (streak=1) the check correctly produces **no** warning (false-positive guard holds); at a simulated counterfactual i4 (streak=2) the check **would have** flagged the plateau and named root-cause-by-layer as the historical resolver — matching what narralog's actual i4 manually arrived at via method-evolution.
+
+### Storage shape
+
+```
+.ldd/
+  trace.log              ← v0.5.1 — append-only log of iterations + closes
+  project_memory.json    ← v0.5.2 — deterministic aggregate, auto-refreshed
+```
+
+Per-project by default. No cross-project global aggregate (explicit design choice for privacy + no signal-mixing). Session state is ephemeral — recovered from trace.log at task start via `ldd_trace status`.
+
+### Tests — 16 new, 37 total
+
+- 5 bias-guard correctness tests (survivorship, by-terminal split, relative delta, windows, metadata)
+- 3 aggregator metric tests (task_shape, retry-variant no-progress signature, plateau-pattern detection)
+- 2 plateau-detection tests (triggers when streak ≥ 2; false-positive guard on healthy task)
+- 2 wrong-decision tests (warns on regressive skill; no-warn on good skill)
+- 1 over-budget detection test (k ≥ p95 triggers escalation warning)
+- 2 retrospective-against-narralog tests (narralog i3 correctly doesn't fire; counterfactual i4 does)
+- 1 skill-ranking test (workhorse skill outranks bad skill)
+
+All green: `python -m pytest scripts/ldd_trace/ -q` → 37 passed.
+
 ## [0.5.1] — 2026-04-21
 
 ### Added — `scripts/ldd_trace/` CLI tool for per-iteration trace emission

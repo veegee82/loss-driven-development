@@ -70,7 +70,16 @@ INDICATORS = [
     "Rubric drift",
     "Test/spec drift",
     "Defaults drift",
+    "Moving-target-loss drift",
 ]
+
+
+# Epoch-abuse threshold: more than one bump per N iterations in the same task
+# suggests the scope is being reset to mask regressions rather than recorded
+# because reality actually shifted. Keep conservative — false positives here
+# are noise but not destructive; false negatives defeat the whole point of
+# epoch markers. v0.13.x Fix 1.
+EPOCH_ABUSE_ITER_WINDOW = 5
 
 
 def iter_code_files(root: Path) -> Iterable[Path]:
@@ -391,6 +400,83 @@ def check_defaults_drift(report: Report, root: Path) -> None:
             report.add("Defaults drift", detail)
 
 
+def check_moving_target_loss_drift(report: Report, root: Path) -> None:
+    """Flag projects whose `.ldd/trace.log` bumps epoch too often.
+
+    v0.13.x Fix 1 introduced explicit epoch markers so cross-epoch Δloss
+    comparisons can be suppressed (honest). The same mechanism can be abused:
+    an agent that hits a regression could bump the epoch to erase the bad
+    delta from the display. The guard is simple — count bumps per task and
+    compare to the task's iteration count.
+
+    Heuristics:
+        * ``>= 2`` bumps in a task with ``<= EPOCH_ABUSE_ITER_WINDOW``
+          iterations → abuse candidate.
+        * ``>= 3`` bumps in any task → abuse candidate regardless of length
+          (three rubric changes mid-task is implausible in normal work).
+
+    Reports per-task; aggregates by task title so reviewers can skim and
+    triage without opening the trace.log.
+    """
+    trace = root / ".ldd" / "trace.log"
+    if not trace.exists():
+        return
+    try:
+        lines = trace.read_text(errors="replace").splitlines()
+    except OSError:
+        return
+    # Walk the log, segmenting on `meta` lines (task boundaries). Keep a
+    # running count of `epoch` lines and `iter` lines per task.
+    current_task: str | None = None
+    iters_in_task = 0
+    bumps_in_task = 0
+    findings: list[tuple[str, int, int]] = []
+
+    def flush() -> None:
+        nonlocal current_task, iters_in_task, bumps_in_task
+        if current_task is None:
+            return
+        abuse = False
+        if bumps_in_task >= 3:
+            abuse = True
+        elif bumps_in_task >= 2 and iters_in_task <= EPOCH_ABUSE_ITER_WINDOW:
+            abuse = True
+        if abuse:
+            findings.append((current_task, iters_in_task, bumps_in_task))
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        # Cheap tokenizer — enough to tell meta/iter/epoch apart.
+        tokens = stripped.split()
+        if len(tokens) < 2:
+            continue
+        kind = tokens[1]
+        if kind == "meta":
+            flush()
+            # Extract the task title (unquoted for the heuristic — exact
+            # match not needed, readable label is).
+            m = re.search(r'task="([^"]*)"', stripped) or re.search(r"task=(\S+)", stripped)
+            current_task = m.group(1) if m else "(unnamed)"
+            iters_in_task = 0
+            bumps_in_task = 0
+        elif kind == "epoch":
+            bumps_in_task += 1
+        elif kind in ("inner", "refine", "outer", "design", "cot"):
+            iters_in_task += 1
+    flush()
+
+    for title, iters, bumps in findings:
+        report.add(
+            "Moving-target-loss drift",
+            f"Task \"{title}\": {bumps} epoch bumps across {iters} iterations — "
+            "exceeds the 1-bump-per-5-iterations guard. Review the bump "
+            "reasons in `.ldd/trace.log` — epoch bumps should record real "
+            "rubric/scope shifts, not erase inconvenient regressions.",
+        )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=".", help="Repository root to scan")
@@ -417,6 +503,7 @@ def main() -> int:
     check_test_spec_drift(report, root)
     check_defaults_drift(report, root)
     check_thinking_levels_drift(report, root)
+    check_moving_target_loss_drift(report, root)
 
     out = report.render()
     if args.out:

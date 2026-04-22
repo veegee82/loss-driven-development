@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "measured_at": "2026-04-20",
+  "target_normalized": 0.3,
+  "bundle_mean": 0.561,
+  "n_skills": 11,
+  "target_met": true,
+  "per_skill": [
+    {
+      "name": "root-cause-by-layer",
+      "delta_normalized": 0.75,
+      "red": 6,
+      "green": 0,
+      "rubric_max": 8,
+      "status": "clean (N=3 distribution; canonical point = 6/8)"
+    },
+    {
+      "name": "loss-backprop-lens",
+      "delta_normalized": 0.5,
+      "red": 3,
+      "green": 0,
+      "rubric_max": 6,
+      "status": "clean (re-measured)"
+    },
+    {
+      "name": "reproducibility-first",
+      "delta_normalized": 0.333,
+      "red": 2,
+      "green": 0,
+      "rubric_max": 6,
+      "status": "clean"
+    },
+    {
+      "name": "e2e-driven-iteration",
+      "delta_normalized": 0.6,
+      "red": 3,
+      "green": 0,
+      "rubric_max": 5,
+      "status": "clean"
+    },
+    {
+      "name": "dialectical-reasoning",
+      "delta_normalized": 0.5,
+      "red": 3,
+      "green": 0,
+      "rubric_max": 6,
+      "status": "partial contamination"
+    },
+    {
+      "name": "iterative-refinement",
+      "delta_normalized": 0.5,
+      "red": 3,
+      "green": 0,
+      "rubric_max": 6,
+      "status": "clean"
+    },
+    {
+      "name": "method-evolution",
+      "delta_normalized": 0.571,
+      "red": 4,
+      "green": 0,
+      "rubric_max": 7,
+      "status": "clean"
+    },
+    {
+      "name": "drift-detection",
+      "delta_normalized": 0.833,
+      "red": 5,
+      "green": 0,
+      "rubric_max": 6,
+      "status": "clean"
+    },
+    {
+      "name": "loop-driven-engineering",
+      "delta_normalized": 0.25,
+      "red": 2,
+      "green": 0,
+      "rubric_max": 8,
+      "status": "partial contamination"
+    },
+    {
+      "name": "docs-as-definition-of-done",
+      "delta_normalized": 0.333,
+      "red": 2,
+      "green": 0,
+      "rubric_max": 6,
+      "status": "clean (direct API \u2014 ambient-methodology bypass)"
+    },
+    {
+      "name": "architect-mode",
+      "delta_normalized": 1.0,
+      "red": 10,
+      "green": 0,
+      "rubric_max": 10,
+      "status": "clean (direct API)"
+    }
+  ]
+}

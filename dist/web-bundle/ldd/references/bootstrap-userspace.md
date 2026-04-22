@@ -156,6 +156,16 @@ At session start, when you would otherwise run this bootstrap fresh, try to reco
 
 Only after all four recovery paths return empty do you run fresh detection and start a new trace store.
 
+### Auto-opt-in (Tier 0 on Claude Code)
+
+On Claude Code, this skill does **not** have to do the Tier 0 install by hand — the plugin's SessionStart hook (`hooks/ldd_install.sh`) handles it for three opt-in cases:
+
+- Signal A — `.ldd/` already exists.
+- Signal B — `$cwd/.claude-plugin/plugin.json` exists and names `loss-driven-development` (the plugin's own source repo).
+- Signal C — user-global opt-in (`LDD_AUTO_OPTIN=1` or `~/.claude/settings.json` key `ldd.auto_install: true`).
+
+Any of the three and the hook creates `.ldd/`, drops the `ldd_trace` launcher + statusline + PreToolUse/Stop hooks, and merges `.claude/settings.local.json` — all before this skill sees its first invocation. The skill's filesystem-tier detection then finds Tier 0 ready-to-use and the "has no `.ldd/` yet" branch becomes a fallback for non-Claude-Code hosts (Codex, Gemini CLI, Cursor, Aider) where no SessionStart hook is wired.
+
 ## Anti-patterns
 
 | Red flag thought | Reality |

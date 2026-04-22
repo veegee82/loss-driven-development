@@ -1,0 +1,6 @@
+2026-04-22T19:34:20.534563Z  meta  L2/deliberate  dispatch=auto  signals=ambiguous:+2  task="polish arch.md for clarity + pending-decisions section"  loops=refine
+2026-04-22T19:34:20.534697Z  refine  baseline  k=0  skill=iterative-refinement  action="baseline: 6 reviewer nits open"  loss=0.600  raw=6/10
+2026-04-22T19:34:20.534887Z  refine  k=1  skill=iterative-refinement  action="reorder trade-off section before decision table"  loss=0.400  raw=4/10  Δloss=-0.200
+2026-04-22T19:34:20.535047Z  refine  k=2  skill=iterative-refinement  action="add pending-decisions.md pointer from arch.md"  loss=0.200  raw=2/10  Δloss=-0.200
+2026-04-22T19:34:20.535220Z  refine  k=3  skill=iterative-refinement  action="proofread pass — 0 open nits"  loss=0.000  raw=0/10  Δloss=-0.200
+2026-04-22T19:34:20.535238Z  refine  close  terminal=complete  layer="(y-axis — no code change)"  docs=synced  loss_final=0.000

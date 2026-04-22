@@ -15,7 +15,31 @@ set -euo pipefail
 
 staged="$(git diff --cached --name-only)"
 
-needs_check=0
+# --- Check 1: plugin version sync ------------------------------------------
+# Runs whenever plugin.json or marketplace.json is staged. Cheap, so we do
+# not try to be clever about the set of triggering files.
+versions_touched=0
+while IFS= read -r path; do
+    case "$path" in
+        .claude-plugin/plugin.json|.claude-plugin/marketplace.json)
+            versions_touched=1
+            break
+            ;;
+    esac
+done <<< "$staged"
+
+if [[ "$versions_touched" -eq 1 ]]; then
+    if ! bash scripts/check-plugin-versions.sh; then
+        cat >&2 <<'EOF'
+
+[pre-commit] Plugin version drift detected — see the fix hint above.
+EOF
+        exit 1
+    fi
+fi
+
+# --- Check 2: web-bundle drift ---------------------------------------------
+needs_bundle_check=0
 while IFS= read -r path; do
     case "$path" in
         skills/*/SKILL.md \
@@ -26,18 +50,15 @@ while IFS= read -r path; do
         | scripts/level_scorer.py \
         | scripts/build_web_bundle.py \
         | dist/web-bundle/*)
-            needs_check=1
+            needs_bundle_check=1
             break
             ;;
     esac
 done <<< "$staged"
 
-if [[ "$needs_check" -eq 0 ]]; then
-    exit 0
-fi
-
-if ! python3 scripts/build_web_bundle.py --check; then
-    cat >&2 <<'EOF'
+if [[ "$needs_bundle_check" -eq 1 ]]; then
+    if ! python3 scripts/build_web_bundle.py --check; then
+        cat >&2 <<'EOF'
 
 [pre-commit] Web-bundle drift detected.
 
@@ -48,5 +69,54 @@ A bundled source file changed without a matching rebuild. Fix:
     git commit
 
 EOF
-    exit 1
+        exit 1
+    fi
+fi
+
+# --- Check 3: Δloss_bundle doc drift ---------------------------------------
+# Runs whenever a citation site OR a fixture score.md / manifest is staged.
+# The check-script runs the computation against the fixtures and compares
+# the result against the five canonical citation sites. Any mismatch is a
+# hard block; the error message names exactly which file is stale so the
+# maintainer can fix it in the same commit. See CLAUDE.md § "Δloss_bundle
+# — update policy" for the full workflow.
+needs_loss_bundle_check=0
+while IFS= read -r path; do
+    case "$path" in
+        tests/fixtures/*/score.md \
+        | tests/fixtures/*/runs/*/score.md \
+        | tests/fixtures/loss-bundle-manifest.json \
+        | tests/fixtures/aggregate.json \
+        | tests/README.md \
+        | evaluation.md \
+        | README.md \
+        | .claude-plugin/plugin.json \
+        | SUBMISSION.md \
+        | scripts/compute-loss-bundle.py \
+        | scripts/check-loss-bundle-docs.py)
+            needs_loss_bundle_check=1
+            break
+            ;;
+    esac
+done <<< "$staged"
+
+if [[ "$needs_loss_bundle_check" -eq 1 ]]; then
+    if ! python3 scripts/check-loss-bundle-docs.py; then
+        cat >&2 <<'EOF'
+
+[pre-commit] Δloss_bundle citation drift.
+
+The computed bundle value no longer matches one or more of the cited
+files. Fix by running:
+
+    python3 scripts/compute-loss-bundle.py
+    python3 scripts/compute-loss-bundle.py --write   # refresh tests/fixtures/aggregate.json
+
+...then update the listed files to cite the new number (or reverse the
+fixture change if it was unintentional). See CLAUDE.md §
+"Δloss_bundle — update policy" for the full maintainer workflow.
+
+EOF
+        exit 1
+    fi
 fi

@@ -1,0 +1,86 @@
+name: install-hooks-check
+
+# Runs the installer + launcher test suite on every change that could
+# affect them. Gates:
+#   - Plugin version sync between plugin.json and marketplace.json
+#   - Installer preflight (jq missing, fresh vs update path, user-settings merge)
+#   - Launcher Python resolution (python3, python fallback, $LDD_PYTHON, error path)
+#   - Opt-in signals (pre-existing .ldd/, self-id, user-global opt-in)
+#
+# Matrixed on Ubuntu + macOS to catch platform-specific bash/jq/python quirks
+# at PR time rather than at user-install time.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - hooks/**
+      - skills/**
+      - scripts/check-plugin-versions.sh
+      - scripts/check-skill-frontmatter.py
+      - scripts/ldd_trace/session_gate.py
+      - scripts/ldd_trace/cli.py
+      - .claude-plugin/plugin.json
+      - .claude-plugin/marketplace.json
+      - tests/hooks/**
+      - .github/workflows/install-hooks-check.yml
+  pull_request:
+    paths:
+      - hooks/**
+      - skills/**
+      - scripts/check-plugin-versions.sh
+      - scripts/check-skill-frontmatter.py
+      - scripts/ldd_trace/session_gate.py
+      - scripts/ldd_trace/cli.py
+      - .claude-plugin/plugin.json
+      - .claude-plugin/marketplace.json
+      - tests/hooks/**
+      - .github/workflows/install-hooks-check.yml
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq (macOS — Ubuntu already has it)
+        if: runner.os == 'macOS'
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            brew install jq
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Show runtime versions
+        run: |
+          bash --version | head -1
+          jq --version
+          python3 --version
+
+      - name: Plugin version sync
+        run: bash scripts/check-plugin-versions.sh
+
+      - name: SKILL.md frontmatter validation
+        run: python3 scripts/check-skill-frontmatter.py
+
+      - name: Installer — opt-in signals
+        run: bash tests/hooks/test_install_signals.sh
+
+      - name: Installer — preflight + merge semantics
+        run: bash tests/hooks/test_install_preflight.sh
+
+      - name: Launcher — Python resolution
+        run: bash tests/hooks/test_launcher_python.sh
+
+      - name: Version-sync — drift detection
+        run: bash tests/hooks/test_version_sync.sh
+
+      - name: Multi-session ("multi-clauding") race + isolation
+        run: bash tests/hooks/test_multi_session.sh

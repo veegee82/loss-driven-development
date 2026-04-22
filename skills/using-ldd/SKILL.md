@@ -41,6 +41,17 @@ When the user's message contains any of these patterns, invoke the paired skill.
 | "about to commit", "ready to merge", "declaring this done" | `docs-as-definition-of-done` |
 | "design X", "architect Y", "greenfield", "from scratch", "how should I structure", "propose an architecture", "decompose this problem", "what's the right shape for X" | `architect-mode` (opt-in — three paths: inline `LDD[level=L3]:` / `/ldd-architect` command / these trigger phrases — plus the auto-dispatch scorer landing at L3/L4; see skill for the 5-phase protocol and the hand-off back to reactive) |
 
+### Precedence when multiple rows match (v0.13.1)
+
+A single user message may hit multiple rows — e.g. `"bug: I've tried this 3 times"` matches both the generic `"bug"` row (→ `root-cause-by-layer`) **and** the specific `"I've tried this 3 times"` row (→ `loss-backprop-lens`). Two rules resolve the conflict, applied in order:
+
+1. **Specificity wins.** Longer / more literal triggers beat shorter / more generic ones. `"I've tried this 3 times"` is more specific than `"bug"` — `loss-backprop-lens` fires first because the agent has *already* diagnosed + fixed three times and the meta-signal is "the local-fix strategy is stuck," not "find the bug."
+2. **Table order is the tiebreaker.** On equal specificity, the upper row wins. The table is ordered from narrowest-scope (reproducibility check — must run before any gradient use) to broadest-scope (architect-mode — whole-design discipline).
+
+When the primary skill completes but the *other* matches still apply (e.g. `loss-backprop-lens` diagnoses a local-minimum trap → the agent now needs a fresh structural pass), the agent **MAY** chain-invoke the secondary skill in the same iteration, and must announce both invocations explicitly per §"Announcing skill invocation." Chains of ≥ 3 skills in one iteration are a red flag (the iteration is doing too much; split it).
+
+Mutual exclusion on the same error: once `root-cause-by-layer` has closed with a named structural/conceptual origin, `loss-backprop-lens` must NOT re-invoke on the *same* error signal within that task — the structural diagnosis is the gradient; re-running the meta-lens on it produces oscillation. Inversely, once `loss-backprop-lens` has declared a local-minimum trap, a fourth `root-cause-by-layer` invocation on the unchanged error must NOT fire — escalate to architectural rethink per `loop-driven-engineering` § Escalation.
+
 ## Auto-dispatch: thinking-levels
 
 Every non-trivial task enters the LDD bundle through a **level scorer** that picks one of five thinking levels (L0..L4) and emits a mandatory dispatch-header line. The user does not need to configure anything; the scorer runs on the task text. The user also does not need to know the scorer exists — an override is a single inline token away (see §Override syntax below).
@@ -341,13 +352,16 @@ Keep it compact. The goal is **one screenful** the user can eyeball. If the trac
 
 ### Loss-types — how to display the loss number
 
-Three display modes, chosen per task by the nature of the measurement. Pick one, name it on the `Loss-type` header line, use it consistently for the whole trace block.
+Four display modes, chosen per task by the nature of the measurement. Pick one, name it on the `Loss-type` header line, use it consistently for the whole trace block.
 
 | Loss-type | When it applies | Display format | Example |
 |---|---|---|---|
 | **`normalized [0,1] (violations / rubric_max)`** | Binary rubric items (the default for most LDD skills): count violations, divide by rubric max | **Primary:** float in [0, 1] with 3 decimals. **Secondary:** raw `(N/max violations)` in parens | `loss_0 = 0.375  (3/8 violations)` |
 | **`rate (already in [0,1])`** | Ratio signals already bounded: flake rate, passing-test fraction, coverage | Single float, secondary raw optional | `loss_0 = 0.333  (3/9 runs failed)` |
 | **`absolute (continuous, no natural max)`** | Unbounded signals: latency / throughput / queue depth | Absolute value **with unit**, NO normalization attempt | `loss_0 = 45.0 ms  (p99 regression)` |
+| **`vector (multi-dim Pareto)`** (v0.13.x Fix 1) | Multi-objective tasks where forcing a scalar would hide Pareto dominance (latency AND memory AND correctness; three different SLOs you must all hit) | One value per dim, `name:value` pairs in `loss_vec=`. Scalar `loss=` stays alongside as a mean-view fallback for non-vector consumers. Δ across iterations is rendered as a **Pareto-dominance arrow** `⇓`/`⇔`/`⇑` instead of scalar `↓`/`→`/`↑` | `loss_vec=lat:0.5,mem:0.3,corr:0.2  (Pareto ⇓ vs prev)` |
+
+Scalar `loss=` **and** `loss_vec=` may coexist on the same iteration. Readers that understand vector mode use `loss_vec`; pre-v0.13 readers fall back to the scalar.
 
 **Normalization rule (primary Loss-type):**
 
@@ -361,6 +375,25 @@ Normalization makes Δloss **comparable across skills** (drift-detection with 6 
 **Anti-pattern:** never display a normalized float without the raw denominator in parens. "`loss_0 = 0.375`" alone implies a measurement precision that isn't there — it hides the fact that it's `3/8`. Show both; the normalized form is for comparison, the raw form is for action.
 
 **Anti-pattern:** never compute a normalized float from a count that has no natural max (commit counts, latency, token usage). Those stay absolute with units — trying to normalize them invents a denominator and produces fake precision.
+
+### Epoch marker — Δloss across rubric/scope shifts is suppressed
+
+The monotonicity assumption `Δloss = loss_{k-1} − loss_k` relies on a **stable measurement frame**. Mid-task rubric changes, bedrohungsmodell shifts, or explicit scope expansions break that assumption: iteration `k+1`'s loss is not comparable to iteration `k`'s, and pretending otherwise produces a fake gradient.
+
+v0.13.x Fix 1 introduces a first-class **epoch** field — an integer that increments at every deliberate frame change. Writers call the `epoch` subcommand to bump the counter AND persist a reason in the same step:
+
+```bash
+./.ldd/ldd_trace epoch --reason "PSD2 SCA compliance added to rubric mid-task"
+# → epoch 0 → 1
+```
+
+Subsequent iterations pass `--epoch 1` (the writer-side discipline; the renderer reads both the epoch on the current iteration and the previous to decide whether to render a Δ). The visual contract:
+
+- Scalar sparkline: `┊` at every epoch boundary. `▅▃▅ ┊ ▃▁·` means two epochs, a trend arrow is still emitted but covers the full range honestly.
+- Value sequence: vertical bar `│` between epochs: `0.500 → 0.250 │ 0.400 → 0.000`.
+- Per-iteration Δ-column: the first iteration in a new epoch shows `Δ n/a (epoch boundary)` instead of a scalar delta. The reader is **told** the comparison is invalid; nothing is fabricated.
+
+**Anti-abuse guard:** epoch bumps are monitored by `drift-detection`. More than one bump per 5 iterations in the same task is a surface signal for moving-target-loss — an agent gaming the convergence display by resetting the frame whenever Δ goes the wrong way. The bump reason is written alongside the counter; drift-scan reads both.
 
 ### Loss visualization — sparkline, mini chart, mode+info line, trend arrow
 
@@ -496,6 +529,30 @@ Phase completion is reported as it happens (the block grows as the task progress
 - **On request** when the user types the `/ldd-trace` command or asks for the current state
 - **Not** for trivial one-shot replies (file read, single grep, typo fix) where no skill fires
 - **Not** per-iteration when reconstructing a post-hoc trace from completed data the user supplied (one final block suffices — repeating the same iterations 3× adds no information)
+
+### HOW to emit — the inline block is the user-visible channel (v0.13.1)
+
+This is the **authoritative agent instruction**. Two things happen per iteration close; they are different channels and both must fire:
+
+1. **Inline ASCII block in your assistant reply** — **PRIMARY user-visible channel.** Render the full trace block as plain text (inside a fenced code-block or directly) *in the message you send to the user*. This is what the user sees scrolling past them in real time. The Bash tool's stdout is NOT a substitute — Bash output lands in your agent context, not automatically in the user's visible transcript. If the block is not in your reply text, the user sees nothing. This channel is non-negotiable and is what the skill means by "inline in your reply."
+
+2. **Persistence via `ldd_trace append`** — **side channel.** Invoke the tool to write a structured line to `.ldd/trace.log` (or the active bootstrap-userspace tier). The tool also prints a rendered block to its stdout, which you may read to confirm what was persisted, but you **must still copy the block into your reply text** — do not rely on Bash stdout reaching the user.
+
+**Concrete decision table:**
+
+| Situation | What to do |
+|---|---|
+| Iteration close, filesystem available | (a) render block inline in reply, (b) `ldd_trace append` for persistence. Both. |
+| Iteration close, no filesystem (Tier 1–4) | (a) render block inline in reply. (b) persist via the active tier (artifact / conversation-history marker / memory pointer). |
+| `ldd_trace` not installed / throws | (a) still render block inline. Log a one-line note in trace telemetry; do NOT suppress the user-visible block because persistence failed. |
+| User said `--no-trace` | Skip BOTH channels. |
+| Trivial reply (lookup, typo, rename) | Skip BOTH channels. |
+
+**Why the redundancy is load-bearing:** the inline block is audit-in-the-moment; the persisted log is audit-across-sessions. Losing either degrades a different observability property. If forced to choose one (e.g. token budget), keep the **inline block** — the persisted log can be reconstructed from chat history later (via `ldd_trace ingest`), but the user cannot reconstruct a real-time loss curve they never saw.
+
+**Anti-pattern — "the Stop-hook will render it":** the Stop-hook is configurable (`display.verbosity` in `.ldd/config.yaml`) and is set to `off` in the LDD plugin's own repo precisely because it duplicates the inline block. Do NOT assume the hook renders on your behalf. The inline block in YOUR reply is the authoritative render.
+
+**Anti-pattern — "I invoked the tool, that counts":** no. Tool invocation writes the log. It does not put anything in the user-visible transcript unless you explicitly emit the block in your reply text.
 
 ### RED FLAGS — per-iteration trace emission is load-bearing
 

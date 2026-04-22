@@ -38,6 +38,21 @@ All without modifying LDD core. Metric specs are serialized to `.ldd/metrics.jso
 - Cross-project metrics — LDD is per-project by bias-invariance; global metrics risk signal-mixing
 - Metrics whose description rewards the agent's current approach — gaming-guard will reject
 
+## Scalar vs. Vector — which loss shape to pick (v0.13.x Fix 1)
+
+Before defining a metric, decide whether the task genuinely needs a **scalar** (`normalized-rubric` / `rate` / `absolute`) or a **vector** (`loss_vec`) shape. The wrong shape hides the wrong thing.
+
+| Shape | Pick when | Avoid when | Example |
+|---|---|---|---|
+| **Scalar `normalized-rubric`** | Binary rubric items that can all be counted the same way; no inter-item trade-off | The items have different cost classes you need to see separately | `drift-detection` rubric — 6 binary checks of the same kind |
+| **Scalar `rate`** | Single bounded ratio, no dimensions | You need to know which sub-population is failing | Flake rate on a single test suite |
+| **Scalar `absolute`** | Unbounded single-axis measurement with a meaningful unit | The unit is actually two-dim (latency+memory, throughput+error-rate) | p99 latency in ms |
+| **Vector `loss_vec`** | Multi-objective where you need to see trade-offs explicitly; the scalar aggregate would hide Pareto dominance | Single-axis measurements — vector mode costs rendering complexity you don't need | IoT consensus: `latency:0.8,memory:0.4,correctness:0.2` — all three must descend; any pair can trade off |
+
+**The decisive question:** if a candidate change improved dim A by 0.3 and worsened dim B by 0.3, would the user genuinely have to think about which they prefer? If yes → **vector**. If the user would always prefer one dim (or the two are monotone in practice) → scalar, and the scalar is honest.
+
+**Anti-pattern — "just average them":** Weighted-sum aggregation into a scalar is only defensible when the weights are **empirically calibrated** and the aggregate is **monotone in user preference**. A weighted sum that produces `Δloss = 0` for a real trade-off is giving a misleading gradient and must be either (a) calibrated with a real preference elicitation or (b) replaced with a vector.
+
 ## The Protocol
 
 ### Step 1 — Specify the metric

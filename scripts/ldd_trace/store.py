@@ -190,6 +190,11 @@ def _parse_line(line: str) -> Optional[TraceEntry]:
         fields.setdefault("baseline", "true")
     elif loop == "meta":
         kind = "meta"
+    elif loop == "epoch":
+        # v0.13.x Fix 1 — epoch boundary marker; not a meta (does NOT start a
+        # new task slice) and not an iteration (no k / skill / loss). Its own
+        # kind so segment_tasks can route it to the slice's epoch list.
+        kind = "epoch"
     else:
         kind = "iter"
     return TraceEntry(timestamp=timestamp, loop=loop, kind=kind, fields=fields)
@@ -199,9 +204,18 @@ def _parse_line(line: str) -> Optional[TraceEntry]:
 #   1. level label (positional `L<n>/<name>`, unquoted)
 #   2. creativity=<value>  (only at L3/L4)
 #   3. dispatch=<auto|explicit|bump|override-down>
-#   4. task="…"
-#   5. loops=…
-_META_FIELD_ORDER = ("creativity", "dispatch", "dispatched", "store", "task", "loops")
+#   4. signals=<sig1:±w1,sig2:±w2,…>  (v0.13.x — telemetry baseline; optional)
+#   5. task="…"
+#   6. loops=…
+_META_FIELD_ORDER = (
+    "creativity",
+    "dispatch",
+    "dispatched",
+    "signals",
+    "store",
+    "task",
+    "loops",
+)
 
 # Fields that are synthesized by the reader and must NOT be written back to
 # the log (they appear in `TraceEntry.fields` only as parser artifacts).
@@ -291,6 +305,7 @@ class TraceStore:
         creativity: Optional[str] = None,
         store_scope: Optional[str] = None,
         dispatched: Optional[str] = None,
+        signals: Optional[str] = None,
     ) -> TraceEntry:
         """Create trace.log with a meta header. Idempotent per-task — if a
         meta entry already exists with the same title, reuse it.
@@ -326,6 +341,8 @@ class TraceStore:
             fields["dispatch"] = _dispatch_short_for(dispatch_source)
         if dispatched is not None:
             fields["dispatched"] = dispatched
+        if signals is not None and signals.strip():
+            fields["signals"] = signals.strip()
         if store_scope is not None:
             fields["store"] = store_scope
         fields["task"] = task_title
@@ -355,8 +372,36 @@ class TraceStore:
     def iterations(self) -> List[TraceEntry]:
         return [e for e in self.read_all() if e.kind == "iter"]
 
+    def current_task_entries(self) -> List[TraceEntry]:
+        """Return the slice of entries belonging to the CURRENT task only.
+
+        A trace.log can accumulate multiple tasks over its lifetime —
+        every `ldd_trace init` appends a new `meta` line, potentially
+        after a prior task closed with `terminal=...`. The renderer +
+        next-k accounting must scope to the latest task; otherwise a
+        fresh task inherits the old task's iteration count and closing
+        marker, producing the stale "diagnose + fix ldd statusline
+        idle-state (complete) · inner×10" display even after an `init`
+        for a brand-new task.
+
+        Returns: [last_meta, iter*, close?] — everything from the last
+        meta entry to end-of-file, inclusive of the meta itself.
+        """
+        all_entries = self.read_all()
+        last_meta_idx = -1
+        for i, e in enumerate(all_entries):
+            if e.kind == "meta":
+                last_meta_idx = i
+        if last_meta_idx < 0:
+            return []
+        return all_entries[last_meta_idx:]
+
     def next_k(self, loop: str) -> int:
-        """Next iteration index for `loop`, derived from existing entries.
+        """Next iteration index for `loop`, scoped to the CURRENT task.
+
+        Scoping to the current task (entries after the last `meta` line)
+        means `ldd_trace init; append --loop inner` always starts at
+        k=0, even if a prior task on the same trace.log closed at k=4.
 
         The v0.11.0 loop rename `architect → design` is honored on read:
         callers asking for `next_k("architect")` also see pre-rename entries
@@ -365,8 +410,8 @@ class TraceStore:
         if loop == "architect":
             loop = "design"
         max_k = -1
-        for e in self.iterations():
-            if e.loop != loop:
+        for e in self.current_task_entries():
+            if e.kind != "iter" or e.loop != loop:
                 continue
             k = e.get_int("k", -1)
             if k > max_k:
@@ -389,6 +434,8 @@ class TraceStore:
         baseline: bool = False,
         notes: Optional[str] = None,
         predicted_delta: Optional[float] = None,
+        loss_vec: Optional[str] = None,
+        epoch: Optional[int] = None,
     ) -> TraceEntry:
         # v0.11.0: the legacy loop name `architect` collapses to `design`
         # (the protocol's design phase). Writers always emit the new name.
@@ -437,6 +484,15 @@ class TraceStore:
                 )
         if notes:
             fields["notes"] = notes
+        # v0.13.x Fix 1 — vector loss + epoch pass-through. Writers that pass
+        # loss_vec also keep the scalar loss=…; the scalar is a convenience
+        # mean that the renderer falls back to when the caller is not
+        # vector-aware. Readers prefer loss_vec when both are present.
+        if loss_vec is not None and loss_vec.strip():
+            fields["loss_vec"] = loss_vec.strip()
+        if epoch is not None and epoch != 0:
+            # Default epoch is 0 → omit to keep the trace diff-minimal
+            fields["epoch"] = str(epoch)
         entry = TraceEntry(
             timestamp=_utcnow_iso(),
             loop=loop,
@@ -485,6 +541,52 @@ class TraceStore:
         self._append(entry)
         return entry
 
+    def append_epoch_bump(
+        self,
+        new_epoch: int,
+        reason: str,
+    ) -> TraceEntry:
+        """Record an epoch boundary — a deliberate rubric/scope shift.
+
+        Epoch semantics (v0.13.x Fix 1):
+            Δloss is comparable **within** an epoch. Cross-epoch comparison is
+            meaningless because the measurement frame changed. Writers that
+            hit a rubric update, a mid-task bedrohungsmodell shift, or any
+            moving-target-loss event should call this BEFORE emitting
+            iterations under the new frame. The next iteration's `epoch=N`
+            must match ``new_epoch``; the renderer draws a boundary marker.
+
+        Anti-abuse guard:
+            Frequent epoch bumps (more than one per 5 iterations within a
+            task) are surface-level evidence of moving-target-loss; the
+            drift-detection skill reads these lines and warns.
+        """
+        if not reason.strip():
+            raise ValueError("epoch bump requires a non-empty reason")
+        fields = {
+            "epoch": str(new_epoch),
+            "reason": reason.strip(),
+        }
+        entry = TraceEntry(
+            timestamp=_utcnow_iso(),
+            loop="epoch",
+            kind="epoch",
+            fields=fields,
+        )
+        self._append(entry)
+        return entry
+
+    def current_epoch(self) -> int:
+        """Latest epoch number written to the trace, or 0 if none."""
+        latest = 0
+        for e in self.read_all():
+            if e.kind == "epoch":
+                try:
+                    latest = max(latest, int(e.fields.get("epoch", "0")))
+                except ValueError:
+                    continue
+        return latest
+
     def _append(self, entry: TraceEntry) -> None:
         self.ensure_dir()
         with self.trace_path.open("a", encoding="utf-8") as f:
@@ -493,10 +595,14 @@ class TraceStore:
     # --- projection ----------------------------------------------------
 
     def to_task(self) -> Task:
-        """Project the log into a `Task` instance ready for `render_trace`."""
-        meta_entry = next(
-            (e for e in self.read_all() if e.kind == "meta"), None
-        )
+        """Project the CURRENT task (latest meta onwards) for `render_trace`.
+
+        A trace.log may hold multiple historical tasks; scope to the last
+        meta line so the rendered summary / sparkline reflects the task
+        the user is working on NOW, not the aggregate since day one.
+        """
+        current = self.current_task_entries()
+        meta_entry = current[0] if current else None
         title = (
             meta_entry.fields.get("task", "(no title)")
             if meta_entry is not None
@@ -509,7 +615,7 @@ class TraceStore:
         )
         loops_decl = [l for l in loops_decl if l]
 
-        iteration_entries = self.iterations()
+        iteration_entries = [e for e in current if e.kind == "iter"]
         # `design` is the new canonical name for what v0.10.x called the
         # `architect` loop. `_parse_line` already normalizes on read, so a
         # trace log mixing both spellings projects cleanly here.
@@ -541,6 +647,8 @@ class TraceStore:
                     mode="architect",
                     creativity=e.fields.get("creativity", meta_creativity),
                     timestamp=e.timestamp,
+                    loss_vec=e.fields.get("loss_vec"),
+                    epoch=e.get_int("epoch", 0),
                 )
             )
         for loop_entries, prefix, phase in (
@@ -563,13 +671,18 @@ class TraceStore:
                         ],
                         mode="reactive",
                         timestamp=e.timestamp,
+                        loss_vec=e.fields.get("loss_vec"),
+                        epoch=e.get_int("epoch", 0),
                     )
                 )
 
         iterations.sort(key=lambda it: it.timestamp)
 
         # Close block, if any close entry exists
-        close_entries = [e for e in self.read_all() if e.kind == "close"]
+        # Scope close entries to the current task only — a historical close
+        # from a prior task on the same trace.log must not leak into the
+        # render of a freshly-init'd task.
+        close_entries = [e for e in current if e.kind == "close"]
         terminal = close_entries[-1].fields.get("terminal", "") if close_entries else "in-progress"
         layer = close_entries[-1].fields.get("layer", "") if close_entries else ""
         docs = close_entries[-1].fields.get("docs", "") if close_entries else ""

@@ -2,7 +2,135 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.13.1] — 2026-04-22
+
+### Fixed — inline trace-block emission was ambiguous in using-ldd
+
+`skills/using-ldd/SKILL.md` mandated "emit the trace block inline in your reply" AND documented the tool path "running `ldd_trace append` IS the per-iteration emission" — but the two statements together confused agents: Bash stdout is not part of the user-visible transcript unless the assistant explicitly surfaces it, yet the skill never said that. The in-repo `.ldd/config.yaml` sets `display.verbosity=off` to avoid duplicate rendering, which left users with **no** inline trace block in many sessions.
+
+Fix: new `### HOW to emit — the inline block is the user-visible channel` subsection inside "When to emit". It makes the dual-channel rule explicit:
+
+1. **Primary user-visible channel** — render the full trace block as plain ASCII text *in the assistant's reply text*. This is what the user sees in the transcript. Bash stdout is NOT a substitute.
+2. **Persistence side-channel** — `ldd_trace append` writes to `.ldd/trace.log` (or the active bootstrap-userspace tier). Its stdout is optional visual confirmation for the agent; the inline block must still be in the reply.
+
+Plus a concrete decision table for every combination of filesystem-available / tier-downgraded / tool-unavailable / user-opt-out, and two named anti-patterns (`"the Stop-hook will render it"`, `"I invoked the tool, that counts"`).
+
+### Added — dispatch precedence when multiple trigger-table rows match
+
+Pre-0.13.1, a message like `"bug: I've tried this 3 times"` matched both the generic `"bug"` row (→ `root-cause-by-layer`) and the specific `"I've tried this 3 times"` row (→ `loss-backprop-lens`). The skill text said nothing about precedence, so different agents dispatched differently on the same input.
+
+`skills/using-ldd/SKILL.md` now carries a `### Precedence when multiple rows match` subsection that enforces two rules: **specificity wins** (longer / more literal triggers beat generic ones), and **table order is the tiebreaker** (upper rows first). Plus a mutual-exclusion clause: once `root-cause-by-layer` closes with a named origin, `loss-backprop-lens` cannot re-invoke on the same error (and vice versa) — preventing the ping-pong oscillation the v0.13.0 audit flagged.
+
+### Added — concrete K_MAX=5 escalation template in loop-driven-engineering
+
+The old `loop-driven-engineering` K_MAX-hit instruction ended at "A proposed architectural step (via loss-backprop-lens: 'the learning rate needs to be bigger')" — but `loss-backprop-lens` is diagnostic, not designer. Agents hitting K_MAX produced vague escalations like "redesign module X" that blocked human review.
+
+Fix: `### Hard rule` now names a 5-item escalation artifact — per-iteration log, verbatim failure signal, layer-4/5 diagnosis, **one-sentence concrete architectural proposal with specific identifiers** (file paths, class names, R-rules), and an explicit user ask. Escalations without the concrete-identifier sentence get returned; the task is `architect-mode`-ready, not human-ready.
+
+### Added — `scripts/check-skill-frontmatter.py` + CI step
+
+Every `skills/*/SKILL.md` has a YAML frontmatter block (`name`, `description`); a malformed one silently drops the skill from Claude Code's registry or breaks Gemini CLI's `@`-import. Pre-0.13.1 had zero validation of this layer.
+
+New `scripts/check-skill-frontmatter.py` walks `skills/*/SKILL.md`, validates the `---`-delimited block, requires non-empty `name` and `description`, asserts `name` matches the containing directory, and rejects descriptions shorter than 40 chars (too short to feed Claude Code's auto-dispatch matcher). Wired into `.github/workflows/install-hooks-check.yml` as a new `SKILL.md frontmatter validation` step; broader `skills/**` path filter so any SKILL.md edit triggers the lint.
+
+Current run: 16/16 SKILL.md files pass.
+
+### Fixed — `check-plugin-versions.sh` only checked 2 of 3 manifests
+
+The v0.13.0 drift gate verified `plugin.json` against `marketplace.json` but did not include `gemini-extension.json` — which is exactly how that file was left at `0.11.0` while the other two climbed to `0.13.0`. Gemini CLI users installing during that window received the stale version with no visible warning.
+
+Fix: `scripts/check-plugin-versions.sh` now verifies all three manifests in one pass and names each in the failure message with a sync-fix `jq` snippet. The pre-commit hook and CI job already call this script, so the expanded check lights up everywhere automatically.
+
+### Fixed — `gemini-extension.json` stuck at 0.11.0 → bumped to 0.13.1
+
+Silent version drift. Gemini CLI `extensions install ./loss-driven-development` reported 0.11.0 for two release cycles. Caught by the expanded drift gate above.
+
+### Fixed — `SUBMISSION.md` pre-submit checklist still claimed 0.5.0
+
+Lines 121 / 124 / 130 / 136 claimed version `0.5.0`, "v0.1.0 through v0.5.0 entries", and "all three manifests at 0.5.0" — wrong since every release after v0.5.0. Rewrote to current state: v0.13.1, skill-count composition (12 disciplines + 4 infrastructure = 16), and explicit mention of the Δloss_bundle citation gate + web-bundle distribution.
+
+### Fixed — `README.md` web-bundle skill count off by one
+
+README said "the other 13 skills become references" in the Claude Web / Desktop install section. Actual bundle carries 14 references (16 total skills, minus `using-ldd` which becomes the bundle's `SKILL.md` dispatcher, minus `host-statusline` which is Claude-Code-specific). Corrected to 14 with a parenthetical naming the excluded skill.
+
+### Fixed — `GEMINI.md` missing `host-statusline` `@`-import
+
+14 of 15 non-dispatcher skills imported; `host-statusline` was missing. Gemini CLI users got the full loss-monitoring discipline silently dropped. Fixed by appending the `@./skills/host-statusline/SKILL.md` line.
+
+### Changed — `plugin.json` / `marketplace.json` description names all 16 skills
+
+The old description said "Twelve portable skills … Plus one opt-in architect-mode and the using-ldd entry-point" — 12 + 2 = 14, not the 16 skills actually shipped. Readers could not reconcile "twelve skills" with the 16 directories under `skills/`. The description now reads "Twelve discipline skills across four parameter spaces … Plus four infrastructure skills: using-ldd dispatcher, opt-in architect-mode, bootstrap-userspace, host-statusline. Total 16 skills."
+
+### Fixed — renderer scoped to current task (trace.log with multiple tasks)
+
+`TraceStore.to_task()` took the FIRST `meta` line from `trace.log` and aggregated every iteration across every task ever run in the project. After one or more `init → append → close` cycles followed by a fresh `init`, the stop-hook summary kept showing the ORIGINAL task's title as `(complete)` plus the combined iteration count across all tasks — e.g. `Task: diagnose + fix ldd statusline idle-state (complete) · Loops: inner×10` long after that task closed and a new one started.
+
+Fix: new `TraceStore.current_task_entries()` returns everything from the LAST `meta` line onwards. `to_task()`, `next_k()`, and the `close_entries` projection all use it, so the summary reflects the active task's iterations only. Historical entries stay in `trace.log` for `ingest` / `aggregate` — they just no longer pollute the current render.
+
+Same scoping guarantees that `ldd_trace append --auto-k` restarts at `k=0` after every `init`, instead of inheriting the max-k of the prior task on disk.
+
+### Added — multi-clauding (concurrent Claude Code sessions on one project)
+
+LDD now isolates session-scoped state so two or more Claude Code sessions running in the same project at the same time each see their own task, their own heartbeat, and their own statusline — without one winning a singular marker and evicting the other to `standby`.
+
+Four concrete race-paths were identified in v0.13.0 and closed:
+
+1. **`.ldd/heartbeat`** (singular file, last-writer-wins) → **`.ldd/heartbeats/<session_id>`** (per-session file, atomic rename). Heartbeat hook writes the new per-session file AND the legacy singular so v0.13.0-era statusline copies still render correctly. Atomic rename (`tmp + mv`) protects against torn reads from concurrent statusline ticks.
+
+2. **`.ldd/session_active`** (singular, 1 id fits) → **`.ldd/sessions/<session_id>`** (per-session marker file). Gate check becomes existence-of-file instead of equality-against-singular, so every active session passes its own gate independently. The per-session marker also carries `task=<title>` (written by `ldd_trace init`) so the statusline displays THIS session's task — shared `trace.log` notwithstanding.
+
+3. **`ldd_trace init` from two sessions in parallel** → both now call `mark_session_active(project, task_title=...)` which writes the per-session marker with the correct task title; the append/close path passes `task_title=None` and preserves the previously-written line. Each session's statusline reads `task=` from its own marker, bypassing the shared-trace ambiguity.
+
+4. **Installer `settings.local.json` merge race** (read-modify-write via jq) → wrapped in `flock -w 5` on `.claude/.ldd_install.lock` so parallel SessionStart hooks serialise the critical section. On macOS without `util-linux` `flock`, the historical jq-dedup fallback still keeps the merge idempotent in the common case.
+
+**Backwards compatibility:** every pre-v0.13.1 project keeps working. The session_gate falls back to the legacy singular `.ldd/session_active` when no per-session marker is present; the statusline reads the per-session heartbeat first and the legacy singular second. No migration is required on upgrade — the first `ldd_trace init` after the install writes both new and old layouts, and the old layout stops being authoritative from then on.
+
+### Added — multi-session E2E test suite
+
+`tests/hooks/test_multi_session.sh` — 5 cases that ship a regression baseline for this class of bug:
+
+- M1: parallel installers → settings.local.json stays single-copy
+- M2: parallel heartbeats → both session_ids observable independently
+- M3: parallel `ldd_trace init` → both per-session markers exist concurrently
+- M4: per-session statusline render → A sees taskA, B sees taskB (no `standby` due to gate-loss)
+- M5: 20 concurrent `ldd_trace append` calls → no corrupted trace.log lines
+
+Wired into `.github/workflows/install-hooks-check.yml`, now running 5 jobs × (Ubuntu + macOS) = 10 gates per PR touching installer / launcher / session_gate / statusline.
+
+### Fixed — three silent-failure modes in the SessionStart install hook
+
+Three pre-v0.13.1 defects could leave a newly-installed plugin looking healthy while actually being half-broken, with no visible signal to the user.
+
+1. **Missing `jq` silently corrupted the install.** The installer used `jq` for every `settings.local.json` write but had no preflight check. Without `jq` the script ran `set -uo pipefail` (without `-e`), installed the script artifacts, wrote `.ldd/.install_version`, and left `.claude/settings.local.json` as `{}`. Every subsequent SessionStart saw "marker matches plugin version, artifacts present" → `exit 0` silently, forever. User had no statusline, no heartbeat, no stop-render — with no error message.
+
+   Fix: add a `command -v jq` preflight at the top of `hooks/ldd_install.sh`. If `jq` is missing, emit a SessionStart `additionalContext` hint naming the install command for each platform (`apt install jq`, `brew install jq`, `winget install jqlang.jq`) and exit 0 **without** writing the marker. Next SessionStart retries automatically once `jq` is available.
+
+2. **Launcher hard-wired to `python3`.** `skills/bootstrap-userspace/ldd_trace` did `exec python3 -m ldd_trace`, which fails on macOS systems where the binary is called `python` (pointing at Python 3), on venv-activated shells where only a custom interpreter path is meaningful, and on any minimal image without `python3` in PATH — producing a cryptic `command not found: python3` instead of an actionable message.
+
+   Fix: resolve the interpreter in order `$LDD_PYTHON` → `python3` → `python`, accepting only those where `sys.version_info >= (3, 8)`. On zero hits the launcher prints a named-candidate error and exits 127.
+
+3. **Fresh-install reload instruction was a conditional footnote.** Hooks registered on SessionStart cannot fire in the same session — Claude Code reads `settings.local.json` before the hook runs. The installer message said "Reload the Claude Code session if hooks do not fire yet" as the last clause of a paragraph, easy to miss. Users routinely reported "statusline works but no heartbeats" for hours.
+
+   Fix: fresh installs get a prominent `⚠ Please reload (/ restart) the Claude Code session now — PreToolUse and Stop hooks were just registered and will not fire until Claude Code re-reads .claude/settings.local.json`. Updates (where hooks are already live) keep the subdued phrasing.
+
+### Added — plugin-version drift gate
+
+`scripts/check-plugin-versions.sh` asserts that `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` agree on `.version`. The SessionStart installer reads `plugin.json`; Claude Code's `/plugin install` UI reads `marketplace.json` — drift means users see one version but receive another. Wired into:
+- `.githooks/pre-commit` — fails any commit that stages either file out of sync (with the fix-hint jq invocation inline).
+- `.github/workflows/install-hooks-check.yml` — a new matrixed (Ubuntu + macOS) CI job that runs the full hook test suite on every PR touching the installer, launcher, templates, or version files.
+
+### Added — E2E test suite for hooks + launcher
+
+Three new test files under `tests/hooks/`, all runnable as plain `bash tests/hooks/*.sh`:
+- `test_install_preflight.sh` — 5 cases: jq-missing abort, fresh-install artifacts + marker + prominent reload, update-path subdued reload + version-arrow, merge preserves user `statusLine` + user hooks, jq-rescue retry.
+- `test_launcher_python.sh` — 4 cases: `python3` happy path, `python` fallback, no-Python actionable error, `$LDD_PYTHON` override.
+- `test_version_sync.sh` — 3 cases: committed state in sync, synthetic drift caught with both versions named in the fix hint, `jq`-missing loud fail.
+
+Current coverage: 19/19 green on Ubuntu. macOS covered via the CI matrix.
+
+### Fixed — marketplace.json version was stale (0.11.0) vs plugin.json (0.13.0)
+
+The commit that bumped `plugin.json` to 0.13.0 didn't update `marketplace.json`, so anyone running `/plugin install loss-driven-development@loss-driven-development` saw "0.11.0 installed" in the UI while the SessionStart hook correctly installed 0.13.0 artifacts. Synced to 0.13.0; the new pre-commit + CI gates now prevent this class of drift from recurring.
 
 ## [0.13.0] — 2026-04-22
 

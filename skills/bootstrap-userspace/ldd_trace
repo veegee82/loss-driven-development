@@ -62,5 +62,37 @@ EOF
     exit 127
 fi
 
+# Resolve a Python 3.8+ interpreter in order of preference:
+#   1. $LDD_PYTHON — explicit override (e.g. a venv / conda env)
+#   2. python3    — Linux and Homebrew-macOS default
+#   3. python     — macOS system default when it points at Python 3
+# The ldd_trace package is stdlib-only; the --version probe rejects a
+# `python` that points at Python 2 here, rather than producing a
+# ModuleNotFoundError 20 lines deep in ldd_trace.cli.
+resolve_python() {
+    local candidate
+    for candidate in "${LDD_PYTHON:-}" python3 python; do
+        [[ -z "$candidate" ]] && continue
+        if command -v "$candidate" >/dev/null 2>&1 \
+           && "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' 2>/dev/null; then
+            echo "$candidate"
+            return
+        fi
+    done
+    echo ""
+}
+
+PY=$(resolve_python)
+if [[ -z "$PY" ]]; then
+    cat >&2 <<'EOF'
+.ldd/ldd_trace: no usable Python 3.8+ interpreter found.
+Tried (in order): $LDD_PYTHON, python3, python.
+
+Install Python 3.8 or newer, or set LDD_PYTHON to the interpreter path:
+    LDD_PYTHON=/usr/bin/python3.11 .ldd/ldd_trace <args>
+EOF
+    exit 127
+fi
+
 export PYTHONPATH="$PLUGIN_ROOT/scripts${PYTHONPATH:+:$PYTHONPATH}"
-exec python3 -m ldd_trace "$@"
+exec "$PY" -m ldd_trace "$@"

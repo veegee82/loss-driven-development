@@ -1,0 +1,5 @@
+2026-04-22T19:34:20.537957Z  meta  L2/deliberate  dispatch=auto  signals=cross-layer:+2,layer-crossings:+2  task="quarterly drift sweep — 7 indicators + moving-target-loss (v0.13.x)"  loops=outer
+2026-04-22T19:34:20.538055Z  outer  baseline  k=0  skill=drift-detection  action="scan across 7 indicators — 3 findings surface"  loss=0.429  raw=3/7
+2026-04-22T19:34:20.538170Z  outer  k=1  skill=drift-detection  action="triage: 2 immediate-fix, 1 method-evolution"  loss=0.143  raw=1/7  Δloss=-0.286
+2026-04-22T19:34:20.538310Z  outer  k=2  skill=drift-detection  action="findings committed to drift-report-Q2.md"  loss=0.000  raw=0/7  Δloss=-0.143
+2026-04-22T19:34:20.538327Z  outer  close  terminal=complete  layer="(audit — no direct fix)"  docs=synced  loss_final=0.000

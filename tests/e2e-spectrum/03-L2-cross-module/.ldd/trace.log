@@ -1,0 +1,5 @@
+2026-04-22T19:34:20.526891Z  meta  L2/deliberate  dispatch=auto  signals=cross-layer:+2,layer-crossings:+2  task="auth middleware rejects valid JWT after clock skew fix"  loops=inner
+2026-04-22T19:34:20.526983Z  inner  baseline  k=0  skill=baseline  action="baseline — 4 rubric items open"  loss=0.500  raw=4/8
+2026-04-22T19:34:20.527089Z  inner  k=1  skill=dialectical-reasoning  action="thesis 'widen window' · antithesis 'widens replay window' · synthesis 'NTP-sync + 2s tolerance'"  loss=0.250  raw=2/8  Δloss=-0.250
+2026-04-22T19:34:20.527238Z  inner  k=2  skill=loss-backprop-lens  action="sibling signatures checked — 3/3 consistent with new invariant"  loss=0.000  raw=0/8  Δloss=-0.250
+2026-04-22T19:34:20.527255Z  inner  close  terminal=complete  layer="4: auth-invariant · 5: clock-authority-is-ntp"  docs=synced  loss_final=0.000

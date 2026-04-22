@@ -1,0 +1,9 @@
+2026-04-22T17:44:27.852684Z  meta  L3/structural  creativity=standard  dispatch=auto  signals=cross-layer:+2,components>=3:+2,ambiguous:+2  task="billing refund flow — requirements shift mid-task"  loops=inner
+2026-04-22T17:44:27.852976Z  inner  baseline  k=0  skill=baseline  action="baseline under original scope"  loss=0.500  raw=4/8
+2026-04-22T17:44:27.853255Z  inner  k=1  skill=architect-mode  action="initial refund protocol passes 4/8 tests"  loss=0.500  raw=4/8  Δloss=±0.000
+2026-04-22T17:44:27.853602Z  inner  k=2  skill=e2e-driven-iteration  action="guarded partial refunds, down to 2/8"  loss=0.250  raw=2/8  Δloss=-0.250
+2026-04-22T17:44:27.853645Z  epoch  epoch=1  reason="PSD2 SCA compliance requirement added to rubric mid-task — 2 new rubric items"
+2026-04-22T17:44:27.854115Z  inner  baseline  k=3  skill=root-cause-by-layer  action="baseline under new SCA rubric — 4/10 failing"  loss=0.400  raw=4/10  epoch=1
+2026-04-22T17:44:27.854912Z  inner  k=4  skill=e2e-driven-iteration  action="SCA challenge flow wired — down to 1/10"  loss=0.100  raw=1/10  Δloss=-0.300  epoch=1
+2026-04-22T17:44:27.855724Z  inner  k=5  skill=docs-as-definition-of-done  action="protocol doc + rubric documented — 0/10"  loss=0.000  raw=0/10  Δloss=-0.100  epoch=1
+2026-04-22T17:44:27.855752Z  inner  close  terminal=complete  layer="3: PSD2-SCA-contract · 5: no-silent-fallback"  docs=synced  loss_final=0.000

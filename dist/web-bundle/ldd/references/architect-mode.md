@@ -77,6 +77,21 @@ LDD's core framing (see [`./convergence.md`](./convergence.md)) treats every wor
 
 Without the literal acknowledgment, the agent silently downgrades to `standard` and announces the downgrade in the trace.
 
+**Fourth path — cached ack for autonomous runs (v0.13.x Fix 3).** When no human is present (autonomous `/loop`, cron-scheduled remote agent, nightly pipeline) the literal-reply path cannot fire and would otherwise force silent `inventive → standard` degradation in every unattended inventive task. To avoid that dead-end, the agent checks the autonomy ack-cache:
+
+```bash
+./.ldd/ldd_trace ack check --family <task-family> --quiet
+```
+
+A valid grant (signed, non-expired, scope=inventive) activates inventive without a reply. An absent, expired, or tampered grant yields silent downgrade to `standard` — the same behavior as today. Users pre-grant via the `/ldd-autonomy-ack grant` slash command (short-TTL by default) for task families they want to permit unattended. The grant is HMAC-signed with a key at `~/.claude/ldd-acks/.key`; on-disk tampering fails the next check.
+
+This preserves the moving-target-loss guarantee — the USER is still the only authority that sets the loss function. The agent cannot create a grant on its own (the `/ldd-autonomy-ack` slash command requires user invocation). The trace header reflects the path that activated:
+
+```
+creativity=inventive (cached ack: family=<name>, ttl=<N>d)
+creativity=standard (fallback: no valid ack in autonomous run)
+```
+
 **What it changes on acknowledgment:**
 - **Phase 2 non-goals** may declare "not necessarily following existing industry patterns"; explicit "known unknowns" section replaces full uncertainty-naming
 - **Phase 3 candidates** may be 2 instead of 3: one baseline (the `standard`-equivalent answer, serving as fallback) + one invention. A third candidate is optional, not required

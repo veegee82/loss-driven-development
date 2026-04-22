@@ -1,0 +1,6 @@
+2026-04-22T19:34:20.525941Z  meta  L1/diagnostic  dispatch=auto  signals=explicit-bugfix:-5,ambiguous:+2,layer-crossings:+2  task="checkout test fails intermittently on empty cart"  loops=inner
+2026-04-22T19:34:20.526045Z  inner  baseline  k=0  skill=baseline  action="baseline 3/5 rubric violations"  loss=0.600  raw=3/5
+2026-04-22T19:34:20.526161Z  inner  k=1  skill=reproducibility-first  action="5/5 reproducible when cart is empty — real bug"  loss=0.600  raw=3/5  Δloss=±0.000
+2026-04-22T19:34:20.526310Z  inner  k=2  skill=root-cause-by-layer  action="layer 3 (input-contract): len-check before .first() access"  loss=0.200  raw=1/5  Δloss=-0.400
+2026-04-22T19:34:20.526485Z  inner  k=3  skill=docs-as-definition-of-done  action="CHANGELOG + api-docs updated in same commit"  loss=0.000  raw=0/5  Δloss=-0.200
+2026-04-22T19:34:20.526501Z  inner  close  terminal=complete  layer="3: input-contract · 5: len-check-before-access"  docs=synced  loss_final=0.000

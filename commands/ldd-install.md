@@ -1,18 +1,16 @@
 ---
-description: Explicitly install or re-install the LDD plugin's project-local artifacts (.ldd/ldd_trace launcher, statusline, heartbeat + stop-render hooks, settings merge). Idempotent; version-gated; safe to re-run. Required once per project as the opt-in step; afterwards the plugin's SessionStart hook maintains everything automatically on every session start and every plugin update.
+description: Explicitly install or re-install the LDD plugin's project-local artifacts (.ldd/ldd_trace launcher, statusline, heartbeat + stop-render hooks, settings merge). Idempotent; version-gated; safe to re-run. Required once per project as the opt-in step — unless one of the auto-opt-in signals (plugin self-identification, user-global flag) already fires; afterwards the plugin's SessionStart hook maintains everything automatically on every session start and every plugin update.
 ---
 
 Install / refresh the LDD plugin's per-project artifacts for the current working directory.
 
 ## What this does
 
-1. Create `.ldd/` in the project root if it doesn't exist (this is the opt-in marker — the plugin's SessionStart hook only touches projects that have `.ldd/`).
-2. Execute the plugin's installer at `${CLAUDE_PLUGIN_ROOT}/hooks/ldd_install.sh`, which drops:
-   - `.ldd/ldd_trace` — trace CLI launcher
-   - `.ldd/statusline.sh` — permanent loss-curve statusline renderer
-   - `.claude/hooks/ldd_heartbeat.sh` — PreToolUse heartbeat writer
-   - `.claude/hooks/ldd_stop_render.sh` — Stop-event trace-block auto-renderer
-3. Safely merge entries into `.claude/settings.local.json` (statusLine pointer + PreToolUse + Stop hooks) without clobbering any other hooks the user or other plugins have registered.
+1. Create `.ldd/` in the project root if it doesn't exist (this is the primary opt-in marker — see "Auto-opt-in signals" below for two additional paths the SessionStart hook honors without a manual `/ldd-install` call).
+2. Execute the plugin's installer at `${CLAUDE_PLUGIN_ROOT}/hooks/ldd_install.sh`, which:
+   - Runs a **`jq` preflight** — if `jq` is missing on PATH the installer aborts without writing the version marker (so the next SessionStart retries automatically once `jq` is installed) and emits an actionable additionalContext hint naming the platform install command.
+   - Drops `.ldd/ldd_trace` (trace CLI launcher with `$LDD_PYTHON` / `python3` / `python` fallback resolution), `.ldd/statusline.sh`, `.claude/hooks/ldd_heartbeat.sh` (PreToolUse), and `.claude/hooks/ldd_stop_render.sh` (Stop).
+3. Safely merge entries into `.claude/settings.local.json` (statusLine pointer + PreToolUse + Stop hooks) without clobbering any other hooks the user or other plugins have registered. A pre-existing `statusLine.command` is preserved untouched.
 4. Write `.ldd/.install_version` so subsequent SessionStart runs can detect version drift and self-update on plugin upgrade.
 
 ## How to invoke
@@ -24,7 +22,7 @@ LDD_FORCE_INSTALL=1 bash "${CLAUDE_PLUGIN_ROOT}/hooks/ldd_install.sh" <<<"{\"cwd
 
 `LDD_FORCE_INSTALL=1` bypasses the SemVer auto-update gate (see "Auto-update policy" below). For the `/ldd-install` command, forcing is the correct behavior — the user explicitly asked to install.
 
-Report back what the installer printed — the `hookSpecificOutput.additionalContext` field states whether this was a fresh install, an update (`0.X.Y → 0.A.B`), or a no-op (already current). If the installer says "Reload the Claude Code session if hooks do not fire yet", relay that instruction to the user — fresh hook registrations require a session restart to be picked up by Claude Code's hook registry.
+Report back what the installer printed — the `hookSpecificOutput.additionalContext` field states whether this was a **fresh install** (text contains `⚠ Please reload (/ restart) the Claude Code session now`), an **update** (`updated (0.X.Y → 0.A.B)` with a parenthesized reload hint), a **no-op** (already current), or an **aborted install** (`jq` missing — no artifacts or marker written, retries automatically on next session). For fresh installs you must relay the reload instruction to the user — the PreToolUse (heartbeat) and Stop (render) hooks were just added to `settings.local.json` AFTER Claude Code read the file at session start and will not fire until it re-reads it.
 
 ## Auto-update policy (SemVer-gated, since v0.13.0)
 
@@ -39,6 +37,26 @@ Plugin versions follow `I.N.M` (major.minor.patch). Only `I` and `N` bumps trigg
 | any version → missing artifact | install (fills the gap regardless of diff class) |
 
 To force install across a dev bump: set `LDD_FORCE_INSTALL=1` (the `/ldd-install` command does this).
+
+## Auto-opt-in signals (no `/ldd-install` needed)
+
+The SessionStart hook honors three opt-in paths. Any one of them is sufficient:
+
+| Signal | Trigger | Who it's for |
+|---|---|---|
+| **A — existing `.ldd/`** | `.ldd/` is already in the project root | Projects that have ever run `/ldd-install`, been seeded from the LDD plugin repo, or manually bootstrapped |
+| **B — plugin self-identification** | `$cwd/.claude-plugin/plugin.json` exists AND `.name == "loss-driven-development"` | Anyone working inside the LDD plugin's own source repo (or a rename-compatible fork) — LDD is always active on the plugin's own code |
+| **C — user-global opt-in** | `LDD_AUTO_OPTIN=1` in the shell env, OR `~/.claude/settings.json` contains `"ldd": {"auto_install": true}` | Users who want LDD enabled automatically in every project they open with this Claude Code install |
+
+With Signal B or C, the hook auto-creates `.ldd/` on first SessionStart and continues through the normal install flow. Projects that match none of the three signals stay untouched — this preserves the original "LDD does not impose itself on unrelated projects" contract.
+
+## Auto-enable `core.hooksPath = .githooks` (Signal B only)
+
+When **Signal B** fires (this project IS the LDD plugin's own source repo) AND `.githooks/` exists in the project root, the installer additionally runs `git config --local core.hooksPath .githooks` so the drift-gate pre-commit hook (which keeps `Δloss_bundle` citations in sync with the fixtures) is active without a manual setup step. Scope is deliberately narrow:
+
+- **Signal A and Signal C do NOT trigger this.** Touching `.git/config` in a user's unrelated project would be invasive; auto-enable is restricted to "I am in the plugin's own dev tree".
+- **Idempotent.** If `core.hooksPath` is already `.githooks`, silent no-op. If it is already set to something else, the installer respects the existing value and surfaces a note in the SessionStart additionalContext — nothing is ever silently overwritten.
+- **Robust.** Only runs if `git` is on `PATH` and `$cwd` is a git working tree. In any other case the step is skipped silently.
 
 ## When users reach for this
 

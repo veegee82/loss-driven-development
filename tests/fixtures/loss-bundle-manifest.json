@@ -1,0 +1,68 @@
+{
+  "$schema": "./loss-bundle-manifest.schema.md",
+  "version": 1,
+  "description": "Authoritative list of skills aggregated into Δloss_bundle. The 11 measured skills here are the ones the plugin is evaluated on — auxiliary fixtures (architect-mode-auto-dispatch, thinking-levels, using-ldd-trace-visualization) exist under tests/fixtures/ for other purposes and are intentionally NOT aggregated into Δloss_bundle. Change this file only together with a re-measurement pass; see /CLAUDE.md § 'Δloss_bundle — update policy'.",
+  "target_normalized": 0.30,
+  "measured_at": "2026-04-20",
+  "skills": [
+    {
+      "name": "root-cause-by-layer",
+      "canonical_run": "runs/20260420T165603Z-clean-N3",
+      "red": 6,
+      "green": 0,
+      "rubric_max": 8,
+      "status": "clean (N=3 distribution; canonical point = 6/8)",
+      "note": "Run dir holds a distribution-summary.md; red=6 is the midpoint of the [5,6] empirical range and matches the original v0.1 point estimate."
+    },
+    {
+      "name": "loss-backprop-lens",
+      "canonical_run": "runs/20260420T161500Z",
+      "status": "clean (re-measured)"
+    },
+    {
+      "name": "reproducibility-first",
+      "canonical_run": "runs/20260420T155048Z",
+      "status": "clean"
+    },
+    {
+      "name": "e2e-driven-iteration",
+      "canonical_run": "runs/20260420T155048Z",
+      "status": "clean"
+    },
+    {
+      "name": "dialectical-reasoning",
+      "canonical_run": "runs/20260420T161500Z",
+      "status": "partial contamination"
+    },
+    {
+      "name": "iterative-refinement",
+      "canonical_run": "runs/20260420T155048Z",
+      "status": "clean"
+    },
+    {
+      "name": "method-evolution",
+      "canonical_run": "runs/20260420T155048Z",
+      "status": "clean"
+    },
+    {
+      "name": "drift-detection",
+      "canonical_run": "runs/20260420T155048Z",
+      "status": "clean"
+    },
+    {
+      "name": "loop-driven-engineering",
+      "canonical_run": "runs/20260420T161500Z",
+      "status": "partial contamination"
+    },
+    {
+      "name": "docs-as-definition-of-done",
+      "canonical_run": "runs/20260420T165000Z-clean",
+      "status": "clean (direct API — ambient-methodology bypass)"
+    },
+    {
+      "name": "architect-mode",
+      "canonical_run": "runs/20260420T190302Z-clean",
+      "status": "clean (direct API)"
+    }
+  ]
+}

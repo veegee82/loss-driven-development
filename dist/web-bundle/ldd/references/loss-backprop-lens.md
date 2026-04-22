@@ -101,6 +101,18 @@ If a proposed fix violates any of these, it is an overfit even if it passes loca
 4. **Check generalization:** "If a sibling input / sibling test were in the suite, would my fix still be correct?"
 5. **Regularize:** Does the fix respect contracts, boundaries, invariants? If not, it's overfit — reject even if green.
 
+## Revert-on-regression rule — explicit exceptions (v0.13.x Fix 1)
+
+The default rule is **Δloss ≥ 0 → revert before next edit**: a step that raises the scalar loss is treated as a bad gradient and rolled back. That rule is correct for single-objective, stable-frame, descending optimization — but it is **wrong** in three specific cases that the v0.13.x fix set now recognizes. Do not apply the revert rule when any of these hold:
+
+1. **Epoch boundary between `k-1` and `k`.** If the iteration carries a strictly larger `epoch=` than its predecessor (or an `epoch` line sits between them in the trace), the two losses were measured under different rubrics / scopes / threat models. The comparison is semantically void; the renderer already marks it `Δ n/a (epoch boundary)`. Reverting in this case throws away legitimate work done under the new frame.
+
+2. **Pareto non-dominated step (`⇔` arrow) on a vector loss.** A step that improves one dimension while worsening another is a **trade-off**, not a regression. The scalar mean can move in any direction and tells you nothing. Invoke `dialectical-reasoning` on the trade-off (is the user's actual preference articulated?) rather than revert. Only roll back when the new iteration is *dominated* (`⇑` arrow: strictly worse on every dim or no dim better).
+
+3. **Intentional exploration spike within a planned budget.** If you announced in the current `dialectical-reasoning` pass that you expected `Δloss > 0` for one or two iterations as a local-minimum escape attempt, the prediction-vs-actual calibrator covers it. Revert only if the spike exceeds the announced magnitude **and** fails to descend by iteration `k+2`.
+
+All three exceptions preserve the original intent — "don't overfit to the current test, don't train on noise" — but stop penalizing legitimate exploration. A revert triggered under one of these cases is itself a sign of mis-applied LDD discipline; `method-evolution` reads the trace and will flag repeated false-positive reverts.
+
 ## Common Rationalizations
 
 | Excuse | Reality |

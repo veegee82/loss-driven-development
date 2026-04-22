@@ -1,0 +1,5 @@
+2026-04-22T17:44:27.850232Z  meta  L4/method  creativity=inventive  dispatch=auto  signals=greenfield:+3,components>=3:+2,cross-layer:+2,ambiguous:+2  task="Byzantine consensus under 100ms + 1KB RAM"  loops=inner
+2026-04-22T17:44:27.850358Z  inner  baseline  k=0  skill=baseline  action="HotStuff baseline — too heavy on RAM, Byzantine marginal"  loss=0.600  raw=6/10  loss_vec=latency:0.800,memory:0.600,correctness:0.400
+2026-04-22T17:44:27.850493Z  inner  k=1  skill=architect-mode  action="MPO-CRDT with dominance ordering — Pareto ⇓ vs baseline"  loss=0.367  raw=4/10  Δloss=-0.233  loss_vec=latency:0.500,memory:0.400,correctness:0.200
+2026-04-22T17:44:27.850663Z  inner  k=2  skill=loss-backprop-lens  action="compact lattice-merge (RAM↓ / latency↑) — Pareto ⇔ vs i1"  loss=0.367  raw=3/10  Δloss=±0.000  loss_vec=latency:0.650,memory:0.250,correctness:0.200
+2026-04-22T17:44:27.850683Z  inner  close  terminal=complete  layer="4: protocol-invariant · 5: partial-order"  docs=synced  loss_final=0.367

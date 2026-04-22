@@ -19,3 +19,4 @@ Twelve skills organized as **gradient descent across four parameter spaces**: in
 @./skills/architect-mode/SKILL.md
 @./skills/dialectical-cot/SKILL.md
 @./skills/define-metric/SKILL.md
+@./skills/host-statusline/SKILL.md

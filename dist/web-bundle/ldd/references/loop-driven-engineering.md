@@ -79,12 +79,26 @@ Use when the same rubric violation recurs across 3+ distinct tasks. Dispatches `
 
 Why five: below that, you haven't explored; above it, you're flailing. Each extra iteration beyond five is a ~linear increase in sunk-cost bias and a ~geometric decrease in probability the next iteration will converge without a structural rethink.
 
-**Hard rule:** when k hits K_MAX, produce:
-1. Summary of what was tried each iteration
-2. The specific gate / test / symptom that kept failing
-3. The causal story at layer 4–5 (via root-cause-by-layer)
-4. A proposed architectural step (via loss-backprop-lens: "the learning rate needs to be bigger")
-5. Explicit ask for redirection — do **not** silently try a 6th iteration
+**Hard rule:** when k hits K_MAX, produce the **escalation deliverable** below. It is a structured artifact, not a free-form apology. A 6th iteration without producing it is a process failure and is itself an outer-loop `method-evolution` trigger.
+
+**Escalation deliverable (v0.13.1 — concrete template):**
+
+1. **What was tried, per iteration.** One bullet per iteration, naming the skill that fired and the concrete change made (one line each). Example:
+   - `i1: reproducibility-first → confirmed fail is real (3/3 reruns)`
+   - `i2: root-cause-by-layer → layer 3, contract violation on UserPayload.status (nullable vs. required)`
+   - `i3: added defensive isinstance check — passed locally, sibling test regressed`
+   - `i4: reverted; tightened schema instead — same regression`
+   - `i5: swapped to discriminated union — 2 more siblings now fail`
+
+2. **What kept failing — verbatim.** Paste the exact error message / test name / gate output. No paraphrase. The reviewer needs to grep the artifact for this string.
+
+3. **Layer-4/5 diagnosis** via `root-cause-by-layer`. Both layers must be named. Not "it's a design issue" — specify: "layer 4 (structural): `UserValidator` does two orthogonal jobs (schema check + behavior check) through one return type. layer 5 (conceptual): the domain has two invariants (shape, temporal order) but the code treats them as one."
+
+4. **One-sentence concrete architectural proposal.** The sentence must name specific identifiers — file paths, class names, function names, data structures. Not "redesign module X", not "split the validator." Write the actual one-line design: `"Split UserValidator into UserSchemaValidator (enforces R-rules 1–7) and UserBehaviorValidator (enforces R-rules 8–12); wire UserBehaviorValidator after UserSchemaValidator in the checkout pipeline; remove the dual-return-type entirely."` If the sentence cannot be made concrete, the task is not ready for human escalation — it is ready for an `architect-mode` invocation first (the level scorer should have picked L3/L4 in that case).
+
+5. **Explicit ask.** State what input you need, in one sentence: "Should I implement proposal (4) now, or do you want to see alternative architectures first via a `/ldd-architect` pass?" — not "let me know what you think."
+
+**Loss-backprop-lens is diagnostic, not designer.** It tells you *the step size was wrong* (you were in a local minimum). It does not tell you *what the bigger step is*. That is the agent's job, in bullet (4). Escalations without a concrete bullet (4) get returned and the agent must re-do the K_MAX close before further work.
 
 ## The Test Pyramid (cheap → expensive)
 

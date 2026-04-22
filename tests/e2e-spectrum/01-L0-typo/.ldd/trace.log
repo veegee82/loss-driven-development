@@ -1,0 +1,4 @@
+2026-04-22T19:34:20.525251Z  meta  L0/reflex  dispatch=auto  signals=explicit-bugfix:-5,single-file:-3  task="fix typo in error message at api/handler.py:L42"  loops=inner
+2026-04-22T19:34:20.525442Z  inner  baseline  k=0  skill=baseline  action=baseline  loss=0.333  raw=1/3
+2026-04-22T19:34:20.525569Z  inner  k=1  skill=e2e-driven-iteration  action='replace "recieved" → "received"'  loss=0.000  raw=0/3  Δloss=-0.333
+2026-04-22T19:34:20.525598Z  inner  close  terminal=complete  layer="1: surface · no deeper layer"  docs=N/A  loss_final=0.000

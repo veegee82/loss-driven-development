@@ -384,3 +384,196 @@ def read_memory(store: TraceStore) -> Optional[dict]:
         return None
     with mem_path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+# ---------------------------------------------------------------------------
+# Dispatch telemetry (v0.13.x — Fix 2: Scorer-Telemetrie)
+# ---------------------------------------------------------------------------
+#
+# Reads the meta line of every completed task and pairs the dispatched thinking
+# level (L0..L4, written as the positional `L<n>/<name>` token) with the task's
+# observed outcome: iteration count, final loss, terminal status. Produces a
+# per-level summary plus two quality flags:
+#
+#   overkill_rate  — tasks dispatched at L≥3 that completed in ≤ 1 iteration
+#                    with terminal=complete and final_loss=0 (the level was
+#                    heavier than the task actually needed).
+#   underkill_rate — tasks dispatched at L≤1 that ended terminal=failed,
+#                    terminal=aborted, OR needed ≥ 5 iterations to close
+#                    (the level was lighter than the task actually needed).
+#
+# These flags are deliberately conservative — both fire only on extreme cases.
+# A thoughtful maintainer eyeballs the whole table; the flags are the anomaly
+# signal that warrants a closer look, not an automatic action trigger.
+#
+# All data comes from the existing trace.log; no new schema needed beyond the
+# optional `signals=` field on the meta line (added by `TraceStore.init`).
+
+_LEVEL_KEYS = ("L0", "L1", "L2", "L3", "L4")
+
+
+def _task_final_loss(task: TaskSlice) -> Optional[float]:
+    """Return the last observed `loss=` across any loop for this task.
+
+    Prefers the close entry's `loss_final=` if present (set by
+    `append_close(... loss_final=...)`); otherwise falls back to the last
+    iteration's `loss`.
+    """
+    if task.close is not None:
+        lf = task.close.fields.get("loss_final")
+        if lf is not None:
+            try:
+                return float(lf)
+            except ValueError:
+                pass
+    if task.iterations:
+        return task.iterations[-1].get_float("loss")
+    return None
+
+
+def _task_level(task: TaskSlice) -> Optional[str]:
+    if not task.meta:
+        return None
+    lvl = task.meta.fields.get("level")
+    return lvl if lvl in _LEVEL_KEYS else None
+
+
+def _parse_signals_field(raw: str) -> Dict[str, int]:
+    out: Dict[str, int] = {}
+    if not raw:
+        return out
+    for pair in raw.split(","):
+        pair = pair.strip()
+        if ":" not in pair:
+            continue
+        name, _, w = pair.rpartition(":")
+        try:
+            out[name.strip()] = int(w.strip())
+        except ValueError:
+            continue
+    return out
+
+
+def _is_overkill(level: str, task: TaskSlice, final_loss: Optional[float]) -> bool:
+    if level not in ("L3", "L4"):
+        return False
+    if task.terminal != "complete":
+        return False
+    if task.k_count > 1:
+        return False
+    if final_loss is not None and final_loss > 0.01:
+        return False
+    return True
+
+
+def _is_underkill(level: str, task: TaskSlice) -> bool:
+    if level not in ("L0", "L1"):
+        return False
+    if task.terminal in ("failed", "aborted"):
+        return True
+    if task.k_count >= 5:
+        return True
+    return False
+
+
+def _median(xs: List[float]) -> float:
+    if not xs:
+        return 0.0
+    xs_sorted = sorted(xs)
+    n = len(xs_sorted)
+    mid = n // 2
+    if n % 2 == 1:
+        return xs_sorted[mid]
+    return 0.5 * (xs_sorted[mid - 1] + xs_sorted[mid])
+
+
+def dispatch_accuracy(store: TraceStore, days: int = 30) -> dict:
+    """Summary of dispatched-level vs. observed outcome across completed tasks.
+
+    Window:
+        ``days`` — only tasks whose meta-line timestamp is within the last N
+        days are included. Pass a very large value (e.g. 36500) to aggregate
+        the full lifetime of the trace.
+
+    Output shape:
+        {
+          "window_days": N,
+          "n_tasks_total": int,
+          "n_tasks_with_level": int,     # only tasks with meta.level are counted below
+          "per_level": {
+              "L0": {"n": int, "median_k": float, "median_final_loss": float,
+                     "complete_rate": float, "overkill_rate": float,
+                     "underkill_rate": float, "top_signals": [...]},
+              ...
+          },
+          "overall": {"overkill_rate": float, "underkill_rate": float},
+        }
+    """
+    completed = store.completed_tasks()
+    now = _dt.datetime.now(_dt.timezone.utc)
+    cutoff = now - _dt.timedelta(days=days)
+    in_window = [t for t in completed if _task_in_window(t, cutoff)]
+
+    per_level: Dict[str, Dict] = {k: {
+        "n": 0,
+        "k_values": [],
+        "final_losses": [],
+        "terminals": {},
+        "signal_counts": {},
+        "n_overkill": 0,
+        "n_underkill": 0,
+    } for k in _LEVEL_KEYS}
+
+    n_with_level = 0
+    total_over = 0
+    total_under = 0
+
+    for t in in_window:
+        level = _task_level(t)
+        if level is None:
+            continue
+        n_with_level += 1
+        bucket = per_level[level]
+        bucket["n"] += 1
+        bucket["k_values"].append(float(t.k_count))
+        fl = _task_final_loss(t)
+        if fl is not None:
+            bucket["final_losses"].append(fl)
+        term = t.terminal or "(unknown)"
+        bucket["terminals"][term] = bucket["terminals"].get(term, 0) + 1
+        sig_raw = t.meta.fields.get("signals", "")
+        for name in _parse_signals_field(sig_raw):
+            bucket["signal_counts"][name] = bucket["signal_counts"].get(name, 0) + 1
+        if _is_overkill(level, t, fl):
+            bucket["n_overkill"] += 1
+            total_over += 1
+        if _is_underkill(level, t):
+            bucket["n_underkill"] += 1
+            total_under += 1
+
+    def _summarize(b: Dict) -> Dict:
+        n = b["n"]
+        complete_n = b["terminals"].get("complete", 0)
+        # top-3 signals for eyeball scan
+        top = sorted(b["signal_counts"].items(), key=lambda kv: -kv[1])[:3]
+        return {
+            "n": n,
+            "median_k": round(_median(b["k_values"]), 2) if n else 0.0,
+            "median_final_loss": round(_median(b["final_losses"]), 3) if b["final_losses"] else 0.0,
+            "complete_rate": round(complete_n / n, 4) if n else 0.0,
+            "overkill_rate": round(b["n_overkill"] / n, 4) if n else 0.0,
+            "underkill_rate": round(b["n_underkill"] / n, 4) if n else 0.0,
+            "top_signals": [{"name": name, "n": count} for name, count in top],
+            "terminals": dict(sorted(b["terminals"].items())),
+        }
+
+    return {
+        "window_days": days,
+        "n_tasks_total": len(in_window),
+        "n_tasks_with_level": n_with_level,
+        "per_level": {k: _summarize(per_level[k]) for k in _LEVEL_KEYS},
+        "overall": {
+            "overkill_rate": round(total_over / n_with_level, 4) if n_with_level else 0.0,
+            "underkill_rate": round(total_under / n_with_level, 4) if n_with_level else 0.0,
+        },
+    }

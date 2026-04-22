@@ -14,7 +14,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from ldd_trace.aggregator import aggregate_and_write, read_memory
+from ldd_trace.ack_cache import AckCache, SUPPORTED_SCOPES
+from ldd_trace.aggregator import aggregate_and_write, dispatch_accuracy, read_memory
 from ldd_trace.cot_memory import (
     format_cot_health,
     read_cot_memory,
@@ -58,8 +59,9 @@ def _cmd_init(args: argparse.Namespace) -> int:
         creativity=args.creativity,
         store_scope=args.store,
         dispatched=args.dispatched,
+        signals=args.signals,
     )
-    mark_session_active(Path(args.project))
+    mark_session_active(Path(args.project), task_title=args.task)
     print(f"trace.log initialized at {store.trace_path}")
     return 0
 
@@ -85,6 +87,8 @@ def _cmd_append(args: argparse.Namespace) -> int:
         creativity=args.creativity,
         baseline=args.baseline,
         predicted_delta=args.predicted_delta,
+        loss_vec=args.loss_vec,
+        epoch=args.epoch,
     )
     mark_session_active(Path(args.project))
     print(render_trace(store.to_task()))
@@ -336,6 +340,126 @@ def _cmd_cot_health(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ack_grant(args: argparse.Namespace) -> int:
+    cache = AckCache()
+    grant = cache.grant(
+        family=args.family,
+        scope=[s.strip() for s in args.scope.split(",") if s.strip()],
+        ttl_days=args.ttl,
+    )
+    print(
+        f"granted '{grant.family}' (family_hash={grant.family_hash[:12]}…) "
+        f"scope={','.join(grant.scope)} ttl={grant.ttl_days}d "
+        f"granted_at={grant.granted_at}"
+    )
+    return 0
+
+
+def _cmd_ack_revoke(args: argparse.Namespace) -> int:
+    cache = AckCache()
+    removed = cache.revoke(args.family)
+    if removed:
+        print(f"revoked '{args.family}'")
+        return 0
+    print(f"no grant found for '{args.family}'", file=sys.stderr)
+    return 1
+
+
+def _cmd_ack_list(args: argparse.Namespace) -> int:
+    cache = AckCache()
+    grants = cache.list_grants()
+    if not grants:
+        print("no grants")
+        return 0
+    for g in grants:
+        expiry = "EXPIRED" if g.is_expired() else "valid"
+        scope = ",".join(g.scope)
+        print(
+            f"  {g.family:<40} scope={scope:<12} ttl={g.ttl_days}d  "
+            f"granted={g.granted_at}  ({expiry})"
+        )
+    return 0
+
+
+def _cmd_ack_check(args: argparse.Namespace) -> int:
+    cache = AckCache()
+    ok = cache.check(args.family, scope=args.scope)
+    if args.quiet:
+        return 0 if ok else 1
+    if ok:
+        print(f"valid grant for '{args.family}' scope={args.scope}")
+        return 0
+    print(f"no valid grant for '{args.family}' scope={args.scope}")
+    return 1
+
+
+def _cmd_epoch(args: argparse.Namespace) -> int:
+    store = TraceStore(Path(args.project))
+    if not store.exists():
+        print(f"no trace.log at {store.trace_path}", file=sys.stderr)
+        return 1
+    current = store.current_epoch()
+    new_epoch = current + 1 if args.new is None else args.new
+    if new_epoch <= current and args.new is not None:
+        print(
+            f"refusing to set epoch={new_epoch}; current is {current}. "
+            "Epochs must monotonically increase.",
+            file=sys.stderr,
+        )
+        return 2
+    store.append_epoch_bump(new_epoch=new_epoch, reason=args.reason)
+    print(
+        f"epoch {current} → {new_epoch}: {args.reason}. "
+        f"Next iterations should carry --epoch {new_epoch}."
+    )
+    return 0
+
+
+def _cmd_telemetry_dispatch(args: argparse.Namespace) -> int:
+    store = TraceStore(Path(args.project))
+    if not store.exists():
+        print(f"no trace.log at {store.trace_path}", file=sys.stderr)
+        return 1
+    report = dispatch_accuracy(store, days=args.days)
+    if args.json:
+        import json as _json
+        print(_json.dumps(report, indent=2))
+        return 0
+
+    # Human table — one row per level, plus an overall footer.
+    win = report["window_days"]
+    total = report["n_tasks_total"]
+    with_lvl = report["n_tasks_with_level"]
+    print(
+        f"Dispatch telemetry — window: last {win} days — "
+        f"{total} tasks total, {with_lvl} with meta.level"
+    )
+    header = (
+        f"  {'level':<5} {'n':>4} {'med_k':>6} {'med_loss':>10} "
+        f"{'complete%':>10} {'overkill%':>10} {'underkill%':>10}  top_signals"
+    )
+    print(header)
+    print("  " + "-" * (len(header) - 2))
+    for lvl in ("L0", "L1", "L2", "L3", "L4"):
+        row = report["per_level"][lvl]
+        if row["n"] == 0:
+            continue
+        sigs = ", ".join(f"{s['name']}×{s['n']}" for s in row["top_signals"])
+        print(
+            f"  {lvl:<5} {row['n']:>4} {row['median_k']:>6.2f} "
+            f"{row['median_final_loss']:>10.3f} "
+            f"{row['complete_rate']*100:>9.1f}% "
+            f"{row['overkill_rate']*100:>9.1f}% "
+            f"{row['underkill_rate']*100:>9.1f}%  {sigs}"
+        )
+    overall = report["overall"]
+    print(
+        f"\n  overall: overkill={overall['overkill_rate']*100:.1f}%  "
+        f"underkill={overall['underkill_rate']*100:.1f}%"
+    )
+    return 0
+
+
 def _cmd_prime_antithesis(args: argparse.Namespace) -> int:
     store = TraceStore(Path(args.project))
     memory = read_memory(store)
@@ -488,6 +612,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Store-scope label from bootstrap-userspace (e.g. 'local (.ldd/trace.log)')",
     )
+    p_init.add_argument(
+        "--signals",
+        default=None,
+        help="Scorer signals that produced the level, e.g. "
+        "'greenfield:+3,components>=3:+2'. Persisted on the meta line "
+        "for dispatch-telemetry aggregation.",
+    )
     p_init.set_defaults(func=_cmd_init)
 
     p_app = sub.add_parser(
@@ -539,6 +670,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="v0.7.0 — predicted Δloss from the quantitative dialectic protocol. "
         "When provided, the aggregator computes prediction_error and mean |error| "
         "as a calibration metric.",
+    )
+    p_app.add_argument(
+        "--loss-vec",
+        default=None,
+        help="v0.13.x Fix 1 — multi-dim loss in `name:val,name:val` form, e.g. "
+        "'latency:0.8,memory:0.4,correctness:0.2'. Scalar --loss-norm stays "
+        "required and is treated as the mean-view fallback for non-vector-aware "
+        "consumers.",
+    )
+    p_app.add_argument(
+        "--epoch",
+        type=int,
+        default=None,
+        help="v0.13.x Fix 1 — explicit epoch number for this iteration. Default "
+        "0 (baseline epoch) is omitted from the line; use `ldd_trace epoch "
+        "--reason …` to bump before emitting iterations under the new frame.",
     )
     p_app.set_defaults(func=_cmd_append)
 
@@ -745,6 +892,87 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated files the current task touches (for similar-task retrieval)",
     )
     p_pa.set_defaults(func=_cmd_prime_antithesis)
+
+    # -- ack (autonomy grants, v0.13.x Fix 3) --------------------------------
+    p_ack = sub.add_parser(
+        "ack",
+        help="Autonomy ack-cache: pre-grant user consent for inventive runs "
+        "so the architect-mode skill can honor it without a synchronous ack",
+    )
+    ack_sub = p_ack.add_subparsers(dest="ack_cmd", required=True)
+
+    p_ack_grant = ack_sub.add_parser("grant", help="Grant an ack for a task family")
+    p_ack_grant.add_argument("--family", required=True, help="Human-readable family name")
+    p_ack_grant.add_argument(
+        "--scope",
+        default="inventive",
+        help=f"Comma-separated scopes. Supported: {','.join(SUPPORTED_SCOPES)}",
+    )
+    p_ack_grant.add_argument("--ttl", type=int, default=30, help="TTL in days (default 30)")
+    p_ack_grant.set_defaults(func=_cmd_ack_grant)
+
+    p_ack_revoke = ack_sub.add_parser("revoke", help="Revoke a grant")
+    p_ack_revoke.add_argument("--family", required=True)
+    p_ack_revoke.set_defaults(func=_cmd_ack_revoke)
+
+    p_ack_list = ack_sub.add_parser("list", help="List all grants")
+    p_ack_list.set_defaults(func=_cmd_ack_list)
+
+    p_ack_check = ack_sub.add_parser("check", help="Check if a valid grant exists")
+    p_ack_check.add_argument("--family", required=True)
+    p_ack_check.add_argument("--scope", default="inventive")
+    p_ack_check.add_argument(
+        "--quiet", action="store_true",
+        help="Silent — exit code 0 (valid) or 1 (invalid); scriptable from skills.",
+    )
+    p_ack_check.set_defaults(func=_cmd_ack_check)
+
+    # -- epoch ---------------------------------------------------------------
+    p_epoch = sub.add_parser(
+        "epoch",
+        help="Record an epoch boundary — a deliberate rubric/scope shift so "
+        "cross-epoch Δloss comparisons are suppressed (v0.13.x Fix 1)",
+    )
+    _add_common_args(p_epoch)
+    p_epoch.add_argument(
+        "--reason",
+        required=True,
+        help="One-line rationale. Persisted on the trace line for audit.",
+    )
+    p_epoch.add_argument(
+        "--new",
+        type=int,
+        default=None,
+        help="Explicit epoch number (default: current + 1). Must strictly "
+        "increase.",
+    )
+    p_epoch.set_defaults(func=_cmd_epoch)
+
+    # -- telemetry ------------------------------------------------------------
+    p_tel = sub.add_parser(
+        "telemetry",
+        help="Scorer-vs-outcome aggregations across tasks (v0.13.x Fix 2)",
+    )
+    tel_sub = p_tel.add_subparsers(dest="tel_cmd", required=True)
+
+    p_tel_dispatch = tel_sub.add_parser(
+        "dispatch",
+        help="Dispatched-level vs. observed outcome — median k, median final "
+        "loss, overkill/underkill rates per level",
+    )
+    _add_common_args(p_tel_dispatch)
+    p_tel_dispatch.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        help="Window in days (default 30). Pass a very large value for lifetime.",
+    )
+    p_tel_dispatch.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON instead of a human table",
+    )
+    p_tel_dispatch.set_defaults(func=_cmd_telemetry_dispatch)
 
     return p
 

@@ -18,8 +18,28 @@ Thumbs.db
 # Drift-scan reports (generated, not committed)
 drift-report-*.md
 
-# Per-project LDD trace logs (generated at runtime in user projects)
-.ldd/
+# Per-project LDD runtime state — ignore everything inside .ldd/ except
+# the two files that belong in the plugin's own source repo: the opt-in
+# marker (.gitkeep) and the default config the SessionStart hook reads.
+# That way a fresh `git clone` has `.ldd/` with config immediately, and
+# the SessionStart hook auto-populates the remaining runtime artifacts
+# (ldd_trace launcher, statusline, heartbeat, traces).
+.ldd/*
+!.ldd/.gitkeep
+!.ldd/config.yaml
 
 # Note: tests/fixtures/*/runs/ IS committed — those are the measurement
 # artefacts (RED/GREEN/score/independent-judge) that back GAPS.md claims.
+
+# Per-repo runtime state the installer writes (Signal B "plugin-repo"
+# path). These are user-local — the SessionStart hook recreates them on
+# every session — and should never land in the plugin source tree.
+.claude/
+
+# HMAC keys and granted autonomy-acks are secrets even inside demo /
+# test directories. The tests/e2e-demos/v013x/ldd-acks/ and
+# tests/e2e-spectrum/ldd-acks/ directories each carry an HMAC signing
+# key plus cached ack JSONs keyed by signature; neither file is safe to
+# commit. The demos themselves stay committable — only the acks/
+# subdirectory anywhere under tests/ is ignored.
+tests/**/ldd-acks/

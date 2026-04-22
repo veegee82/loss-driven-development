@@ -1,0 +1,5 @@
+2026-04-22T17:44:27.848586Z  meta  L1/diagnostic  dispatch=auto  signals=explicit-bugfix:-5,layer-crossings:+2  task="checkout test intermittently fails on empty cart"  loops=inner
+2026-04-22T17:44:27.848857Z  inner  baseline  k=0  skill=baseline  action=baseline  loss=0.600  raw=3/5
+2026-04-22T17:44:27.849014Z  inner  k=1  skill=reproducibility-first  action="confirmed reproducible 5/5 on empty cart"  loss=0.600  raw=3/5  Δloss=±0.000
+2026-04-22T17:44:27.849210Z  inner  k=2  skill=root-cause-by-layer  action="empty list → len check missing → guard added"  loss=0.000  raw=0/5  Δloss=-0.600
+2026-04-22T17:44:27.849254Z  inner  close  terminal=complete  layer="3: input-contract · 5: len-check-before-access"  docs=synced  loss_final=0.000

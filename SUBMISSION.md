@@ -118,22 +118,22 @@ This is the shape used by e.g. `playwright`, `gitlab`, `github` in the current m
 Verify all ticked before sending the form:
 
 - [x] **MIT License** — see `LICENSE`
-- [x] **Working `.claude-plugin/plugin.json`** — name, description, version (0.5.0), author, license, keywords
+- [x] **Working `.claude-plugin/plugin.json`** — name, description, version (0.13.1), author, license, keywords
 - [x] **Working `.claude-plugin/marketplace.json`** — self-hostable marketplace
 - [x] **README.md** — install-in-30-seconds up top, badges, philosophy, skill list, per-agent install, usage with `LDD:` buzzword
-- [x] **CHANGELOG.md** — Keep a Changelog format, SemVer, v0.1.0 through v0.5.0 entries
+- [x] **CHANGELOG.md** — Keep a Changelog format, SemVer, v0.1.0 through v0.13.1 entries
 - [x] **CONTRIBUTING.md** — contribution guide, focused on "run LDD and tell us where it failed"
 - [x] **SECURITY.md** — vulnerability reporting channel + scope + "what this plugin does not do"
 - [x] **GAPS.md** — honest accounting of what is / isn't verified (stands out — most plugins don't have this)
-- [x] **evaluation.md** — formal loss function + rubrics + measured Δloss_bundle = 0.561 normalized across all 11 discipline skills
-- [x] **Measured artifacts on disk** — `tests/fixtures/<skill>/runs/*` with raw RED / GREEN / score files
-- [x] **Twelve skills with portable-agent-skill-format frontmatter** — each `skills/<name>/SKILL.md` has `name` and `description` (10 reactive + `architect-mode` + `using-ldd`)
-- [x] **Twelve SVG diagrams** (no `feDropShadow` — GitHub-renderer-safe): `diagrams/{four-axes-gradient-descent,four-loops,skills-overview,convergence-vs-divergence,code-drift-mechanism,skill-dispatch-flow,mental-model-ldd,dialectical-cot,gradient-via-dialectic,memory-dialectical-coupling,calibration-feedback-loop}.svg` + `docs/diagrams/architect-mental-model.svg`
-- [x] **`docs/ldd/`** — canonical methodology with task-type dispatch
+- [x] **evaluation.md** — formal loss function + rubrics + measured Δloss_bundle = 0.561 normalized across 11 measurement-eligible discipline skills
+- [x] **Measured artifacts on disk** — `tests/fixtures/<skill>/runs/*` with raw RED / GREEN / score files, plus `tests/fixtures/aggregate.json` (drift-gated snapshot) and `tests/fixtures/loss-bundle-manifest.json` (measurement allow-list)
+- [x] **Sixteen skills with portable-agent-skill-format frontmatter** — each `skills/<name>/SKILL.md` has `name` and `description`. Composition: 11 measurement-eligible disciplines + `dialectical-cot` (CoT loop) = 12 core disciplines, plus 4 infrastructure skills (`using-ldd` dispatcher, opt-in `architect-mode`, `bootstrap-userspace`, `host-statusline`).
+- [x] **SVG diagrams** (no `feDropShadow` — GitHub-renderer-safe): `diagrams/{four-axes-gradient-descent,four-loops,skills-overview,convergence-vs-divergence,code-drift-mechanism,skill-dispatch-flow,mental-model-ldd,dialectical-cot,gradient-via-dialectic,memory-dialectical-coupling,calibration-feedback-loop}.svg` + `docs/diagrams/architect-mental-model.svg`
+- [x] **`docs/ldd/`** — canonical methodology with task-type dispatch, convergence model, thinking-levels reference, hyperparameter taxonomy
 - [x] **No secrets, no hardcoded keys, no private URLs** — scanned clean
-- [x] **Drift-scan of the repo itself comes back clean** — `python scripts/drift-scan.py --repo .` only reports the intended rubric-drift warning
-- [x] **Multi-agent distribution format** — `AGENTS.md` (Codex), `GEMINI.md` + `gemini-extension.json` (Gemini CLI), `.claude-plugin/` (Claude Code), README recipes for Aider / Cursor / Copilot CLI / Continue.dev
-- [x] **Version coherence** — `plugin.json`, `marketplace.json`, `gemini-extension.json` all at `0.5.0`
+- [x] **Drift-scan of the repo itself comes back clean** — `python scripts/drift-scan.py --repo .` only reports the intended rubric-drift warning; `python3 scripts/check-loss-bundle-docs.py` verifies the five Δloss_bundle citation sites agree
+- [x] **Multi-agent distribution format** — `AGENTS.md` (Codex), `GEMINI.md` + `gemini-extension.json` (Gemini CLI), `.claude-plugin/` (Claude Code), `dist/web-bundle/ldd-skill.zip` (Claude Web · Claude Desktop single-skill upload), README recipes for Aider / Cursor / Copilot CLI / Continue.dev
+- [x] **Version coherence** — `plugin.json`, `marketplace.json`, `gemini-extension.json`, `dist/web-bundle/ldd/SKILL.md` all at `0.13.1`
 - [x] **GitHub repo public** — https://github.com/veegee82/loss-driven-development
 - [x] **Issue templates** — `.github/ISSUE_TEMPLATE/skill-failure.md` + `bug_report.md`
 

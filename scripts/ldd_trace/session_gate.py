@@ -1,26 +1,26 @@
 """Activity gate + display-config reader for the Stop-hook.
 
-Two artifacts live in `.ldd/`:
+Three artifacts live in `.ldd/` (v0.13.1+ layout):
 
-    session_active  — one-line "session_id=<id>" marker, rewritten on every
-                      `ldd_trace init/append/close`. The Stop-hook compares
-                      this with `$LDD_HOOK_SESSION_ID` (the session_id from
-                      its own JSON input) to decide whether LDD was used in
-                      THIS session.
+    sessions/<session_id>  — one marker file per active Claude-Code session
+                             (multi-clauding-safe). Existence is the gate.
+    heartbeats/<session_id> — one heartbeat file per session, written by the
+                              PreToolUse hook. Freshest mtime identifies the
+                              current session when `ldd_trace` is invoked
+                              without an explicit session id in the env.
+    config.yaml            — optional per-project display config:
 
-    config.yaml     — optional per-project display config:
+                                 display:
+                                   verbosity: summary   # off|summary|full|debug
+                                   gate_on_activity: true
 
-                          display:
-                            verbosity: summary          # off|summary|full|debug
-                            gate_on_activity: true
-
-                      Missing file → defaults (gate ON, verbosity "summary"
-                      when used from the hook).
+Legacy (pre-v0.13.1) singular files `.ldd/session_active` and
+`.ldd/heartbeat` are still read as a fallback so projects initialised
+under v0.13.0 continue to render until their next `ldd_trace init`.
 
 The YAML parser here is deliberately minimal — we accept only the shapes
 the `display:` block uses today (one nested level, scalar values). No
-PyYAML dependency. If the file syntax is exotic, we degrade to defaults
-rather than importing a library for one file.
+PyYAML dependency.
 """
 from __future__ import annotations
 
@@ -29,7 +29,10 @@ from pathlib import Path
 from typing import Dict
 
 
-_MARKER_BASENAME = "session_active"
+_LEGACY_MARKER = "session_active"
+_LEGACY_HEARTBEAT = "heartbeat"
+_SESSIONS_DIR = "sessions"
+_HEARTBEATS_DIR = "heartbeats"
 _CONFIG_BASENAME = "config.yaml"
 
 
@@ -38,16 +41,43 @@ def _trace_dir(project: Path) -> Path:
 
 
 def _read_session_id_from_heartbeat(project: Path) -> str:
-    """Pull the real Claude-Code session id out of `.ldd/heartbeat`.
+    """Pull the real Claude-Code session id out of a heartbeat file.
 
     Claude Code does not expose `$CLAUDE_SESSION_ID` as a shell env var;
     the only place the id is written inside the project is by the
-    PreToolUse heartbeat hook (third column of `.ldd/heartbeat`). The
-    hook fires on every Bash/Edit/Write/Read/Grep/Glob call, so by the
-    time `ldd_trace init|append|close` runs there is always a fresh
-    heartbeat entry — the hook fires BEFORE the tool executes.
+    PreToolUse heartbeat hook. The hook fires on every
+    Bash/Edit/Write/Read/Grep/Glob call, so by the time
+    `ldd_trace init|append|close` runs there is always a fresh entry.
+
+    Resolution order:
+      1. Per-session `.ldd/heartbeats/<sid>` — pick the newest-mtime file.
+         Under multi-clauding this identifies the session whose tool-call
+         just triggered this `ldd_trace` invocation.
+      2. Legacy singular `.ldd/heartbeat` — tolerated for projects that
+         have not yet upgraded their installer.
     """
-    hb = _trace_dir(project) / "heartbeat"
+    trace_dir = _trace_dir(project)
+
+    per_session = trace_dir / _HEARTBEATS_DIR
+    if per_session.is_dir():
+        try:
+            files = [p for p in per_session.iterdir() if p.is_file()]
+            if files:
+                newest = max(files, key=lambda p: p.stat().st_mtime)
+                # File name IS the session_id (the heartbeat hook names it so);
+                # content is `<epoch> <tool_name> <session_id>` for diagnostics.
+                try:
+                    line = newest.read_text(encoding="utf-8").splitlines()[0]
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        return parts[2]
+                except (OSError, IndexError):
+                    pass
+                return newest.name
+        except OSError:
+            pass
+
+    hb = trace_dir / _LEGACY_HEARTBEAT
     if not hb.is_file():
         return ""
     try:
@@ -55,32 +85,60 @@ def _read_session_id_from_heartbeat(project: Path) -> str:
     except (OSError, IndexError):
         return ""
     parts = first_line.split()
-    # Line layout: `<epoch> <tool_name> <session_id>`. Older hooks wrote only
-    # two columns, so tolerate both — return "" when no third column exists.
     if len(parts) < 3:
         return ""
     return parts[2]
 
 
-def mark_session_active(project: Path) -> None:
+def mark_session_active(project: Path, task_title: str | None = None) -> None:
     """Record that LDD was used in the current Claude-Code session.
 
-    Writes `.ldd/session_active` with the real session id resolved by:
-      1. `.ldd/heartbeat` third column (written by the PreToolUse hook;
-         always populated under Claude Code)
-      2. `$CLAUDE_SESSION_ID` env var (non-Claude-Code / test harness)
-      3. empty string (plain shell use — legacy-allow in the gate)
+    Multi-clauding-safe: writes a per-session marker at
+    `.ldd/sessions/<session_id>` with a two-line payload:
 
-    The marker is intentionally one line; the Stop-hook + statusline read
-    only the first line.
+        session_id=<sid>
+        task=<task_title>
+
+    The statusline reads `task=` from this file (not from `trace.log`) so
+    each session sees ITS own task even when several sessions share one
+    trace file. `task=` is written only when the caller passes a fresh
+    title (i.e. from `ldd_trace init`); `append` / `close` pass
+    task_title=None and the line is preserved from the previous write.
+
+    The legacy singular `.ldd/session_active` is ALSO written for
+    backwards-compatibility with projects whose statusline / stop-hook
+    still read the old path.
+
+    Session id resolution:
+      1. `$CLAUDE_SESSION_ID` env var — explicit override / test harness
+      2. Newest `.ldd/heartbeats/<sid>` — per-session hook layout
+      3. Third column of legacy `.ldd/heartbeat` — pre-v0.13.1 fallback
+      4. empty string (plain-shell use; gate allows on empty per contract)
     """
-    session_id = _read_session_id_from_heartbeat(project)
-    if not session_id:
-        session_id = os.environ.get("CLAUDE_SESSION_ID", "")
+    session_id = os.environ.get("CLAUDE_SESSION_ID", "") \
+        or _read_session_id_from_heartbeat(project)
     trace_dir = _trace_dir(project)
     try:
         trace_dir.mkdir(parents=True, exist_ok=True)
-        (trace_dir / _MARKER_BASENAME).write_text(
+        if session_id:
+            sessions_dir = trace_dir / _SESSIONS_DIR
+            sessions_dir.mkdir(exist_ok=True)
+            marker_path = sessions_dir / session_id
+            # Preserve existing task= line when caller did not supply a new one
+            # (append / close path). Fresh init always supplies task_title.
+            existing_task = ""
+            if task_title is None and marker_path.is_file():
+                for ln in marker_path.read_text(encoding="utf-8").splitlines():
+                    if ln.startswith("task="):
+                        existing_task = ln.partition("=")[2]
+                        break
+            effective_task = task_title if task_title is not None else existing_task
+            payload = [f"session_id={session_id}"]
+            if effective_task:
+                payload.append(f"task={effective_task}")
+            marker_path.write_text("\n".join(payload) + "\n", encoding="utf-8")
+        # Legacy singular marker — keep writing so v0.13.0-era readers still work.
+        (trace_dir / _LEGACY_MARKER).write_text(
             f"session_id={session_id}\n", encoding="utf-8"
         )
     except OSError:
@@ -89,16 +147,28 @@ def mark_session_active(project: Path) -> None:
 
 
 def session_gate_allows(project: Path, hook_session_id: str) -> bool:
-    """Return True iff the Stop-hook should render in this session.
+    """Return True iff the Stop-hook / statusline should render for this session.
 
-    Rules:
-      - no marker file                      → False  (no LDD activity seen)
-      - marker present but session empty    → True   (legacy / shell use;
-                                                       render to be safe)
-      - marker's session_id matches hook's  → True
-      - mismatch                            → False
+    New (v0.13.1+) layout — existence check on the per-session marker:
+      - `.ldd/sessions/<hook_session_id>` exists → True
+
+    Legacy fallback — singular `.ldd/session_active`:
+      - missing                             → False (no LDD activity seen)
+      - marker's session_id empty OR
+        hook's session_id empty             → True  (plain-shell / freshly
+                                                     installed; gate is a
+                                                     filter, not a lock)
+      - match / mismatch                    → equality
     """
-    marker = _trace_dir(project) / _MARKER_BASENAME
+    trace_dir = _trace_dir(project)
+
+    # Per-session marker — multi-clauding-correct path.
+    if hook_session_id:
+        if (trace_dir / _SESSIONS_DIR / hook_session_id).is_file():
+            return True
+
+    # Legacy singular marker — keeps v0.13.0-era installs rendering.
+    marker = trace_dir / _LEGACY_MARKER
     if not marker.is_file():
         return False
     try:
@@ -109,9 +179,6 @@ def session_gate_allows(project: Path, hook_session_id: str) -> bool:
         return False
     _, _, marker_sid = first_line.partition("=")
     marker_sid = marker_sid.strip()
-    # Empty on either side: fall through to "allow" so plain-shell users (no
-    # $CLAUDE_SESSION_ID) and freshly-installed hooks (empty env) still see
-    # the trace. The gate is a filter, not a lock.
     if not marker_sid or not hook_session_id:
         return True
     return marker_sid == hook_session_id

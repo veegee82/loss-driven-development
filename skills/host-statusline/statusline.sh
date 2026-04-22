@@ -24,7 +24,8 @@ transcript=$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null || echo "
 hook_sid=$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null || echo "")
 
 trace_file="${cwd}/.ldd/trace.log"
-marker_file="${cwd}/.ldd/session_active"
+session_marker="${cwd}/.ldd/sessions/${hook_sid}"   # v0.13.1+ per-session
+legacy_marker="${cwd}/.ldd/session_active"          # pre-v0.13.1 singular
 task=""; loop=""; last_k=""; losses=""; source_tag=""
 level=""; level_name=""; creativity=""
 terminal=""  # v0.12.0 — show ✓/⚠/✗ when the current task closed
@@ -34,23 +35,27 @@ elapsed_label=""
 warning_label=""
 
 # Session gate — render the current LDD state only if LDD was actually used
-# in THIS Claude-Code session. Mirror of the stop-hook policy (scripts/
-# ldd_trace/session_gate.py). Without this, the statusline would keep
-# showing the last task's state across completely unrelated future sessions.
+# in THIS Claude-Code session. Mirror of scripts/ldd_trace/session_gate.py.
 #
-# Policy:
-#   no marker file                       → fall through to idle
-#   marker present, both sides empty     → allow (legacy / shell use)
-#   marker's session_id == hook's sid    → allow
-#   mismatch                             → fall through to idle
+# v0.13.1+ multi-clauding layout: existence of .ldd/sessions/<hook_sid>.
+# Legacy v0.13.0 fallback: singular .ldd/session_active with id equality.
 gate_allows=0
-if [[ -f "$marker_file" ]]; then
-    marker_sid=$(head -1 "$marker_file" 2>/dev/null | grep -oP 'session_id=\K.*' || true)
+if [[ -n "$hook_sid" && -f "$session_marker" ]]; then
+    gate_allows=1
+elif [[ -f "$legacy_marker" ]]; then
+    marker_sid=$(head -1 "$legacy_marker" 2>/dev/null | grep -oP 'session_id=\K.*' || true)
     if [[ -z "${marker_sid:-}" || -z "$hook_sid" ]]; then
         gate_allows=1
     elif [[ "$marker_sid" == "$hook_sid" ]]; then
         gate_allows=1
     fi
+fi
+
+# Heartbeat file selection — prefer per-session (v0.13.1+), fall back to
+# singular for projects still on the legacy layout.
+hb_file="${cwd}/.ldd/heartbeat"
+if [[ -n "$hook_sid" && -f "${cwd}/.ldd/heartbeats/${hook_sid}" ]]; then
+    hb_file="${cwd}/.ldd/heartbeats/${hook_sid}"
 fi
 
 if [[ -f "$trace_file" && "$gate_allows" == "1" ]]; then
@@ -63,7 +68,18 @@ if [[ -f "$trace_file" && "$gate_allows" == "1" ]]; then
         END { printf "%s", buf }
     ' "$trace_file")
 
-    task=$(grep -m1 -oP 'task="\K[^"]+' <<<"$current_section" 2>/dev/null || true)
+    # Multi-clauding: prefer the per-session task pointer so each concurrent
+    # session sees ITS own task. Fall back to scanning the current section of
+    # trace.log for projects / sessions that predate the per-session marker.
+    task=""
+    if [[ -n "$hook_sid" && -f "$session_marker" ]]; then
+        task=$(grep -oP '^task=\K.*' "$session_marker" | head -1)
+    fi
+    if [[ -z "$task" ]]; then
+        # trace.log writes `task=<name>` (unquoted) from init; accept the
+        # legacy `task="<name>"` form too.
+        task=$(grep -m1 -oP 'task="?\K[^"\s]+' <<<"$current_section" 2>/dev/null || true)
+    fi
     # v0.11.0: loss field is `loss=`; accept legacy `loss_norm=` too for trace
     # files written by pre-v0.11.0 agents that still co-exist during rollout.
     losses=$(grep -oE 'loss(_norm)?=[0-9.]+' <<<"$current_section" 2>/dev/null | sed -E 's/loss(_norm)?=//' | tail -30)
@@ -155,7 +171,6 @@ if [[ -z "$losses" ]]; then
     # PreToolUse fired within the last 60s — shows the project is live
     # regardless of which sub-state applies.
     idle_hb=""
-    hb_file="${cwd}/.ldd/heartbeat"
     if [[ -f "$hb_file" ]]; then
         hb_line=$(cat "$hb_file" 2>/dev/null || echo "")
         hb_ts=$(awk '{print $1}' <<<"$hb_line")
@@ -275,8 +290,8 @@ fi
 last_fmt=$(awk -v v="$last" 'BEGIN{printf "%.3f", v+0}')
 
 # Heartbeat — shows "⚡ <age>s <tool>" if a tool fired in the last 60s.
+# hb_file was resolved at top (per-session → singular fallback).
 hb_suffix=""
-hb_file="${cwd}/.ldd/heartbeat"
 if [[ -f "$hb_file" ]]; then
     hb_line=$(cat "$hb_file" 2>/dev/null || echo "")
     hb_ts=$(awk '{print $1}' <<<"$hb_line")

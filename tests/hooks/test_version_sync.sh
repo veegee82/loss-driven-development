@@ -36,6 +36,7 @@ fake_root="$workdir/fake-repo"
 mkdir -p "$fake_root/.claude-plugin" "$fake_root/scripts"
 cp "$repo_root/.claude-plugin/plugin.json" "$fake_root/.claude-plugin/"
 cp "$repo_root/.claude-plugin/marketplace.json" "$fake_root/.claude-plugin/"
+cp "$repo_root/gemini-extension.json" "$fake_root/gemini-extension.json"
 cp "$checker" "$fake_root/scripts/check-plugin-versions.sh"
 chmod +x "$fake_root/scripts/check-plugin-versions.sh"
 

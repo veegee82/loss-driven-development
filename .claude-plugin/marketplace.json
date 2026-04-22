@@ -11,7 +11,7 @@
     {
       "name": "loss-driven-development",
       "description": "LDD — Gradient Descent for Agents. Sixteen portable skills: twelve disciplines across four parameter spaces (code / deliverable / method / reasoning chain) plus four infrastructure skills (using-ldd dispatcher, architect-mode, bootstrap-userspace, host-statusline).",
-      "version": "0.13.1",
+      "version": "0.14.0",
       "source": "./",
       "category": "development",
       "homepage": "https://github.com/veegee82/loss-driven-development",

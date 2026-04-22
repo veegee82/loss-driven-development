@@ -2,6 +2,38 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.14.0] — 2026-04-23
+
+### Fixed — statusline stuck at `LDD · standby` when skills fire but task lifecycle doesn't
+
+The `a44d634` split of `idle` / `standby` (v0.13.0) explicitly acknowledged a Layer-3 residue: "there is still no lightweight mechanism to auto-mark session active when an LDD skill is invoked without a full task lifecycle." In practice this meant any session where the agent used LDD via chat content (skill invocations + inline trace-block emission) without running `ldd_trace init` left `.ldd/sessions/<sid>` absent, the session gate correctly blocked, and the statusline read `LDD · standby` despite visible activity. Particularly jarring after v0.13.1's `using-ldd` change made inline trace-block emission the primary user-visible channel — agents now emit blocks without always running the tool.
+
+Fix lives in two places:
+
+- **`skills/host-statusline/heartbeat.sh` (`LDD_HEARTBEAT_HOOK_v2` → `v3`)** — the PreToolUse heartbeat now seeds `.ldd/sessions/<sid>` (and legacy `.ldd/session_active`) with a minimal `session_id=<sid>` marker when no marker exists for the current session. Semantics shift: the session marker now means "a Claude-Code tool fired in this LDD project" rather than strictly "the LDD task lifecycle ran." A later `ldd_trace init` still overwrites the seed with the real `task=` pointer; existing markers that already carry `task=` are preserved untouched (idempotent). Case-analysis matrix — fresh-session / marker-with-task / legacy-fallback — covered by the new `M6a/b/c` tests in `tests/hooks/test_multi_session.sh`.
+- **`hooks/ldd_install.sh`** — the install script's `patch_skip` path used to ignore byte-diffs on hook/launcher files (to avoid re-install churn during dev iterations). That swallowed marker-version bumps silently, so a v0.14.0-aware installer that encountered a v0.13.1 `ldd_heartbeat.sh` would skip the update. New per-file marker-version gate compares the destination's `LDD_*_HOOK_v<n>` header token to the template's; a mismatch treats the file as missing and forces re-install even under patch_skip. This makes future hook-semantic bumps reach existing installs without a minor-version nudge.
+
+Downstream behaviour change: on a project whose `.ldd/trace.log` carries prior-session entries, the statusline now renders those entries' last task after the next tool fire, rather than `standby`. If the project has no trace history at all, `LDD · idle` is unchanged.
+
+### Added — compact inline trace format (default per-iteration)
+
+The full 15–25-line trace block is token-expensive when emitted per iteration. A 5-iteration task previously spent ~100–125 lines of visible trace just for live progress signalling — before the Close section even landed. v0.14.0 introduces a **compact inline format** as the new default for per-iteration emission:
+
+```
+LDD i2/inner · loss=0.375 (3/8) Δ−0.125 ↓ · root-cause-by-layer
+     → L4 (contract): filter ignores None; L5 (concept): implicit total-function assumption
+```
+
+- **2 lines** for `i1` and `i2` (no trajectory history yet)
+- **3 lines** from `i3` onward (sparkline suffix + net-trend arrow appear once ≥ 3 data points exist)
+- **Full block** still emitted at task close, on explicit `/ldd-trace` request, and for post-hoc reconstruction
+
+Load-bearing audit signals are preserved — iteration counter / loop label / normalized-loss / raw-violations / per-step Δ with arrow / sparkline from i3 / skill name / one-line concrete action. The behavioral-fixture rubric for `using-ldd-trace-visualization` is unaffected because all three fixture scenarios are post-hoc (fall under the full-block trigger per the spec).
+
+Spec lives in `skills/using-ldd/SKILL.md` § "Compact inline format (default per-iteration, v0.14.0+)". The existing "full trace block" section is renamed and clarified to apply to close / request / post-hoc only. RED FLAGS table extended with the "compact means I can drop the action line" case — action lines are load-bearing regardless of format.
+
+Token saving at steady state: ≈ 1/8 the per-iteration cost, with no audit-surface loss.
+
 ## [0.13.1] — 2026-04-22
 
 ### Fixed — inline trace-block emission was ambiguous in using-ldd

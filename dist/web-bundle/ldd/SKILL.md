@@ -311,15 +311,62 @@ Use `/loss-driven-development:ldd-config` to see the full stack with per-key pro
 
 For every non-trivial LDD task, emit a **visible trace block** inline in your reply so the user can see what discipline is running, how the loss is moving, and which skill fired. The user wants to audit this in real-time; the block is part of the deliverable, not an internal monologue.
 
-**Emit the trace block AFTER EVERY ITERATION** (not per skill invocation — within one iteration multiple skills may fire; they share ONE block emitted at iteration close). Each emission is the *full current-state block* — header + all iterations so far + sparkline + chart + per-iteration mode+info lines. The user watches the loss descend in real time; they do not wait until the task closes to see progress.
+**Emit a trace line AFTER EVERY ITERATION** (not per skill invocation — within one iteration multiple skills may fire; they share ONE trace emission at iteration close). Two formats exist — pick by the emission trigger, not by taste:
 
-Re-emit also at the end of each message if the task spans multiple messages, and at loop close (the final block carries the Close section with terminal status + layer fix + docs-sync verdict). Consecutive emissions grow monotonically: iteration k's emission differs from iteration k−1's by exactly one new iteration appended, the sparkline extended by one char, the chart extended by one column, and the trajectory-trend-arrow possibly flipped.
+- **Compact inline format (default per-iteration, v0.14.0+)** — 2 lines for `i1/i2`, 3 lines from `i3` onward. Used for live iteration progress in normal task flow. Spec: see `### Compact inline format` below.
+- **Full trace block** — 15–25 lines with header, per-iteration section, mini chart, close block. Used for task close, explicit `/ldd-trace` request, and post-hoc reconstruction. Spec: see `### Full trace block format` below.
 
-**Post-hoc reconstruction exception:** when the user hands you a COMPLETED task's iteration data (losses, skill names, actions already known) and asks you to render the trace, emit ONE final block with all iterations — the per-iteration rule does not apply because no real iterations are happening; repeating the growing block 3× in sequence would just be the same data printed three times. The `tests/fixtures/using-ldd-trace-visualization/` fixture exercises this exception (all three scenarios are post-hoc).
+Re-emit the compact line at the end of each message when the task spans multiple messages. At loop close, **switch to the full block** (terminal status + layer fix + docs-sync verdict + full sparkline + mini chart). Consecutive compact emissions still grow the sparkline suffix monotonically from `i3` onward — iteration k's line differs from k−1's by one new sparkline glyph and a fresh Δ-arrow.
 
-**Budget warning:** per-iteration emission multiplies trace-block token cost by the iteration count. For tight-context sessions, the Compression rule below (info-lines collapsed to skill-name-only) mitigates this — but the visualization channels (sparkline, chart, mode indicator, trend arrow) are never dropped, they are the audit surface.
+**Post-hoc reconstruction exception:** when the user hands you a COMPLETED task's iteration data (losses, skill names, actions already known) and asks you to render the trace, emit ONE final **full block** with all iterations — the per-iteration compact rule does not apply because no real iterations are happening. The `tests/fixtures/using-ldd-trace-visualization/` fixture exercises this exception (all three scenarios are post-hoc).
 
-### Trace block format
+**Budget — why compact is the default.** The full block's token cost multiplies by iteration count. A 5-iteration task previously emitted ~100–125 lines of trace just for the per-iteration channel; the compact format delivers the same load-bearing signal (who fired, which loop, what loss, where it's moving, what was done) in ~10–15 lines total over the same 5 iterations — about 1/8 the token cost. The full block still lands once at close, so the audit-after-the-fact is unchanged.
+
+### Compact inline format (default per-iteration, v0.14.0+)
+
+Line layout — two-liner for the first two iterations, three-liner once a sparkline becomes meaningful:
+
+```
+# i1 / i2 (no trajectory history yet):
+LDD i<k>/<loop> · loss=<norm> (<raw>)[ Δ<±value> <arrow>] · <skill-name>
+     → <one-line concrete action the iteration produced>
+
+# i3+ (sparkline suffix appears once ≥ 3 data points exist):
+LDD i<k>/<loop> · loss=<norm> (<raw>) Δ<±value> <arrow> · ▂▅▃  <trend>
+     *<skill-name>*
+     → <one-line concrete action>
+```
+
+Worked example — three inner-loop iterations on a contract-violation bug:
+
+```
+LDD i1/inner · loss=0.500 (4/8) · reproducibility-first
+     → 5/5 reruns reproducible, no flake
+```
+```
+LDD i2/inner · loss=0.375 (3/8) Δ−0.125 ↓ · root-cause-by-layer
+     → L4 (contract): filter ignores None; L5 (concept): implicit total-function assumption
+```
+```
+LDD i3/inner · loss=0.000 (0/8) Δ−0.375 ↓ · ▇▅·  ↓
+     *e2e-driven-iteration*
+     → contract made explicit, 8/8 green
+```
+
+Rules:
+
+- **Line 1** is the control line — iteration-counter / loop / normalized-loss / raw-violations / (from i2 onward) step-Δ with arrow / (from i3 onward) sparkline-suffix + net-trend arrow / skill name.
+- **Line 2** is the action line — indented `→` prefix, one concrete sentence about what the iteration actually changed. Never restate the loss number here; never write "fixed the bug" — name the specific change.
+- **Line 3** (optional, i3+) — when the sparkline suffix requires a separate visual break, or when more than one skill fired and you want to name them explicitly via `*skill*` list. Can be merged into line 2 if space allows.
+- **Sparkline-suffix rule:** built from the same `▁▂▃▄▅▆▇█` block glyphs as the full block, auto-scaled to the max observed loss in the current task. Zero values render as `·`. The final glyph is the current iteration's loss; the sparkline carries the full history.
+- **Trend-arrow semantics** are identical to the full block: `↓` if `(last − first) < −0.005`, `↑` if `> +0.005`, `→` otherwise. Computed net-direction, never local.
+- **Step-Δ arrow** (per-iteration, separate from the net-trend arrow) appears from i2 onward inline in line 1 — `Δ−0.125 ↓` means this iteration dropped the loss by 0.125 vs. the previous one. Threshold is the same `0.005` boundary.
+- **Loop labels** — `inner`, `refine`, `outer`, `cot`, `design` (L3/L4 architect-mode uses `design` with a `p<k>` prefix instead of `i<k>`).
+- **Close the loop with the FULL block**, not a compact line. The reader wants to see the mini chart once, at the end, with the Close section.
+
+Compact is a per-iteration convenience, not a replacement for the full block's audit surface. `drift-detection` and `method-evolution` skills still read the `.ldd/trace.log` persisted record — compact only shortens the user-visible display, not the on-disk format.
+
+### Full trace block format
 
 ```
 ╭─ LDD trace ─────────────────────────────────────────╮
@@ -522,19 +569,19 @@ Phase completion is reported as it happens (the block grows as the task progress
 
 ### When to emit
 
-- **Always** on any invocation triggered by `LDD:` prefix or any trigger-phrase match (initial block carries header + budget, no iterations yet)
-- **After every iteration** during live task execution — re-emit the full current-state block so the user watches the loss descend in real time (per v0.5.0 rule above). **v0.5.1 hardens this**: iteration-close without a trace block is a RED FLAG, see below.
-- **Always** when closing a loop (final block with Close section: terminal status + layer fix + docs-sync verdict)
-- **At the end of each message** if the task spans multiple messages (re-emit current state)
-- **On request** when the user types the `/ldd-trace` command or asks for the current state
+- **Always** on any invocation triggered by `LDD:` prefix or any trigger-phrase match (initial full block carries header + budget, no iterations yet; subsequent iterations use compact)
+- **After every iteration** during live task execution — emit the **compact line** (2–3 lines, v0.14.0+ default). Iteration-close without a trace emission is a RED FLAG, see below.
+- **Always when closing a loop** — switch back to the **full block** with Close section (terminal status + layer fix + docs-sync verdict + mini chart + complete sparkline)
+- **At the end of each message** if the task spans multiple messages — compact line if mid-task, full block if closing
+- **On request** when the user types the `/ldd-trace` command or asks for the current state — full block
 - **Not** for trivial one-shot replies (file read, single grep, typo fix) where no skill fires
-- **Not** per-iteration when reconstructing a post-hoc trace from completed data the user supplied (one final block suffices — repeating the same iterations 3× adds no information)
+- **Not** per-iteration when reconstructing a post-hoc trace from completed data the user supplied — emit ONE final **full block** (compact is for live flow, not reconstruction)
 
 ### HOW to emit — the inline block is the user-visible channel (v0.13.1)
 
 This is the **authoritative agent instruction**. Two things happen per iteration close; they are different channels and both must fire:
 
-1. **Inline ASCII block in your assistant reply** — **PRIMARY user-visible channel.** Render the full trace block as plain text (inside a fenced code-block or directly) *in the message you send to the user*. This is what the user sees scrolling past them in real time. The Bash tool's stdout is NOT a substitute — Bash output lands in your agent context, not automatically in the user's visible transcript. If the block is not in your reply text, the user sees nothing. This channel is non-negotiable and is what the skill means by "inline in your reply."
+1. **Inline ASCII in your assistant reply** — **PRIMARY user-visible channel.** Render the trace — compact line per iteration, full block at task close — as plain text (inside a fenced code-block or directly) *in the message you send to the user*. This is what the user sees scrolling past them in real time. The Bash tool's stdout is NOT a substitute — Bash output lands in your agent context, not automatically in the user's visible transcript. If the trace is not in your reply text, the user sees nothing. This channel is non-negotiable and is what the skill means by "inline in your reply."
 
 2. **Persistence via `ldd_trace append`** — **side channel.** Invoke the tool to write a structured line to `.ldd/trace.log` (or the active bootstrap-userspace tier). The tool also prints a rendered block to its stdout, which you may read to confirm what was persisted, but you **must still copy the block into your reply text** — do not rely on Bash stdout reaching the user.
 
@@ -560,12 +607,13 @@ v0.5.1 adds explicit red flags because empirical observation (`scripts/ldd_trace
 
 | Thought | Reality |
 |---------|---------|
-| "The iteration succeeded, I'll show the trace at the end of the task" | No — every iteration ends with a block. The user needs to see *during* convergence, not post-mortem. |
-| "Rendering the chart is a lot of ASCII; I'll describe the loss in prose" | No — use `scripts/ldd_trace append ...` and let the tool render. Manual prose descriptions of loss are a rubric violation at the method layer. |
-| "I re-emitted the summary, that counts" | No — the trace block has four mandated channels (sparkline, mini chart, per-iteration info line, trend arrow). A summary table is not the trace. |
-| "The loss didn't change this iteration, no point re-rendering" | No — a plateau IS a signal; the `Δ ±0.000 →` row lets the user see the plateau forming. |
+| "The iteration succeeded, I'll show the trace at the end of the task" | No — every iteration ends with a trace emission (compact line in-flow, full block at close). The user needs to see *during* convergence, not post-mortem. |
+| "Rendering the chart is a lot of ASCII; I'll describe the loss in prose" | No — compact is 2–3 lines (cheap), full block lands once at close. Manual prose descriptions of loss are a rubric violation at the method layer. |
+| "I re-emitted the summary, that counts" | No — the compact line has 4 load-bearing fields (iter/loop, loss with raw + Δ + arrow, sparkline from i3, skill + action); the full block adds the mini chart and Close section. A summary table is neither. |
+| "The loss didn't change this iteration, no point re-rendering" | No — a plateau IS a signal; the `Δ ±0.000 →` token in the compact line lets the user see the plateau forming. |
+| "Compact means I can drop the action line" | No — action line (`→ <one-line concrete change>`) is load-bearing. Dropping it makes the trace a loss-counter, not an audit trail. |
 
-An iteration close without a full trace block emission is treated as a `method-evolution` trigger at the next outer-loop checkpoint.
+An iteration close without a trace emission (compact or full) is treated as a `method-evolution` trigger at the next outer-loop checkpoint.
 
 ### Persisted trace at `.ldd/trace.log` — bidirectional
 

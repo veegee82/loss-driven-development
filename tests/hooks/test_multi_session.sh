@@ -153,5 +153,50 @@ else
     die "M5: trace.log has $malformed malformed line(s); A=$a_lines B=$b_lines"
 fi
 
+# --- M6: heartbeat seeds the session-gate marker ---------------------------
+# Before v0.13.2 the session marker was written only by `ldd_trace init`,
+# leaving a session that used LDD via chat content (skill invocations, inline
+# trace blocks) without a `.ldd/sessions/<sid>` entry — the statusline then
+# rendered `standby` despite obvious activity. v3 heartbeat hook seeds the
+# marker on the first tool fire. Idempotent: a pre-existing marker that
+# carries a `task=` line (from `ldd_trace init`) must NOT be overwritten.
+proj6="$workdir/proj6"
+mkdir -p "$proj6/.ldd"
+HB6="$repo_root/skills/host-statusline/heartbeat.sh"
+SID_C="cccccccc-0000-0000-0000-sessionC00000"
+
+# Case 1: fresh session, no prior marker — heartbeat must seed it.
+rm -rf "$proj6/.ldd/sessions" "$proj6/.ldd/session_active"
+echo "{\"session_id\":\"$SID_C\",\"tool_name\":\"Bash\",\"cwd\":\"$proj6\"}" | bash "$HB6"
+if [[ -f "$proj6/.ldd/sessions/$SID_C" ]] \
+   && grep -q "^session_id=$SID_C$" "$proj6/.ldd/sessions/$SID_C" \
+   && ! grep -q '^task=' "$proj6/.ldd/sessions/$SID_C"; then
+    pass "M6a: heartbeat seeds minimal session marker (no task= line) when absent"
+else
+    die "M6a: heartbeat failed to seed session marker for $SID_C"
+fi
+
+# Case 2: marker already has a task= line (placed by prior ldd_trace init).
+# Heartbeat must NOT overwrite it — the richer task pointer wins.
+rm -f "$proj6/.ldd/sessions/$SID_C"
+printf 'session_id=%s\ntask=preserved-task-title\n' "$SID_C" > "$proj6/.ldd/sessions/$SID_C"
+echo "{\"session_id\":\"$SID_C\",\"tool_name\":\"Read\",\"cwd\":\"$proj6\"}" | bash "$HB6"
+if grep -q '^task=preserved-task-title$' "$proj6/.ldd/sessions/$SID_C"; then
+    pass "M6b: heartbeat preserves existing task= line (idempotent seed)"
+else
+    die "M6b: heartbeat clobbered the task= line written by ldd_trace init"
+fi
+
+# Case 3: legacy singular marker is ALSO seeded when absent (for legacy readers).
+rm -f "$proj6/.ldd/session_active"
+rm -rf "$proj6/.ldd/sessions"
+echo "{\"session_id\":\"$SID_C\",\"tool_name\":\"Bash\",\"cwd\":\"$proj6\"}" | bash "$HB6"
+if [[ -f "$proj6/.ldd/session_active" ]] \
+   && grep -q "^session_id=$SID_C$" "$proj6/.ldd/session_active"; then
+    pass "M6c: legacy singular marker seeded alongside per-session marker"
+else
+    die "M6c: legacy .ldd/session_active not seeded"
+fi
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 (( fail == 0 )) || exit 1

@@ -254,6 +254,20 @@ do
     if (( patch_skip == 0 )); then
         if ! cmp -s "$dest" "$tpl"; then up_to_date=0; fi
     fi
+    # Per-file marker-version gate — a hook/launcher whose source bumps its
+    # header marker (e.g. LDD_HEARTBEAT_HOOK_v2 → v3) must re-install even
+    # under patch_skip, because the marker bump signals a semantic change
+    # users cannot pick up by byte-diff alone (patch_skip ignores byte diff).
+    # Pattern covers all current + future markers: LDD_HEARTBEAT_HOOK_vN,
+    # LDD_STATUSLINE_vN, LDD_STOP_RENDER_vN, and any LDD_<anything>_vN.
+    if [[ -x "$dest" ]]; then
+        dest_marker=$(grep -oE 'LDD_[A-Z_]+_v[0-9]+' "$dest" 2>/dev/null | head -1)
+        tpl_marker=$(grep -oE 'LDD_[A-Z_]+_v[0-9]+' "$tpl" 2>/dev/null | head -1)
+        if [[ -n "$tpl_marker" && "$dest_marker" != "$tpl_marker" ]]; then
+            up_to_date=0
+            any_missing=1  # treat as missing so patch_skip does not swallow it
+        fi
+    fi
 done
 
 # Decision matrix:

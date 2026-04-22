@@ -6,6 +6,27 @@ All notable changes to this plugin are documented here. Format follows [Keep a C
 
 ## [0.13.0] — 2026-04-22
 
+### Changed — statusline idle-branch split into `idle` / `standby`
+
+Prior versions collapsed three cognitively distinct states into a single `LDD · idle` label:
+
+1. No `.ldd/trace.log` at all (LDD never used in this project)
+2. `.ldd/trace.log` is empty (installed but never written)
+3. `.ldd/trace.log` has prior-session history, current session's gate blocks (installed, previously used, just no `ldd_trace init` yet this session)
+
+From 0.13.0 onward the idle-branch distinguishes (1) / (2) from (3):
+
+```
+LDD · idle                 # cases 1 and 2 — unchanged
+LDD · standby · ⚡12s Bash  # case 3 — new
+```
+
+Answers the common "LDD is installed, I'm actively working — why does it say idle?" confusion: skill invocation alone does not register a task; the session gate correctly blocks the active render until `ldd_trace init` runs. The new `standby` label makes the distinction visible.
+
+Scope is deliberately narrow — only the display vocabulary changed. The session_gate / heartbeat / stop-hook plumbing is unchanged; no new hook, no new marker file, no new config knob. The fix is one `[[ -s "$trace_file" ]]` check in `skills/host-statusline/statusline.sh`'s idle-branch.
+
+Structural origin: Layer-4 (display-vocabulary too coarse) with an acknowledged Layer-3 residue — there is still no lightweight way to auto-mark session active when an LDD skill is invoked without a full task lifecycle. That residue is a future refinement; `standby` is the minimum-surface honest signal in the meantime.
+
 ### Added — `install.auto_update` opt-out in `.ldd/config.yaml`
 
 Security-conscious users can fully disable the SessionStart auto-install:

@@ -173,7 +173,8 @@ One suffix, two short status tokens, no dialog. The user who glances at the trac
 v0.11.0 format (level-aware):
 
 ```
-Idle           : LDD · idle
+Idle           : LDD · idle                (no .ldd/trace.log history ever)
+Standby        : LDD · standby             (prior task(s) in trace.log; session gate blocks current session — awaiting `ldd_trace init` for a fresh task)
 Active L0..L2  : LDD · L2/deliberate · inner k=1 · loss=0.167 · <task> · <sparkline> <trend> · <source>
 Active L3/L4   : LDD · L3/structural · creativity=standard · design k=2 · loss=0.286 · <task> · <sparkline> <trend> · <source>
 ```
@@ -203,11 +204,15 @@ Legend:
 - `trend` — end-to-end first-vs-last arrow (same rule as in `using-ldd` — `↓` if `(last − first) < −0.005`).
 - `source` — `.ldd` if data came from `.ldd/trace.log`, `jsonl` if it came from ⟪LDD-TRACE-v1⟫ marker grep. Tells the user which persistence tier is actually feeding the display.
 
-When no trace is active:
+When no trace is active, the statusline distinguishes two states:
 
 ```
-LDD · idle
+LDD · idle        # no .ldd/trace.log yet — LDD never used here
+LDD · standby     # .ldd/trace.log has prior history, session gate blocks
+                  # current session (waiting for fresh `ldd_trace init`)
 ```
+
+If a heartbeat fired within the last 60s, `· ⚡<age>s <Tool>` is appended to either state so the display still shows the project is live. `standby` answers the common confusion "LDD is installed, I'm actively working — why does it say idle?"; the answer is that skill invocation alone does not register a task, so the session gate cannot permit an active render. Run `./.ldd/ldd_trace init --task "<title>"` to transition from standby to active.
 
 ## Why this is safe to auto-install
 
@@ -246,9 +251,9 @@ No write ever touches `~/.claude/`. That is the hard isolation line.
 A session where this skill ran successfully shows:
 
 - After the first LDD trigger in a fresh project: `.ldd/statusline.sh` and a `statusLine` key in `.claude/settings.local.json` exist and reference each other.
-- Claude Code's bottom-of-screen status line reads `LDD · <task> · <loop> i<k> · loss <v><Δ> · <sparkline> <trend> · <source>` at all times while LDD is active, `LDD · idle` otherwise.
+- Claude Code's bottom-of-screen status line reads `LDD · <task> · <loop> i<k> · loss <v><Δ> · <sparkline> <trend> · <source>` at all times while LDD is active, and `LDD · idle` / `LDD · standby` (see split above) when no task is registered for the current session.
 - The `│ Store :` line inside the trace block has a concise `statusline: …` suffix.
 - No user-visible dialog about statusline install (it happens silently).
 - User quitting the session → statusline persists (it's saved config). Next `claude` launch in the same project → statusline already live, no re-install needed.
 
-If the statusline shows only `LDD · idle` during an actively-running LDD task, the trace file/markers aren't being emitted upstream — debug `using-ldd` iteration emission, not this skill.
+If the statusline shows `LDD · idle` or `LDD · standby` during an actively-running LDD task, the trace file/markers aren't being emitted upstream — `idle` means no trace.log at all, `standby` means trace.log has prior-session content but the session gate blocks because no `ldd_trace init` ran this session. Either way, debug `using-ldd` iteration emission, not this skill.

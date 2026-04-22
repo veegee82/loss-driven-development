@@ -140,7 +140,20 @@ elif [[ -n "$transcript" && -f "$transcript" ]]; then
 fi
 
 if [[ -z "$losses" ]]; then
-    # No LDD trace yet — still show heartbeat if something just fired.
+    # No current-session LDD trace. Two sub-states so the display can tell
+    # the user WHY there is no active task, not just "something is missing":
+    #
+    #   idle     — no `.ldd/trace.log` yet OR it is empty.  LDD was never
+    #              used in this project.
+    #   standby  — `.ldd/trace.log` has prior-session history but the
+    #              session gate blocks the current session (no matching
+    #              `.ldd/session_active` marker).  LDD is installed and
+    #              has been used before; agent just hasn't registered a
+    #              fresh task via `ldd_trace init` yet.
+    #
+    # Heartbeat suffix (⚡Ns Tool) appends in both sub-states when a
+    # PreToolUse fired within the last 60s — shows the project is live
+    # regardless of which sub-state applies.
     idle_hb=""
     hb_file="${cwd}/.ldd/heartbeat"
     if [[ -f "$hb_file" ]]; then
@@ -155,7 +168,11 @@ if [[ -z "$losses" ]]; then
             fi
         fi
     fi
-    printf "LDD · idle%s" "$idle_hb"
+    state="idle"
+    if [[ -s "$trace_file" ]]; then
+        state="standby"
+    fi
+    printf "LDD · %s%s" "$state" "$idle_hb"
     exit 0
 fi
 
@@ -280,7 +297,10 @@ warning_tail=""
 [[ -n "$warning_label" ]] && warning_tail=" · ${warning_label}"
 
 # v0.11.0 statusline format:
-#   Idle          : LDD · idle
+#   Idle          : LDD · idle     (no .ldd/trace.log history ever)
+#   Standby       : LDD · standby  (prior task(s) in trace.log, session gate
+#                                   blocks current session — awaiting
+#                                   `ldd_trace init` for a fresh task)
 #   L0..L2 active : LDD · L2/deliberate · inner k=1/5 · loss=0.167
 #   L3/L4 active  : LDD · L3/structural · creativity=standard · design k=2/5 · loss=0.286
 level_label=""

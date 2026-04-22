@@ -101,7 +101,7 @@ Each rubric is a small fixed set of checks encoded in [`tests/fixtures/`](./test
 5. Scan history logged (even when report is short)?
 6. Trend over time tracked (drift shrinking / stable / growing)?
 
-**`architect-mode`** — three rubric variants, one per `creativity` level. Applies only when `mode=architect` is active. See [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) § Creativity levels for the full per-level spec.
+**`architect-mode`** — three rubric variants, one per `creativity` level. Applies only when the thinking level is L3 or L4 (the architect-mode 5-phase protocol runs at those levels; v0.11.0 removed the separate `mode=architect` axis — mode is derived from level). See [`skills/architect-mode/SKILL.md`](./skills/architect-mode/SKILL.md) § Creativity levels for the full per-level spec.
 
 ### `R_arch_standard` (default — 10 items)
 

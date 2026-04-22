@@ -266,8 +266,9 @@ def run_scenario(s: Scenario) -> tuple[str, bool]:
 ```
 {r.dispatch_header()}
 """
-    if r.final_level in (Level.L3, Level.L4) or r.creativity != Creativity.STANDARD:
-        block += f"mode: architect, creativity: {r.creativity.value}{implicit_ack_note}\n"
+    # v0.11.0: the second `mode: architect, creativity: …` line is gone.
+    # `mode` is derived from level; the creativity is already echoed inline
+    # in `dispatch_header()` for L3/L4. Nothing more to append here.
     block += "```\n\n"
 
     block += f"**Skill floor invoked (minimum):**\n"

@@ -39,7 +39,7 @@ When the user's message contains any of these patterns, invoke the paired skill.
 | "same thing keeps happening across tasks", "the skill itself might be wrong" | `method-evolution` |
 | "is this codebase healthy", release-candidate review, weekly check | `drift-detection` |
 | "about to commit", "ready to merge", "declaring this done" | `docs-as-definition-of-done` |
-| "design X", "architect Y", "greenfield", "from scratch", "how should I structure", "propose an architecture", "decompose this problem", "what's the right shape for X" | `architect-mode` (opt-in — four paths: inline `LDD[mode=architect]:` flag / `/ldd-architect` command / these trigger phrases / the auto-dispatch scorer below; see skill for the 5-phase protocol and the hand-off back to reactive) |
+| "design X", "architect Y", "greenfield", "from scratch", "how should I structure", "propose an architecture", "decompose this problem", "what's the right shape for X" | `architect-mode` (opt-in — three paths: inline `LDD[level=L3]:` / `/ldd-architect` command / these trigger phrases — plus the auto-dispatch scorer landing at L3/L4; see skill for the 5-phase protocol and the hand-off back to reactive) |
 
 ## Auto-dispatch: thinking-levels
 
@@ -49,17 +49,23 @@ Every non-trivial task enters the LDD bundle through a **level scorer** that pic
 
 ### The 5 levels
 
-| Level | Name | Preset — `k_max` / `reproduce_runs` / `mode` | Skill floor (minimum set invoked) |
-|---|---|---|---|
-| **L0** | reflex | 2 / 1 / reactive | `e2e-driven-iteration` |
-| **L1** | diagnostic | 3 / 2 / reactive | + `reproducibility-first`, `root-cause-by-layer` |
-| **L2** | deliberate *(default baseline)* | 5 / 2 / reactive | + `dialectical-reasoning`, `loss-backprop-lens`, `docs-as-definition-of-done` |
-| **L3** | structural | 5 / 2 / **architect**/standard | + `architect-mode` (standard), `drift-detection`, `iterative-refinement` |
-| **L4** | method | 8 / 3 / **architect**/inventive (ack-gated) | + `method-evolution`, `dialectical-cot`, `define-metric` |
+The **Name** column is the canonical human-readable label. Every display of a
+level (dispatch header, trace log meta line, statusline) uses the combined
+`L<n>/<name>` form — e.g. `L3/structural`. The old separate `mode=reactive /
+architect` axis is **derived** from the level (L0–L2 ⇒ reactive, L3/L4 ⇒
+architect) and is no longer displayed or user-facing (v0.11.0).
+
+| Level | Name | Preset — `k_max` / `reproduce_runs` | Creativity applies? | Skill floor (minimum set invoked) |
+|---|---|---|---|---|
+| **L0** | `reflex` | 2 / 1 | no | `e2e-driven-iteration` |
+| **L1** | `diagnostic` | 3 / 2 | no | + `reproducibility-first`, `root-cause-by-layer` |
+| **L2** | `deliberate` *(default baseline)* | 5 / 2 | no | + `dialectical-reasoning`, `loss-backprop-lens`, `docs-as-definition-of-done` |
+| **L3** | `structural` | 5 / 2 | yes — defaults to `standard` | + `architect-mode` (standard), `drift-detection`, `iterative-refinement` |
+| **L4** | `method` | 8 / 3 | yes — defaults to `inventive` (ack-gated) | + `method-evolution`, `dialectical-cot`, `define-metric` |
 
 **Skill floor is a floor, not a ceiling.** A task at L2 that benefits from `drift-detection` may still invoke it; a task at L3 is **not allowed to skip** `architect-mode`.
 
-Architect-mode is reached through L3 / L4 — there is no longer a separate "auto-dispatch for architect-mode" threshold. Score the task; if it lands at L3 or L4, architect-mode is active by preset.
+The `architect-mode` skill's 5-phase protocol is active automatically at L3/L4 — there is no separate `mode=architect` axis to set. Score the task; if it lands at L3 or L4, architect-mode is active by preset.
 
 ### The 9-signal scorer
 
@@ -89,7 +95,7 @@ The three bolded signals are new in the thinking-levels design; the other six ar
 | `4 ≤ score ≤ 7` | **L3** |
 | `score ≥ 8` | **L4** |
 
-**Creativity-clamp rule (L4 ↔ L3 interaction).** When the score buckets L4 BUT the creativity inferrer returns `standard`, the level clamps to L3. Reason: L4's preset mandates `creativity=inventive (ack-gated)`; running L4 with `standard` would mix two loss functions into one gradient (violates `../architect-mode/SKILL.md` §"Cannot switch mid-task"). The dispatch header MUST show `[clamped from L4 (creativity=standard)]` when this fires. The clamp is one-directional: it cannot promote L3 → L4 when creativity would be inventive.
+**Creativity-clamp rule (L4 ↔ L3 interaction).** When the score buckets L4 BUT the creativity inferrer returns `standard`, the level clamps to L3. Reason: L4's preset mandates `creativity=inventive (ack-gated)`; running L4 with `standard` would mix two loss functions into one gradient (violates `../architect-mode/SKILL.md` §"Cannot switch mid-task"). The dispatch header MUST show `[clamped from L4]` when this fires (the creativity is already echoed inline in the main body — no parenthetical duplicate). The clamp is one-directional: it cannot promote L3 → L4 when creativity would be inventive.
 
 ### Creativity inference (applied at L3 / L4)
 
@@ -105,23 +111,24 @@ Conservative beats inventive on a tie.
 
 ### Mandatory trace-header echo
 
-On every non-trivial task, the agent MUST emit one of these lines in the trace header before doing any work:
+On every non-trivial task, the agent MUST emit exactly one line in the trace header before doing any work. The format is **single-line** (v0.11.0) — no more second `mode: architect, creativity: …` line:
 
 ```
-Dispatched: auto-level L<n> (signals: <signal1>=<±N>, <signal2>=<±N>)
-Dispatched: auto-level L<n> (signals: ...) [clamped from L4 (creativity=standard)]
-Dispatched: user-explicit L<n> (scorer proposed L<m>)
-Dispatched: user-bump L<n> (scorer proposed L<m>, bump: <fragment>)
-Dispatched: user-override-down L<n> (scorer proposed L<m>). User accepts loss risk.
+Dispatched: L<n>/<name> (signals: <sig1>=<±N>, <sig2>=<±N>)
+Dispatched: L<n>/<name> · creativity=<value> (signals: <sig1>=<±N>, <sig2>=<±N>)
+Dispatched: L<n>/<name> · creativity=<value> (signals: ...) [clamped from L4]
+Dispatched: L<n>/<name> · creativity=<value> (user-explicit; scorer proposed L<m>)
+Dispatched: L<n>/<name> (user-bump from L<m>, fragment: "<fragment>")
+Dispatched: L<n>/<name> · creativity=<value> (user-override-down from L<m>). User accepts loss risk.
 ```
 
-Signal pairs are the top-2 by absolute weight, stable tie-break by signal name. The agent can invoke the scorer via `python scripts/level_scorer.py "<task>"` (CLI) or `from level_scorer import score_task` (library).
+Rules for the single line:
 
-When the scorer output lands at L3 or L4, the creativity is additionally echoed on a second line:
-
-```
-mode: architect, creativity: <standard|conservative|inventive>
-```
+- The level is always rendered with its canonical name: `L0/reflex`, `L1/diagnostic`, `L2/deliberate`, `L3/structural`, `L4/method`.
+- The `· creativity=<value>` segment is emitted **only at L3 and L4**. It is omitted at L0/L1/L2 (where creativity does not apply).
+- The auto-dispatch case is **implicit** — no `auto-level` keyword. If no dispatch-source phrase (`user-explicit` / `user-bump` / `user-override-down`) appears in the parenthetical, the line is an auto-dispatch.
+- The bracketed clamp reason is the bare `[clamped from L4]` — the old `(creativity=standard)` parenthetical is dropped because the creativity is already inlined before the signals.
+- Signal pairs are the top-2 by absolute weight, stable tie-break by signal name. The agent can invoke the scorer via `python scripts/level_scorer.py "<task>"` (CLI) or `from level_scorer import score_task` (library).
 
 ### Worked example
 
@@ -142,11 +149,10 @@ Creativity inference: no inventive cues, no conservative cues → `standard`.
 
 Creativity-clamp rule fires: L4 + standard → **clamp to L3**.
 
-Trace header:
+Trace header (single line — the old `mode: architect, creativity: …` second line is gone in v0.11.0; the creativity is echoed inline):
 
 ```
-Dispatched: auto-level L3 (signals: greenfield=+3, components>=3=+2) [clamped from L4 (creativity=standard)]
-mode: architect, creativity: standard
+Dispatched: L3/structural · creativity=standard (signals: greenfield=+3, components>=3=+2) [clamped from L4]
 ```
 
 ### Relation to the trigger-phrase table above
@@ -186,9 +192,16 @@ Accepted flags (full reference in [`../../docs/ldd/hyperparameters.md`](../../do
 - `no-reproduce` — shortcut for `reproduce=0`
 - `max-refinement=<N>` — refinement-loop hard cap (1–10)
 - `level=<L0..L4>` — explicit thinking-level, overrides the auto-level scorer. When the explicit level is below the scorer's proposal, the dispatch header emits `user-override-down` with the "User accepts loss risk" warning. `level` is **not** a persisted hyperparameter (cannot be set in `.ldd/config.yaml` or via `/ldd-set`); it is per-task only, parsed from the inline flag.
-- `mode=architect` — switch to architect mode for this task (invokes the 5-phase architect protocol from `../../skills/architect-mode/SKILL.md`). Implied by `level=L3` and `level=L4`.
-- `mode=reactive` — force reactive mode. When combined with `level=L3` or `level=L4`, the combination is rejected (the level preset is architect-mandated). Error echoed in the trace.
-- `creativity=<conservative|standard|inventive>` — architect-mode sub-parameter selecting the **loss function** for this task (three discrete objectives, not a continuous freedom dial). Ignored if `mode≠architect`. `inventive` triggers the one-line acknowledgment flow (see §Inventive ack below). Cannot be set project-level (per-task only).
+- `creativity=<conservative|standard|inventive>` — sub-parameter selecting the **loss function** for this task (three discrete objectives, not a continuous freedom dial). **Only valid at L3/L4.** At L0/L1/L2 the flag is ignored and a trace warning is emitted: `ignored (level=L<n> does not accept creativity)`. `inventive` triggers the one-line acknowledgment flow (see §Inventive ack below). Cannot be set project-level (per-task only).
+
+**Deprecated (v0.11.0, removed in v0.12.0):** `mode=architect` and `mode=reactive` are removed as user-facing overrides — mode is a pure function of level (L0–L2 ⇒ reactive, L3/L4 ⇒ architect). For one release, the parser silently rewrites the deprecated forms and emits a note in the trace header:
+
+```
+LDD[mode=architect]: <task>   →  LDD[level=L3]: <task>     (deprecated)
+LDD[mode=reactive]:  <task>   →  LDD[level=L2]: <task>     (deprecated)
+```
+
+Trace header note on a deprecated invocation: `deprecated: mode= is derived from level; use level= instead`.
 
 Multiple flags are comma-separated. Inline flags **beat everything else** (session `/ldd-set`, `.ldd/config.yaml`, bundle defaults).
 
@@ -220,14 +233,14 @@ The natural-language path is the lowest-priority override (category 4); any expl
 
 ### Dispatch-header echo for overrides
 
-When ANY override fires (explicit flag, relative bump, or natural-language bump), the dispatch header surfaces it so the user can see what actually ran:
+When ANY override fires (explicit flag, relative bump, or natural-language bump), the dispatch header surfaces it so the user can see what actually ran. The format is single-line (v0.11.0) — creativity is inlined at L3/L4 only:
 
 ```
-Dispatched: user-explicit L3 (scorer proposed L2)
-Dispatched: user-bump L2 (scorer proposed L0, bump: LDD++)
-Dispatched: user-bump L2 (scorer proposed L0, bump: "take your time")
-Dispatched: user-bump L4 (scorer proposed L0, bump: LDD=max)
-Dispatched: user-override-down L0 (scorer proposed L3). User accepts loss risk.
+Dispatched: L3/structural · creativity=standard (user-explicit; scorer proposed L2)
+Dispatched: L2/deliberate (user-bump from L0, fragment: "LDD++")
+Dispatched: L2/deliberate (user-bump from L0, fragment: "take your time")
+Dispatched: L4/method · creativity=inventive (user-bump from L0, fragment: "LDD=max")
+Dispatched: L0/reflex (user-override-down from L3). User accepts loss risk.
 ```
 
 If the user expresses a budget in prose ("budget of 3 iterations", "give me only one refinement pass"), parse the intent and apply — echo in the trace as `(parsed from prose)`. When ambiguous, ask one clarifying question rather than guessing.
@@ -250,7 +263,7 @@ Three paths to consent, in order of precedence:
 3. **Implicit ack from the original task prompt.** When the user's initial message already contains **≥ 2 inventive cues** (`"novel"`, `"research"`, `"prototype"`, `"no known pattern"`, `"invent"`, `"experimental"`, `"paradigm"`) AND is **≥ 100 characters long**, the agent treats the prompt itself as consent — the user has already verbalized inventive intent in a substantive task description. The dispatch header MUST surface this explicitly:
 
    ```
-   mode: architect, creativity: inventive (implicit ack from ≥2 inventive cues in prompt)
+   Dispatched: L4/method · creativity=inventive (signals: …) [implicit ack from ≥2 inventive cues in prompt]
    ```
 
    If the prompt is shorter than 100 characters or contains only 1 inventive cue, fall back to path 2 (explicit ack).
@@ -269,7 +282,7 @@ Neither path 2 nor path 3 allows the AGENT to select inventive on its own. Both 
 
 `LDD[level=L0]:` on a task the scorer would bucket L3 is an explicit downward override — honored, but `user-override-down` warning is emitted. No silent demotions.
 
-### Precedence — other hyperparameters (k, reproduce, max-refinement, mode, creativity)
+### Precedence — other hyperparameters (k, reproduce, max-refinement, creativity)
 
 ```
 inline LDD[...] flags         ← highest priority
@@ -315,7 +328,7 @@ Re-emit also at the end of each message if the task spans multiple messages, and
 │ Iteration 2 (if applicable):
 │   ...
 │   loss_2 = 0.125  (1/8 violations)
-│   Δloss_1→2 = −0.125  (regression — revert before next edit)
+│   Δloss = −0.125  (regression — revert before next edit)
 │
 │ Close:
 │   Fix at layer: <4: structural-name, 5: conceptual-name>
@@ -362,14 +375,14 @@ The numeric loss per iteration gives the user the value. To make the **trajector
 
 The sparkline gives **micro-dynamics** (8-level resolution — separates a converged tail where losses differ by 0.05). The mini chart gives **macro-trajectory** (tail convergence collapses to the baseline row, which is visually honest — the loss IS flat below the snap step). The mode+info line gives **audit surface** — which mode, which skill, which action, per iteration. Consistency constraint: the sparkline's last bar, the chart's last marker, and the final iteration's `loss=` value must all reflect the same number.
 
-**Mode-indicator grammar (per iteration label):**
+**Phase-indicator grammar (per iteration label, v0.11.0):**
 
 - Inner loop, default discipline → `Iteration i<k> (inner, reactive)`
-- Inner loop replaced by architect-mode → `Phase p<k> (architect, <creativity>)` where `<creativity>` is one of `standard` / `conservative` / `inventive`. The word `Phase` (not `Iteration`) signals the 5-phase protocol is running.
+- Design phase (L3/L4, architect-mode protocol) → `Phase p<k> (design, <creativity>)` where `<creativity>` is one of `standard` / `conservative` / `inventive`. The word `Phase` (not `Iteration`) signals the 5-phase protocol is running. The parenthetical carries the **creativity** (already displayed once in the header) but no separate `mode=` word — the level is the mode.
 - Refine loop → `Iteration r<k> (refine)` — no mode/creativity (refine is always y-axis work on a deliverable)
 - Outer loop → `Iteration o<k> (outer)` — no mode/creativity (outer is always θ-axis work on a skill/rubric)
 
-A session that fires architect-mode in the inner layer and then hands off to reactive inner iterations renders both in the same trace: `Phase p1..p5` followed by `Iteration i1..i<k>`.
+A session that fires the design-phase protocol and then hands off to reactive inner iterations renders both in the same trace: `Phase p1..p5` followed by `Iteration i1..i<k>`.
 
 **Delta column (≥ 2 iterations):** every iteration after iter 1 appends `Δ <±value> <arrow>` to its loss line, where arrow is `↓` (progress), `↑` (regression), or `→` (plateau, `|Δ| < 0.0005`). This is the *per-step* arrow — distinct from the *end-to-end* trend arrow on the sparkline line.
 
@@ -412,18 +425,18 @@ info line       : "  *<skill-name>* → <one-line description of change produced
 │   *method-evolution* → skill rubric updated; 3 sibling tasks no longer regress
 ```
 
-**Example — architect (inventive) hand-off into reactive inner:**
+**Example — L4 design phase (inventive) hand-off into reactive inner:**
 
 ```
-│ Phase p1 (architect, inventive)   loss=0.857  (6/7)
+│ Phase p1 (design, inventive)      loss=0.857  (6/7)
 │   constraints: 7 requirements named; 2 uncertainties flagged (consistency bound, write throughput)
-│ Phase p2 (architect, inventive)   loss=0.714  (5/7)   Δ −0.143 ↓
+│ Phase p2 (design, inventive)      loss=0.714  (5/7)   Δ −0.143 ↓
 │   non-goals: 3 concrete scope boundaries (no global consensus, no strict serializability, …)
-│ Phase p3 (architect, inventive)   loss=0.429  (3/7)   Δ −0.286 ↓
+│ Phase p3 (design, inventive)      loss=0.429  (3/7)   Δ −0.286 ↓
 │   candidates: 3/3 on partial-order axis (MPO-CRDT, version-vector-with-dominance, lattice-merge)
-│ Phase p4 (architect, inventive)   loss=0.143  (1/7)   Δ −0.286 ↓
+│ Phase p4 (design, inventive)      loss=0.143  (1/7)   Δ −0.286 ↓
 │   scoring: MPO-CRDT wins 0.778; antithesis on write amplification survived with mitigation
-│ Phase p5 (architect, inventive)   loss=0.000  (0/7)   Δ −0.143 ↓
+│ Phase p5 (design, inventive)      loss=0.000  (0/7)   Δ −0.143 ↓
 │   deliverable: arch.md + scaffold + 6 failing tests + acknowledgment accepted @ 2026-04-21T12:14Z
 │ Iteration i1 (inner, reactive)    loss=0.857  (6/7)
 │   *e2e-driven-iteration* → first failing scaffold test now compiles (schema bound)
@@ -440,17 +453,17 @@ info line       : "  *<skill-name>* → <one-line description of change produced
 
 **Why no per-iteration magnitude bar** — an earlier draft of this spec included a 20-character `█`/`░` bar per iteration. It was removed in favor of the mode+info line because the information density is strictly worse: the bar re-encodes data already carried by the sparkline and chart, while the mode+info line carries *new* information (which skill fired, what concrete action it produced) the user cannot reconstruct from loss numbers alone.
 
-**Architect-mode trace-block header:** the variant block (next subsection) uses phases instead of iterations. The header carries `mode: architect, creativity: <level>` and a `Dispatched:` line explaining how architect-mode was selected. The same four visualization channels apply, with `p1`..`p5` labels in place of `i1`/`r1`/`o1`.
+**Design-phase (L3/L4) trace-block header:** the variant block (next subsection) uses phases instead of iterations. The header carries the single-line `Dispatched: L<n>/<name> · creativity=<value>` and identifies the loop as `design (5-phase protocol)`. The same four visualization channels apply, with `p1`..`p5` labels in place of `i1`/`r1`/`o1`.
 
-### Architect-mode variant of the trace block
+### Design-phase (L3/L4) variant of the trace block
 
-When `mode=architect` is active, the trace uses **phases** instead of iterations. The 5 phases are prescribed by the `architect-mode` skill. Example:
+When the level lands at L3 or L4, the `architect-mode` skill's 5-phase protocol runs — and the trace uses **phases** instead of iterations. The 5 phases are prescribed by the `architect-mode` skill. Example:
 
 ```
-╭─ LDD trace (mode: architect, creativity: standard) ─╮
+╭─ LDD trace ─────────────────────────────────────────╮
 │ Task       : design a billing service for 50M users
-│ Dispatched : auto (signals: greenfield=+3, cross-layer=+2)
-│ Loop       : architect (5-phase protocol)
+│ Dispatched : L3/structural · creativity=standard (signals: greenfield=+3, cross-layer=+2)
+│ Loop       : design (5-phase protocol)
 │ Budget     : phase <k>/5, no K_MAX (phases are sequential, not iterative)
 │ Loss-fn    : L = rubric_violations  (standard baseline; λ=0)
 │ Loss-type  : normalized [0,1] (violations / 10)
@@ -466,7 +479,7 @@ When `mode=architect` is active, the trace uses **phases** instead of iterations
 ╰─────────────────────────────────────────────────────╯
 ```
 
-Header shows `mode: architect` and `creativity: <level>` explicitly. The `Dispatched` line shows how architect-mode was selected — one of `inline-flag`, `command`, `trigger-phrase: "<phrase>"`, or `auto (signals: <top-2>)` — so the user can verify (and override) the decision in one follow-up message. The `Loss-fn` line names the objective being minimized; the `Loss-type` line names how the loss is displayed (which of the three display modes applies for this run).
+Header carries a single `Dispatched:` line with the level/name and (at L3/L4) the inline `creativity=<value>`. The architect-mode protocol is active because the level is L3 or L4 — there is no separate `mode:` line. The `Loss-fn` line names the objective being minimized; the `Loss-type` line names how the loss is displayed (which of the three display modes applies for this run).
 
 For `creativity: conservative` the `Loss-fn` line reads: `L = rubric_violations + λ · novelty_penalty`. The rubric max becomes 11 (standard 10 + novelty-penalty #11); `Loss-type : normalized [0,1] (weighted violations / 11)`. Scoring cells in Phase 4 are displayed as normalized floats too: `A: 0.667 (20.0/30.0)` instead of raw `A: 20.0/30.0` alone.
 
@@ -499,14 +512,23 @@ An iteration close without a full trace block emission is treated as a `method-e
 
 ### Persisted trace at `.ldd/trace.log` — bidirectional
 
-**Write.** When operating in a project directory, append a structured line to `.ldd/trace.log` at the project root on every iteration close. Create the directory if needed. Format:
+**Write.** When operating in a project directory, append a structured line to `.ldd/trace.log` at the project root on every iteration close. Create the directory if needed. Format (v0.11.0 — breaking change; see `CHANGELOG.md`):
 
 ```
-2026-04-20T17:32:10Z  meta  task="..."  loops=inner,refine
-2026-04-20T17:32:45Z  inner  k=0  baseline       loss_norm=1.000  raw=5/5   loss_type=rate
-2026-04-20T17:33:22Z  inner  k=1  skill=reproducibility-first  action="..."  loss_norm=0.600  raw=3/5   Δloss_norm=-0.400
-2026-04-20T17:34:10Z  inner  close  terminal=complete  layer="3: ..."  docs=synced
+2026-04-22T02:24:45Z  meta  L3/structural  creativity=standard  dispatch=auto  task="..."  loops=design,inner,refine,outer
+2026-04-22T02:24:50Z  inner  k=0  baseline       loss=1.000  raw=5/5   loss_type=rate
+2026-04-22T02:25:22Z  inner  k=1  skill=reproducibility-first  action="..."  loss=0.600  raw=3/5   Δloss=-0.400
+2026-04-22T02:26:10Z  inner  close  terminal=complete  layer="3: ..."  docs=synced
 ```
+
+Per-line rules (v0.11.0):
+
+- Meta line carries the thinking-level as the positional `L<n>/<name>` token, an optional `creativity=<value>` (only at L3/L4), and a short `dispatch=<auto|explicit|bump|override-down>`.
+- Per-iter lines use `loss=` (was `loss_norm=`) and `Δloss=` (was `Δloss_norm=`).
+- `loss_type=normalized-rubric` is **omitted** when it equals the default; only non-default types (e.g. `loss_type=rate`) are written.
+- The per-iter `mode=` and `creativity=` fields are **gone** — mode is derived from level, creativity lives once on the meta line.
+- The `design` loop replaces what pre-v0.11.0 called `architect` (it is the protocol's design phase, not a separate loop).
+- Read-compat: the store's parser accepts BOTH formats; pre-v0.11.0 traces still project correctly.
 
 One line per iteration or close event. ISO-8601 UTC first. Space-separated key=value; values with spaces are double-quoted.
 

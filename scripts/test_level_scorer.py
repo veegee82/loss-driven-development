@@ -404,16 +404,23 @@ class TestDispatchHeader:
     def test_auto_level_header_contains_top_signals(self) -> None:
         r = score_task("fix the typo in README.md line 12")
         h = r.dispatch_header()
-        assert "auto-level" in h
-        assert "L0" in h
+        # v0.11.0: the auto case is implicit — no more `auto-level` keyword.
+        # The level is rendered with its name (`L0/reflex`) and at least one
+        # of the two top signals must appear.
+        assert "L0/reflex" in h
         assert "explicit-bugfix" in h or "single-file" in h
+        assert "signals:" in h
 
     def test_user_bump_header_mentions_fragment(self) -> None:
         r = score_task("LDD++: fix the typo")
         h = r.dispatch_header()
         assert "user-bump" in h
         assert "LDD++" in h
-        assert "scorer proposed" in h
+        # v0.11.0: the phrasing changed from `scorer proposed Lx` to
+        # `user-bump from Lx, fragment: "…"` — both carry the scorer's
+        # auto-level, but the new word is `from`, not `proposed`.
+        assert "from L" in h
+        assert "fragment" in h
 
     def test_user_override_down_warning_contains_loss_risk(self) -> None:
         r = score_task(

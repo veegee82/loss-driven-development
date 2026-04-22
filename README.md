@@ -28,11 +28,10 @@ Full install for other agents (Codex · Gemini CLI · Aider · Cursor · …) be
 
 ### Zero-config thinking-levels — the step-size controller
 
-Before any of the four gradients starts descending, LDD picks **how much rigor to bring** to the task. Every non-trivial task is auto-scored onto a **5-step rigor ladder**: L0 reflex (typo fix) → L1 diagnostic (failing test) → L2 deliberate (default baseline) → L3 structural (cross-layer / architect) → L4 method (greenfield / inventive). This is the **learning-rate scheduler for the gradient descent**, not a fifth loop — it decides depth-of-deliberation before the first forward pass. You don't configure anything — the scorer reads the task text, picks a level, announces it:
+Before any of the four gradients starts descending, LDD picks **how much rigor to bring** to the task. Every non-trivial task is auto-scored onto a **5-step rigor ladder**: L0 reflex (typo fix) → L1 diagnostic (failing test) → L2 deliberate (default baseline) → L3 structural (cross-layer / architect) → L4 method (greenfield / inventive). This is the **learning-rate scheduler for the gradient descent**, not a fifth loop — it decides depth-of-deliberation before the first forward pass. You don't configure anything — the scorer reads the task text, picks a level, announces it on one line:
 
 ```
-Dispatched: auto-level L3 (signals: greenfield=+3, components>=3=+2)
-mode: architect, creativity: standard
+Dispatched: L3/structural · creativity=standard (signals: greenfield=+3, components>=3=+2)
 ```
 
 Override with one token when you disagree: `LDD+:` (one level up), `LDD++:` (two), `LDD=max:` (to L4), `LDD[level=L1]:` (explicit). Natural-language works too: `"take your time"`, `"denk gründlich"`, `"volle Kanne"`. The scorer is upward-biased on boundaries — better a hair too careful than silently too shallow. Full spec: [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md).
@@ -160,7 +159,7 @@ Apply on every loop, at every step.
 | [**dialectical-reasoning**](./skills/dialectical-reasoning/SKILL.md) | One-sided recommendations that skip the counter-case |
 | [**docs-as-definition-of-done**](./skills/docs-as-definition-of-done/SKILL.md) | "I'll update docs in a follow-up PR" — closes every loop |
 | [**define-metric**](./skills/define-metric/SKILL.md) | Ad-hoc arithmetic on observations; agent-defined metrics used as load-bearing gates before calibration has passed |
-| [**architect-mode**](./skills/architect-mode/SKILL.md) *(opt-in, not default)* | Free-form "design doc" without constraint table, without non-goals, without 3-candidate comparison, without scoring, without failing-test scaffold. Greenfield design under discipline — **largest Δloss in the bundle (+10/10)**. Activate via `LDD[mode=architect]:` or `/ldd-architect`, or via the thinking-levels auto-dispatch at L3/L4 |
+| [**architect-mode**](./skills/architect-mode/SKILL.md) *(opt-in, not default)* | Free-form "design doc" without constraint table, without non-goals, without 3-candidate comparison, without scoring, without failing-test scaffold. Greenfield design under discipline — **largest Δloss in the bundle (+10/10)**. Activate via `LDD[level=L3]:` or `/ldd-architect`, or via the thinking-levels auto-dispatch at L3/L4 |
 
 ## The philosophy in 60 seconds
 
@@ -372,9 +371,10 @@ For that, LDD has `architect-mode` — an **opt-in** skill that flips the loss t
 Activate for a single task:
 
 ```text
-LDD[mode=architect]: design a billing service for 50M users with read-heavy workload
+LDD[level=L3]: design a billing service for 50M users with read-heavy workload
+#   ↑ v0.11.0: LDD[mode=architect] is a deprecated alias for LDD[level=L3]
 
-# or via slash command:
+# or via slash command (sugar for LDD[level=L3]):
 /loss-driven-development:ldd-architect
 
 # or natural-language triggers: "design X", "architect Y", "greenfield", "from scratch"
@@ -430,9 +430,9 @@ Architect mode supports three discrete creativity levels. Per LDD's neural-code-
 | `inventive` | `L = rubric_violations_reduced + λ · prior_art_overlap_penalty` | Research / prototype. Novelty rewarded, prior-art overlap penalized — but explicit experiment-validation path + fallback-to-standard baseline required. Not production-ready by default. Requires per-task user acknowledgment. |
 
 ```text
-LDD[mode=architect, creativity=conservative]: design the billing service — stack-only, no new tech
-LDD[mode=architect, creativity=standard]:     design a billing service for 50M users
-LDD[mode=architect, creativity=inventive]:    prototype a new consistency protocol for this use case
+LDD[level=L3, creativity=conservative]: design the billing service — stack-only, no new tech
+LDD[level=L3, creativity=standard]:     design a billing service for 50M users
+LDD[level=L4, creativity=inventive]:    prototype a new consistency protocol for this use case
 ```
 
 Or via slash command: `/loss-driven-development:ldd-architect conservative`.

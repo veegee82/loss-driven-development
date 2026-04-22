@@ -135,14 +135,17 @@ def _iteration_deltas(task: TaskSlice) -> List[Tuple[int, float, float, str]]:
     prev_loss=None. Returns only non-baseline iterations for delta computation.
     """
     out: List[Tuple[int, float, float, str]] = []
-    # Group by loop so we compute delta within-loop
+    # Group by loop so we compute delta within-loop. The reader normalizes
+    # legacy `architect` entries to `design`, so this dict has one key per
+    # loop post-v0.11.0.
     by_loop: Dict[str, List] = {}
     for e in task.iterations:
         by_loop.setdefault(e.loop, []).append(e)
     for loop, entries in by_loop.items():
         prev_loss: Optional[float] = None
         for e in entries:
-            cur = e.get_float("loss_norm", 0.0)
+            # `get_float("loss")` falls back to the legacy `loss_norm` key.
+            cur = e.get_float("loss", 0.0)
             skill = e.fields.get("skill", "(unknown)")
             if e.fields.get("baseline") == "true":
                 prev_loss = cur

@@ -133,8 +133,9 @@ class TestTraceStore:
             loop="inner", k=1, skill="s", action="a",
             loss_norm=0.25, raw="1/4",
         )
-        assert "Δloss_norm" in e2.fields
-        assert "-0.250" in e2.fields["Δloss_norm"]
+        # v0.11.0: the per-iter delta field is `Δloss` (shorter, unambiguous).
+        assert "Δloss" in e2.fields
+        assert "-0.250" in e2.fields["Δloss"]
 
     def test_projection_to_task(self, tmp_path: Path) -> None:
         store = TraceStore(tmp_path)
@@ -162,6 +163,86 @@ class TestTraceStore:
         assert task.terminal == "complete"
         assert "contract" in task.fix_layer_4
         assert "never-raise" in task.fix_layer_5
+
+    def test_meta_header_store_dispatched_mode(self, tmp_path: Path) -> None:
+        """v0.11.x: bootstrap-userspace + using-ldd mandated header lines
+        must survive the init → serialize → read → project → render round trip.
+        """
+        store = TraceStore(tmp_path)
+        store.init(
+            task_title="header demo",
+            loops=["design", "inner"],
+            level_chosen="L4",
+            creativity="inventive",
+            dispatch_source="user-bump",
+            store_scope="local (.ldd/trace.log)",
+            dispatched='user-bump L4 (scorer proposed L3, bump: "all levels")',
+        )
+        store.append_iteration(
+            loop="design", k=0, skill="architect-mode",
+            action="constraints", loss_norm=0.8, raw="4/5",
+        )
+        task = store.to_task()
+        assert task.store == "local (.ldd/trace.log)"
+        assert 'user-bump L4' in task.dispatched
+        assert task.level == "L4"
+        assert task.level_name == "method"
+        assert task.creativity == "inventive"
+
+        from ldd_trace.renderer import render_trace
+        block = render_trace(task)
+        assert "│ Store      : local (.ldd/trace.log)" in block
+        assert "│ Dispatched : user-bump L4" in block
+        assert "│ Mode       : architect, inventive" in block
+
+    def test_meta_header_absent_when_unset(self, tmp_path: Path) -> None:
+        """Backward compat: pre-v0.11.x traces (no level/store/dispatched on
+        meta) render without Store/Dispatched/Mode header lines — no empty
+        stub rows, no crashes.
+        """
+        store = TraceStore(tmp_path)
+        store.init(task_title="legacy", loops=["inner"])
+        store.append_iteration(
+            loop="inner", k=0, skill="x", action="y",
+            loss_norm=0.5, raw="1/2",
+        )
+        from ldd_trace.renderer import render_trace
+        block = render_trace(store.to_task())
+        assert "Store" not in block
+        assert "Dispatched" not in block
+        assert "Mode       :" not in block
+
+    def test_meta_dispatched_survives_inner_double_quotes(self, tmp_path: Path) -> None:
+        """Regression: pre-fix serializer wrapped fields with double-quotes
+        and silently truncated on inner double-quotes, clipping the
+        Dispatched line mid-string. The shlex-based serializer must round-
+        trip a value containing both spaces and double-quotes losslessly.
+        """
+        tricky = 'user-bump L4 (scorer proposed L3, bump: "alle level triggern")'
+        store = TraceStore(tmp_path)
+        store.init(
+            task_title="quote round-trip",
+            loops=["inner"],
+            level_chosen="L4",
+            creativity="inventive",
+            dispatch_source="user-bump",
+            dispatched=tricky,
+        )
+        task = store.to_task()
+        assert task.dispatched == tricky
+
+    def test_meta_dispatched_derived_from_level(self, tmp_path: Path) -> None:
+        """When --dispatched is omitted but --level + --dispatch are given,
+        the projection derives a sensible Dispatched line automatically."""
+        store = TraceStore(tmp_path)
+        store.init(
+            task_title="derived",
+            loops=["inner"],
+            level_chosen="L2",
+            dispatch_source="auto",
+        )
+        task = store.to_task()
+        assert task.dispatched == "auto-level L2/deliberate"
 
     def test_close_line_parses(self, tmp_path: Path) -> None:
         store = TraceStore(tmp_path)

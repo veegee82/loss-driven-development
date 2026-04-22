@@ -5,7 +5,7 @@ This fixture exercises the level-selection pipeline from the design doc at
 
 Nine scenarios cover the full dispatch surface:
 
-- **Five level scenarios** (`L0-reflex` … `L4-method`) — one representative task per level. GREEN must show `Dispatched: auto-level L<n> (signals: …)` matching the expected level.
+- **Five level scenarios** (`L0-reflex` … `L4-method`) — one representative task per level. GREEN must show the single-line `Dispatched: L<n>/<name>[ · creativity=<value>] (signals: …)` (v0.11.0 format) matching the expected level.
 - **Four override scenarios** covering every override path:
   1. `override-up-from-L0` — simple task + `LDD++:` prefix → L2.
   2. `override-max-on-simple` — simple task + `LDD=max:` prefix → L4.
@@ -32,7 +32,7 @@ The five-level scenarios are the canonical positive-case coverage — one per bu
 fix the typo in README.md line 12: "Agent Worklow" should be "Agent Workflow"
 ```
 
-Expected: `Dispatched: auto-level L0 (signals: explicit-bugfix=-5, single-file=-3)`.
+Expected: `Dispatched: L0/reflex (signals: explicit-bugfix=-5, single-file=-3)`.
 
 ### 2. L1-diagnostic
 
@@ -40,7 +40,7 @@ Expected: `Dispatched: auto-level L0 (signals: explicit-bugfix=-5, single-file=-
 the unit test test_parser_handles_empty_input in packages/awp-core/tests/test_parser.py is failing after my last change; help me fix it
 ```
 
-Expected: `Dispatched: auto-level L1 (signals: explicit-bugfix=-5, single-file=-3)` OR an equivalent negative-weighted top-2 with level L1. (The `explicit-bugfix` signal is weaker here than in L0 because the scope is a test-fix, not a typo — one layer above pure mechanical.)
+Expected: `Dispatched: L1/diagnostic (signals: explicit-bugfix=-5, single-file=-3)` OR an equivalent negative-weighted top-2 with level L1. (The `explicit-bugfix` signal is weaker here than in L0 because the scope is a test-fix, not a typo — one layer above pure mechanical.)
 
 ### 3. L2-deliberate
 
@@ -48,7 +48,7 @@ Expected: `Dispatched: auto-level L1 (signals: explicit-bugfix=-5, single-file=-
 add a confidence threshold to the validator: agents below 0.6 should trigger a repair subtask
 ```
 
-Expected: `Dispatched: auto-level L2 (signals: contract-rule-hit=+2, layer-crossings=+2)` or similar. No explicit trigger phrases; default baseline-plus-one.
+Expected: `Dispatched: L2/deliberate (signals: contract-rule-hit=+2, layer-crossings=+2)` or similar. No explicit trigger phrases; default baseline-plus-one.
 
 ### 4. L3-structural
 
@@ -56,7 +56,7 @@ Expected: `Dispatched: auto-level L2 (signals: contract-rule-hit=+2, layer-cross
 we need to add a new critique gate for repair-fixpoint detection between the existing critique and deliverable_presence gates in the delegation loop; it should hook into the same R35 mechanism
 ```
 
-Expected: `Dispatched: auto-level L3 (signals: cross-layer=+2, contract-rule-hit=+2)` with `mode: architect, creativity: standard`. Raw score +6 lands directly in the L3 bucket (4..7); no clamp needed here. The clamp rule itself is verified by `scripts/test_level_scorer.py` against a synthetic higher-score prompt.
+Expected: `Dispatched: L3/structural · creativity=standard (signals: cross-layer=+2, contract-rule-hit=+2)`. Raw score +6 lands directly in the L3 bucket (4..7); no clamp needed here. The clamp rule itself is verified by `scripts/test_level_scorer.py` against a synthetic higher-score prompt.
 
 ### 5. L4-method
 
@@ -64,7 +64,7 @@ Expected: `Dispatched: auto-level L3 (signals: cross-layer=+2, contract-rule-hit
 design a new autonomy sublevel between A2 and A3 for manager-led recursive delegation with shared memory; greenfield, no known pattern fits directly, we want to prototype novel mechanisms
 ```
 
-Expected: `Dispatched: auto-level L4 (signals: greenfield=+3, components≥3=+2)` with `mode: architect, creativity: inventive` and the standard `inventive` acknowledgment flow.
+Expected: `Dispatched: L4/method · creativity=inventive (signals: greenfield=+3, components≥3=+2)` followed by the standard `inventive` acknowledgment flow.
 
 ### 6. override-up-from-L0
 
@@ -72,7 +72,7 @@ Expected: `Dispatched: auto-level L4 (signals: greenfield=+3, components≥3=+2)
 LDD++: fix the typo in README.md line 12
 ```
 
-Expected: `Dispatched: user-bump L2 (scorer proposed L0)`. The `LDD++` bumps two levels from L0 → L2.
+Expected: `Dispatched: L2/deliberate (user-bump from L0, fragment: "LDD++")`. The `LDD++` bumps two levels from L0 → L2.
 
 ### 7. override-max-on-simple
 
@@ -80,7 +80,7 @@ Expected: `Dispatched: user-bump L2 (scorer proposed L0)`. The `LDD++` bumps two
 LDD=max: fix the typo in README.md line 12
 ```
 
-Expected: `Dispatched: user-bump L4 (scorer proposed L0)`. Clamped to L4 regardless of scorer output.
+Expected: `Dispatched: L4/method · creativity=inventive (user-bump from L0, fragment: "LDD=max")`. Clamped to L4 regardless of scorer output.
 
 ### 8. override-natural-language
 
@@ -88,7 +88,7 @@ Expected: `Dispatched: user-bump L4 (scorer proposed L0)`. Clamped to L4 regardl
 take your time and think hard about this: rename the variable `foo` to `bar` in packages/awp-core/src/awp/cli.py
 ```
 
-Expected: `Dispatched: user-bump L1 (scorer proposed L0)` or `L2 (scorer proposed L0)`. The phrase `"take your time"` and `"think hard"` are both recognized; either alone triggers +1, together +2 is also acceptable. The rubric accepts L1 or L2 as GREEN.
+Expected: `Dispatched: L1/diagnostic (user-bump from L0, fragment: "take your time")` or `L2/deliberate (user-bump from L0, fragment: "…")`. The phrase `"take your time"` and `"think hard"` are both recognized; either alone triggers +1, together +2 is also acceptable. The rubric accepts L1 or L2 as GREEN.
 
 ### 9. override-down-warning
 
@@ -96,7 +96,7 @@ Expected: `Dispatched: user-bump L1 (scorer proposed L0)` or `L2 (scorer propose
 LDD[level=L0]: we need to add a new critique gate for repair-fixpoint detection between the existing critique and deliverable_presence gates in the delegation loop; it should hook into the same R35 mechanism
 ```
 
-Expected: `Dispatched: user-override-down L0 (scorer proposed L3). User accepts loss risk.` The agent honors L0 but MUST emit the warning — silent acceptance is a trace-integrity violation.
+Expected: `Dispatched: L0/reflex (user-override-down from L3). User accepts loss risk.` The agent honors L0 but MUST emit the warning — silent acceptance is a trace-integrity violation.
 
 ## RED / GREEN protocol
 

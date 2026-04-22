@@ -13,8 +13,7 @@ design a new autonomy sublevel between A2 and A3 for manager-led recursive deleg
 ## Expected dispatch header
 
 ```
-Dispatched: auto-level L4 (signals: greenfield=+3, components≥3=+2)
-mode: architect, creativity: inventive
+Dispatched: L4/method · creativity=inventive (signals: greenfield=+3, components≥3=+2)
 ```
 
 (Plus the standard `inventive` acknowledgment prompt per `architect-mode/SKILL.md` § Creativity levels.)
@@ -46,7 +45,8 @@ Creativity inferrer:
 |---|---|
 | k_max | 8 |
 | reproduce_runs | 3 |
-| mode | architect / inventive (ack-gated) |
+| mode | derived: architect (from L4) |
+| creativity | inventive (ack-gated at L4) |
 | max_refinement_iterations | 5 |
 | Skill floor | + `method-evolution`, `dialectical-cot`, `define-metric` |
 

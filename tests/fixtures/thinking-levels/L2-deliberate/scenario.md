@@ -13,7 +13,7 @@ bump the confidence threshold default from 0.5 to 0.6 in the validator, and upda
 ## Expected dispatch header
 
 ```
-Dispatched: auto-level L2 (signals: contract-rule-hit=+2)
+Dispatched: L2/deliberate (signals: contract-rule-hit=+2)
 ```
 
 ## Why this task → this level

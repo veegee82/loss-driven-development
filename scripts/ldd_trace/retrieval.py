@@ -132,7 +132,8 @@ def _current_task_delta_streak(task: TaskSlice) -> int:
     entries = by_loop[most_recent_loop]
     prev: Optional[float] = None
     for e in entries:
-        cur = e.get_float("loss_norm", 0.0)
+        # `get_float("loss")` falls back to the legacy `loss_norm` spelling.
+        cur = e.get_float("loss", 0.0)
         if e.fields.get("baseline") == "true":
             prev = cur
             continue

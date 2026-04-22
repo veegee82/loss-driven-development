@@ -4,7 +4,7 @@
 
 ## Where this sits in the framework
 
-**LDD is [gradient descent across four parameter spaces](../theory.md).** Thinking-levels is the **step-size controller** for that descent — it picks how much rigor to bring to the task *before* any of the four loops (inner / refinement / outer / CoT) starts descending. It is not a fifth loop; it is a learning-rate scheduler that sets `k_max` (inner-loop budget), `reproduce_runs`, `max_refinement_iterations`, `mode` (reactive vs. architect), and the skill floor (minimum set of skills that must fire for this task).
+**LDD is [gradient descent across four parameter spaces](../theory.md).** Thinking-levels is the **step-size controller** for that descent — it picks how much rigor to bring to the task *before* any of the four loops (inner / refinement / outer / CoT) starts descending. It is not a fifth loop; it is a learning-rate scheduler that sets `k_max` (inner-loop budget), `reproduce_runs`, `max_refinement_iterations`, and the skill floor (minimum set of skills that must fire for this task). The reactive/architect split is **derived** from the chosen level — L0–L2 run the reactive stack, L3/L4 run the `architect-mode` 5-phase protocol — and is no longer a separate user-facing axis (v0.11.0).
 
 A too-low level ships a symptom-patch on an axis that needed more iterations; a too-high level wastes tokens on a problem the reflex loop would have solved. The scorer encodes the asymmetric-loss rule "lieber ein klein wenig schlau als zu dumm" — bias upward on ties, because a missed gradient is more expensive than a wasted one.
 
@@ -23,13 +23,15 @@ Thinking-levels closes this gap without adding a new knob — `level` is **deriv
 
 ## The 5 levels
 
-| Level | Name | `k_max` / `reproduce_runs` / `mode` | `max_refinement_iterations` | Skill floor |
-|---|---|---|---|---|
-| **L0** | reflex | 2 / 1 / reactive | 1 | `e2e-driven-iteration` |
-| **L1** | diagnostic | 3 / 2 / reactive | 2 | + `reproducibility-first`, `root-cause-by-layer` |
-| **L2** | deliberate *(default baseline)* | 5 / 2 / reactive | 3 | + `dialectical-reasoning`, `loss-backprop-lens`, `docs-as-definition-of-done` |
-| **L3** | structural | 5 / 2 / **architect**/standard | 3 | + `architect-mode` (standard), `drift-detection`, `iterative-refinement` |
-| **L4** | method | 8 / 3 / **architect**/inventive (ack-gated) | 5 | + `method-evolution`, `dialectical-cot`, `define-metric` |
+The **Name** column is the canonical human-readable label. Every display of a level (dispatch header, trace log meta line, statusline) uses the combined `L<n>/<name>` form — e.g. `L3/structural`. The `mode` axis from pre-v0.11.0 (reactive / architect) is **derived** from the level and no longer displayed.
+
+| Level | Name | `k_max` / `reproduce_runs` | `max_refinement_iterations` | Creativity applies? | Skill floor |
+|---|---|---|---|---|---|
+| **L0** | `reflex` | 2 / 1 | 1 | no | `e2e-driven-iteration` |
+| **L1** | `diagnostic` | 3 / 2 | 2 | no | + `reproducibility-first`, `root-cause-by-layer` |
+| **L2** | `deliberate` *(default baseline)* | 5 / 2 | 3 | no | + `dialectical-reasoning`, `loss-backprop-lens`, `docs-as-definition-of-done` |
+| **L3** | `structural` | 5 / 2 | 3 | yes — defaults to `standard` | + `architect-mode` (standard), `drift-detection`, `iterative-refinement` |
+| **L4** | `method` | 8 / 3 | 5 | yes — defaults to `inventive` (ack-gated) | + `method-evolution`, `dialectical-cot`, `define-metric` |
 
 **Skill floor is a floor, not a ceiling.** A task at L2 that benefits from `drift-detection` may still invoke it; a task at L3 may **not skip** `architect-mode`.
 
@@ -108,31 +110,36 @@ Full list and semantic-dedup rule: [`../../skills/using-ldd/SKILL.md`](../../ski
 
 ## Dispatch-header echo (mandatory)
 
-Every non-trivial task emits exactly one of these lines in the trace header:
+Every non-trivial task emits exactly one **single-line** dispatch header in the trace (v0.11.0 — the old second `mode: architect, creativity: …` line is gone):
 
 ```
-Dispatched: auto-level L<n> (signals: <signal1>=<±N>, <signal2>=<±N>)
-Dispatched: auto-level L<n> (signals: ...) [clamped from L4 (creativity=standard)]
-Dispatched: user-explicit L<n> (scorer proposed L<m>)
-Dispatched: user-bump L<n> (scorer proposed L<m>, bump: <fragment>)
-Dispatched: user-override-down L<n> (scorer proposed L<m>). User accepts loss risk.
+Dispatched: L<n>/<name> (signals: <sig1>=<±N>, <sig2>=<±N>)
+Dispatched: L<n>/<name> · creativity=<value> (signals: ...)
+Dispatched: L<n>/<name> · creativity=<value> (signals: ...) [clamped from L4]
+Dispatched: L<n>/<name> · creativity=<value> (user-explicit; scorer proposed L<m>)
+Dispatched: L<n>/<name> (user-bump from L<m>, fragment: "<fragment>")
+Dispatched: L<n>/<name> · creativity=<value> (user-override-down from L<m>). User accepts loss risk.
 ```
 
-When `level ∈ {L3, L4}`, a second line names the creativity:
+Rules:
 
-```
-mode: architect, creativity: <standard|conservative|inventive>
-```
+- Level is always rendered with its canonical name (`L0/reflex`, …, `L4/method`).
+- `· creativity=<value>` is emitted only at L3/L4 (omitted at L0/L1/L2).
+- The auto-dispatch case is implicit — no `auto-level` keyword.
+- The clamp reason is `[clamped from L4]` (the creativity is already echoed inline).
 
 Silent dispatch is a trace-integrity violation. Without the echo, method-evolution cannot tell apart "scorer was wrong" from "user forced a bad level".
 
 ## Persisted in `.ldd/trace.log`
 
-The scorer's decision is persisted on the `meta` line at task start:
+The scorer's decision is persisted on the `meta` line at task start (v0.11.0 layout):
 
 ```
-2026-04-22T12:00:00Z  meta  task="fix the typo"  loops=inner  level_chosen=L0  dispatch_source=auto-level
+2026-04-22T12:00:00Z  meta  L0/reflex  dispatch=auto  task="fix the typo"  loops=inner
+2026-04-22T02:24:45Z  meta  L4/method  creativity=inventive  dispatch=auto  task="…"  loops=design,cot,inner,refine,outer
 ```
+
+Fields on the meta line (new canonical order): positional `L<n>/<name>`, then `creativity=<value>` (only at L3/L4), then `dispatch=<auto|explicit|bump|override-down>`, then `task="…"`, then `loops=…`.
 
 The final loss is persisted on the `close` line:
 
@@ -167,13 +174,13 @@ python scripts/level_scorer.py "<task prompt>" --json   # machine-readable
 echo "<task>" | python scripts/level_scorer.py -        # read from stdin
 ```
 
-Output (default):
+Output (default — single-line, v0.11.0):
 
 ```
-Dispatched: auto-level L0 (signals: explicit-bugfix=-5, single-file=-3)
+Dispatched: L0/reflex (signals: explicit-bugfix=-5, single-file=-3)
 ```
 
-Output (`--json`):
+Output (`--json`) — note that `dispatch_source` in the JSON payload is the long form (`auto-level` / `user-explicit` / …) for machine consumers; the trace log's meta line uses the short form (`auto` / `explicit` / `bump` / `override-down`) under the `dispatch=` key:
 
 ```json
 {
@@ -183,13 +190,13 @@ Output (`--json`):
   "creativity": "standard",
   "dispatch_source": "auto-level",
   "signals": [...],
-  "dispatch_header": "..."
+  "dispatch_header": "Dispatched: L0/reflex (signals: explicit-bugfix=-5, single-file=-3)"
 }
 ```
 
 ## Relation to architect-mode
 
-Before thinking-levels, `architect-mode` had its own auto-dispatch scorer at `score ≥ 4 → architect`. That separate scorer is now gone — architect-mode is reached through the **L3 / L4 presets**. All six original architect-dispatch signals are retained; three new signals are added; the buckets are tuned so `score ≥ 4 → L3` (which still sets `mode=architect, creativity=standard`) and `score ≥ 8 → L4` (with the creativity-clamp). Backward-compat is preserved for every task the old scorer previously sent to architect-mode.
+Before thinking-levels, `architect-mode` had its own auto-dispatch scorer at `score ≥ 4 → architect`. That separate scorer is now gone — the architect-mode 5-phase protocol is reached through the **L3 / L4 presets**. All six original architect-dispatch signals are retained; three new signals are added; the buckets are tuned so `score ≥ 4 → L3` (which runs the protocol at `creativity=standard` by default) and `score ≥ 8 → L4` (with the creativity-clamp). Backward-compat is preserved for every task the old scorer previously sent to architect-mode.
 
 See the historical fixture at `tests/fixtures/architect-mode-auto-dispatch/` for the pre-thinking-levels regression baseline. It is still exercised for regression-only; the primary dispatch-correctness surface is the 9-scenario thinking-levels fixture.
 

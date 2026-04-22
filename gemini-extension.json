@@ -1,6 +1,6 @@
 {
   "name": "loss-driven-development",
   "description": "LDD — Gradient Descent for Agents. Twelve portable skills across four parameter spaces (code / deliverable / method / reasoning chain) plus opt-in architect-mode for greenfield design.",
-  "version": "0.10.3",
+  "version": "0.11.0",
   "contextFileName": "GEMINI.md"
 }

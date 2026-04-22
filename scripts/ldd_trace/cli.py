@@ -45,7 +45,15 @@ def _add_common_args(p: argparse.ArgumentParser) -> None:
 def _cmd_init(args: argparse.Namespace) -> int:
     store = TraceStore(Path(args.project))
     loops = [l.strip() for l in args.loops.split(",") if l.strip()]
-    store.init(task_title=args.task, loops=loops)
+    store.init(
+        task_title=args.task,
+        loops=loops,
+        level_chosen=args.level,
+        dispatch_source=args.dispatch,
+        creativity=args.creativity,
+        store_scope=args.store,
+        dispatched=args.dispatched,
+    )
     print(f"trace.log initialized at {store.trace_path}")
     return 0
 
@@ -381,12 +389,14 @@ def _cmd_status(args: argparse.Namespace) -> int:
     iters = store.iterations()
     print(f"trace_path: {store.trace_path}")
     print(f"iterations: {len(iters)}")
-    for loop in ("architect", "inner", "refine", "outer"):
+    # `architect` is normalized to `design` on read — only enumerate the new
+    # canonical names so the same log does not double-count.
+    for loop in ("design", "inner", "refine", "outer", "cot"):
         n = sum(1 for e in iters if e.loop == loop)
         next_k = store.next_k(loop)
         if n > 0:
             last = [e for e in iters if e.loop == loop][-1]
-            print(f"  {loop}: n={n} next_k={next_k} last_loss={last.get_float('loss_norm'):.3f}")
+            print(f"  {loop}: n={n} next_k={next_k} last_loss={last.get_float('loss'):.3f}")
     return 0
 
 
@@ -405,6 +415,35 @@ def build_parser() -> argparse.ArgumentParser:
         default="inner",
         help="Comma-separated loops expected (inner,refine,outer)",
     )
+    p_init.add_argument(
+        "--level",
+        default=None,
+        choices=["L0", "L1", "L2", "L3", "L4"],
+        help="Thinking-level chosen by the scorer or the user (drives mode indicator)",
+    )
+    p_init.add_argument(
+        "--creativity",
+        default=None,
+        choices=["standard", "conservative", "inventive"],
+        help="Architect-mode creativity (only persisted when --level=L3/L4)",
+    )
+    p_init.add_argument(
+        "--dispatch",
+        default=None,
+        choices=["auto", "explicit", "bump", "override-down",
+                 "auto-level", "user-explicit", "user-bump", "user-override-down"],
+        help="Dispatch source (short form preferred; long forms accepted)",
+    )
+    p_init.add_argument(
+        "--dispatched",
+        default=None,
+        help="Verbatim Dispatched-header line (takes precedence over auto-derived form)",
+    )
+    p_init.add_argument(
+        "--store",
+        default=None,
+        help="Store-scope label from bootstrap-userspace (e.g. 'local (.ldd/trace.log)')",
+    )
     p_init.set_defaults(func=_cmd_init)
 
     p_app = sub.add_parser(
@@ -412,7 +451,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Record one iteration and print the full trace block",
     )
     _add_common_args(p_app)
-    p_app.add_argument("--loop", required=True, choices=["inner", "refine", "outer", "architect", "cot"])
+    p_app.add_argument(
+        "--loop",
+        required=True,
+        # `design` is the v0.11.0 canonical loop name for the architect-mode
+        # protocol phases; `architect` stays as a silent alias for one release.
+        choices=["inner", "refine", "outer", "design", "architect", "cot"],
+    )
     p_app.add_argument("--k", type=int, default=None, help="Iteration index")
     p_app.add_argument("--auto-k", action="store_true", help="Derive k from trace.log")
     p_app.add_argument("--skill", required=True, help="Skill name that fired this iteration")
@@ -424,11 +469,19 @@ def build_parser() -> argparse.ArgumentParser:
         default="normalized-rubric",
         choices=["normalized-rubric", "rate", "absolute"],
     )
-    p_app.add_argument("--mode", default=None, help="For architect: 'architect'")
+    p_app.add_argument(
+        "--mode",
+        default=None,
+        help="Deprecated (v0.11.0): mode is derived from level and no longer "
+        "persisted on iteration lines. Flag accepted for backward compat and "
+        "silently ignored on write.",
+    )
     p_app.add_argument(
         "--creativity",
         default=None,
         choices=["standard", "conservative", "inventive"],
+        help="Deprecated on iteration lines (v0.11.0): creativity lives on "
+        "the meta line once per task. Flag accepted for backward compat.",
     )
     p_app.add_argument(
         "--baseline",
@@ -447,7 +500,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_close = sub.add_parser("close", help="Record loop close and print final block")
     _add_common_args(p_close)
-    p_close.add_argument("--loop", required=True, choices=["inner", "refine", "outer", "architect", "cot"])
+    p_close.add_argument(
+        "--loop",
+        required=True,
+        choices=["inner", "refine", "outer", "design", "architect", "cot"],
+    )
     p_close.add_argument(
         "--terminal",
         required=True,

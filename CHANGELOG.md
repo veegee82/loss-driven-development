@@ -2,6 +2,141 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added — plugin-level auto-install on SessionStart + `/ldd-install`
+
+The plugin now ships `hooks/hooks.json` which registers a SessionStart hook running `hooks/ldd_install.sh`. Claude Code merges plugin-level hooks into the user's hook registry on plugin load, so **no manual install step is needed after plugin install or update** — the installer runs at the next SessionStart.
+
+The installer is:
+
+- **Gated on opt-in**: skips projects that don't have `.ldd/`. First-time opt-in via the new `/ldd-install` slash command (creates `.ldd/` then runs the installer) or via `bootstrap-userspace` on first LDD skill invocation.
+- **Idempotent**: compares plugin version (`plugin.json`) against `.ldd/.install_version` marker AND all installed artifacts' byte-for-byte contents; if everything matches, exits silently (empty JSON).
+- **Version-gated update**: on plugin upgrade, version-marker mismatch triggers full re-install of all four artifacts (`.ldd/ldd_trace` launcher, `.ldd/statusline.sh`, `.claude/hooks/ldd_heartbeat.sh`, `.claude/hooks/ldd_stop_render.sh`).
+- **Safe settings merge**: `.claude/settings.local.json` is touched via `jq` with de-duplication by endpoint path, so LDD's `PreToolUse` (heartbeat) and `Stop` (render) entries are added or refreshed without clobbering the user's other hooks, other plugins' hooks, or any custom `statusLine` / `permissions` fields.
+- **Self-reporting**: emits a SessionStart `additionalContext` message naming the artifacts and (on upgrade) the `old_version → new_version` transition. Silent when no-op.
+
+### Added — Stop-event hook renders trace block as last chat artifact
+
+`skills/host-statusline/stop_render.sh` is a new Stop-event hook that reads `.ldd/trace.log` via `./.ldd/ldd_trace render` and returns the framed trace block through `hookSpecificOutput.additionalContext`, so Claude Code displays it **below** the agent's last message — not only embedded inside a `Bash` tool result. Installed automatically by `ldd_install.sh`. Closes the layout-contract gap where `ldd_trace close` output was buried inside the worker/tool surface instead of appearing as the final chat-level artifact of the turn.
+
+### Added — `/ldd-install` slash command
+
+Explicit opt-in / re-install command; creates `.ldd/` if missing and runs the plugin installer. Document-only step — described in `commands/ldd-install.md`. Useful for first-time setup in a project or after any manual `.ldd/` wipe.
+
+### Added — statusline budget-burn + plateau/regression warnings
+
+The `host-statusline` template gains three trailing segments so the user can see loop state at a glance without opening `trace.log`:
+
+- **`k=N/K_MAX`** replaces the bare `iN` label. `K_MAX` comes from `$LDD_K_MAX` (default `5` per `loop-driven-engineering`). Closes the "how close am I to escalation" blind spot.
+- **Elapsed label** (`43s` / `12m` / `1h5m` / `3d`) — wall time from the latest `meta` line to the latest iter line.
+- **`⚠ plateau`** fires when the last 2 `|Δloss|` are each `< 0.015` with ≥ 3 samples; **`⚠ regression`** fires when `loss − prev > 0.005` with ≥ 2 samples. Gated on sample count so a fresh task with one baseline doesn't false-positive.
+
+Thresholds use `< 0.015` rather than `<= 0.01` to absorb IEEE-754 drift on subtractions like `0.45 − 0.44` = `0.01000000000000000888`.
+
+Backwards-compatible: old trace lines render in the same format; no existing entries or downstream tooling (aggregator, renderer, close block) reads the new labels.
+
+### Fixed — `last_line` regex matched `close` lines, breaking `iN`
+
+The `last_line` filter previously required `\s+k=` directly after the loop name, which failed on `baseline` iters (written as `inner  baseline  k=0  …`). The fix pipes through a secondary `grep ' k=[0-9]+'` so both `baseline` and regular iter lines match while the `close` line (`terminal=…`, no `k=`) is still excluded.
+
+### Added — `bootstrap-userspace` ships the `ldd_trace` launcher
+
+Tier-0 bootstrap now drops `.ldd/ldd_trace` — a Bash launcher that auto-detects the highest-semver LDD plugin cache and execs `python3 -m ldd_trace` with `PYTHONPATH` set. Before this, every skill doc reference to `python -m ldd_trace …` failed silently with `ModuleNotFoundError` because the plugin ships the `ldd_trace` package under `$PLUGIN/scripts/`, not on `sys.path`. Skill docs that reference `python -m ldd_trace …` remain valid; the new `./.ldd/ldd_trace …` form is an equivalent fallback.
+
+## [0.11.0] — 2026-04-22
+
+### ⚠ BREAKING — dispatch header + trace log format + override syntax
+
+Spec: [`docs/superpowers/specs/2026-04-22-level-name-consolidation.md`](./docs/superpowers/specs/2026-04-22-level-name-consolidation.md).
+
+Mode is a pure function of level (L0–L2 ⇒ reactive, L3/L4 ⇒ architect) and was carrying ~60 redundant characters per trace line plus a second dispatch-header line. v0.11.0 consolidates the display: level gains a canonical name (`L0/reflex` … `L4/method`), creativity stays as a real orthogonal axis at L3/L4, and `mode` is removed as a displayed/user-facing concept.
+
+**Scorer behavior, weights, thresholds, loop budgets, skill floors — unchanged.** This is a display + storage consolidation only.
+
+**Removed from the dispatch header:**
+
+- The second line `mode: architect, creativity: <value>` — deleted unconditionally.
+- The word `auto-level` on auto-dispatches — the auto case is now implicit (no dispatch-source keyword appears).
+- The parenthetical `(creativity=standard)` inside the clamp bracket — creativity is echoed once inline, not duplicated in the clamp reason.
+
+**New dispatch-header format (single line):**
+
+```
+Dispatched: L<n>/<name> (signals: <sig1>=<±N>, <sig2>=<±N>)
+Dispatched: L<n>/<name> · creativity=<value> (signals: ...)
+Dispatched: L<n>/<name> · creativity=<value> (signals: ...) [clamped from L4]
+Dispatched: L<n>/<name> · creativity=<value> (user-explicit; scorer proposed L<m>)
+Dispatched: L<n>/<name> (user-bump from L<m>, fragment: "<fragment>")
+Dispatched: L<n>/<name> · creativity=<value> (user-override-down from L<m>). User accepts loss risk.
+```
+
+`· creativity=<value>` is emitted only at L3/L4. The level is always rendered with its canonical name.
+
+**New trace-log meta line format:**
+
+```
+2026-04-22T02:24:45Z  meta  L4/method  creativity=inventive  dispatch=auto  task="…"  loops=design,cot,inner,refine,outer
+```
+
+Canonical field order: positional `L<n>/<name>`, then `creativity=<value>` (only at L3/L4), then `dispatch=<auto|explicit|bump|override-down>`, then `task="…"`, then `loops=…`.
+
+**New trace-log per-iter line format:**
+
+```
+2026-04-22T02:24:45Z  design  k=0  skill=architect-mode  action="…"  loss=0.857  raw=6/7
+```
+
+- Loop column `architect` → `design` (the protocol's design phase).
+- `loss_norm=` → `loss=`.
+- `Δloss_norm=` → `Δloss=`.
+- `loss_type=normalized-rubric` omitted when it equals the default (kept only when non-default, e.g. `loss_type=rate`).
+- Per-iter `mode=` / `creativity=` fields deleted (redundant with the level on the meta line).
+
+**Override syntax:**
+
+- Removed: `LDD[mode=architect]:` and `LDD[mode=reactive]:` as user-facing overrides. For v0.11.0 only, the parser silently rewrites them to `LDD[level=L3]:` / `LDD[level=L2]:` and emits a trace note `deprecated: mode= is derived from level; use level= instead`. The aliases are removed entirely in v0.12.0.
+- Kept: `LDD[level=Lx]:`, `LDD=max:`, `LDD++` / `LDD+`, natural-language bumps.
+- Kept with new validation: `LDD[creativity=<value>]:` is now valid only at L3/L4 — at L0/L1/L2 it is ignored with a trace warning.
+
+**Statusline format (level-aware):**
+
+```
+Idle          : LDD · idle
+Active L0..L2 : LDD · L2/deliberate · inner k=1 · loss=0.167 · …
+Active L3/L4  : LDD · L3/structural · creativity=standard · design k=2 · loss=0.286 · …
+```
+
+### Backward compatibility — reading old traces
+
+`scripts/ldd_trace/store.py::_parse_line` accepts BOTH formats. A pre-v0.11.0 trace log still projects correctly:
+
+- `loss_norm=` and `loss=` both accepted (reader prefers `loss`, falls back to `loss_norm`).
+- `loss_type=normalized-rubric` may be absent or present (same semantics).
+- Loop name `architect` is normalized to `design` on read.
+- Per-iter `mode=` / `creativity=` fields are read and discarded.
+- Meta line `level_chosen=Lx` / `dispatch_source=…` fields (v0.10.1 layout) are still parsed.
+
+The `Phase` literal and `Iteration.mode` field in `renderer.py` stay for one release as read-compat hooks. New writes use the consolidated format.
+
+### Trace-block header + tooling robustness
+
+Three follow-on fixes that surface the consolidated dispatch/level/creativity metadata inside the rendered block and harden the serializer against real-world content:
+
+- **`Store` / `Dispatched` / `Mode` header lines** — the `bootstrap-userspace` skill mandates a `│ Store :` line in every trace block, and `using-ldd` mandates a `│ Dispatched :` plus `│ Mode :` (when a creativity was chosen at L3/L4). `renderer.py` now emits all three from meta-line fields; `store.py::to_task()` projects `store` / `dispatched` / `level` / `level_name` / `creativity` onto the `Task` dataclass; `cli.py init` gains `--store`, `--level`, `--creativity`, `--dispatch`, `--dispatched` flags. When `--dispatched` is omitted but `--level` + `--dispatch` are set, a sensible header line is derived automatically (e.g. `auto-level L4/method`). Pre-v0.11.0 traces without these fields render without the new header rows (no empty stubs, no crashes).
+- **`shlex.quote` serializer** — the pre-fix serializer wrapped values with naive `key="value"` formatting and silently truncated on inner double quotes, clipping e.g. a dispatch line carrying a quoted bump fragment mid-string. The new `_kv()` helper switches to :func:`shlex.quote` as soon as a value contains a quote character, so dispatch strings like `user-bump L4 (scorer proposed L3, bump: "full LDD")` round-trip losslessly.
+- **Microsecond timestamps** — `_utcnow_iso()` now writes `%Y-%m-%dT%H:%M:%S.%fZ`. Tight append loops (multiple iterations within a sub-second) previously collided on the same string timestamp, causing the projection's stable sort to fall back on build order (design → inner → refine → outer → cot) and mis-position mid-task CoT detours at the end of the block. Microsecond resolution preserves narrative order without additional sort-key engineering.
+
+### Stop-hook schema compliance
+
+`skills/host-statusline/stop_render.sh` previously emitted a Stop / SubagentStop event wrapper of shape `{"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": "..."}}`. The Claude Code hook JSON schema reserves `additionalContext` for `UserPromptSubmit` (required) and `PostToolUse` (optional); emitting it on Stop triggers `Hook JSON output validation failed — (root): Invalid input` and suppresses the rendered block entirely. The hook now emits the block under the top-level `systemMessage` field, which is schema-valid for Stop/SubagentStop.
+
+### Files touched
+
+- Code: `scripts/level_scorer.py` (LEVEL_NAMES, rewritten `dispatch_header()`, deprecated-alias parsing, single-line CLI print), `scripts/ldd_trace/store.py` (new meta+iter field layout, dual-read support, loop-name aliasing, `_kv()` shlex-quoted serializer, microsecond timestamps, Store/Dispatched/Mode meta-line fields + projection onto `Task`), `scripts/ldd_trace/renderer.py` (design-phase label, Store/Dispatched/Mode header rows), `scripts/ldd_trace/aggregator.py` + `retrieval.py` (read both `loss=` and `loss_norm=`), `scripts/ldd_trace/cli.py` (loop choices, deprecated-arg help, new init flags), `scripts/ldd_trace/test_ldd_trace.py` (+4 regression tests for Store/Dispatched/Mode round-trip, inner-double-quote escape, derived dispatched-from-level, pre-v0.11 absence), `scripts/demo-*.py`.
+- Docs: `skills/using-ldd/SKILL.md` (level table + Name column, dispatch-header section, trace format section, override syntax + deprecation note), `skills/architect-mode/SKILL.md` (reframed as 5-phase protocol active at L3/L4), `skills/bootstrap-userspace/SKILL.md` (magic line format update), `skills/host-statusline/SKILL.md` + `statusline.sh` + `stop_render.sh` (Stop-hook schema fix), `docs/ldd/thinking-levels.md`, `docs/ldd/architect.md`, `docs/ldd/hyperparameters.md`, `commands/ldd-architect.md`, `README.md`, `AGENTS.md`, `evaluation.md`.
+- Plugin manifest: `.claude-plugin/plugin.json` bumped to `0.11.0`.
+
 ## [0.10.3] — 2026-04-22
 
 ### Added — Claude Web/Desktop skill bundle

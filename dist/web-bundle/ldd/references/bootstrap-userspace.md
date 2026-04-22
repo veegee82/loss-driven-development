@@ -71,8 +71,11 @@ If matched:
 
 1. Check whether `.ldd/trace.log` already exists in the project root (use `Read` or equivalent).
 2. If yes → load its last ~10 entries into working memory; you have just recovered prior state.
-3. If no → create `.ldd/` and initialize a fresh `trace.log` via `python -m ldd_trace init --project . --task "<one-line title>" --loops inner,refine,outer` (or the equivalent direct file-write if Python isn't available in this host).
-4. Announce in the trace header: `│ Store  : local (.ldd/trace.log)`.
+3. **Install the launcher** (idempotent) → copy this skill's `ldd_trace` template to `<project>/.ldd/ldd_trace` and `chmod +x` it. The launcher auto-detects the highest-semver LDD plugin cache under `~/.claude/plugins/cache/...` and sets `PYTHONPATH` so `./.ldd/ldd_trace ...` behaves identically to `python -m ldd_trace ...` regardless of CWD or active Python. Without this step the `python -m ldd_trace` invocations below fail with `ModuleNotFoundError: No module named 'ldd_trace'` because the plugin ships the package under `$PLUGIN_ROOT/scripts/` rather than on `sys.path`. If `python -m ldd_trace --help` already succeeds in your shell (e.g. the package is pip-installed), skip this step — the launcher is only a fallback.
+4. If no → create `.ldd/` and initialize a fresh `trace.log` via `./.ldd/ldd_trace init --project . --task "<one-line title>" --loops inner,refine,outer` (or `python -m ldd_trace init ...` if the module resolves without the launcher; or the equivalent direct file-write if Python isn't available in this host).
+5. Announce in the trace header: `│ Store  : local (.ldd/trace.log)`.
+
+**Invocation contract after step 3:** every `python -m ldd_trace ...` reference in other skills (`using-ldd`, `e2e-driven-iteration`, `dialectical-reasoning`, `define-metric`, `dialectical-cot`) is interchangeable with `./.ldd/ldd_trace ...`. Prefer whichever resolves on this host. Neither form changes the trace output or the stored data — the launcher is a PYTHONPATH shim, nothing else.
 
 ### Tier 1 — Artifact / Canvas
 
@@ -98,9 +101,9 @@ This is the fallback that works on **any** host where chat history is retained. 
 If matched (or if no higher tier is available):
 
 1. Use the magic prefix `⟪LDD-TRACE-v1⟫` on every trace entry you emit. This turns each line into a machine-greppable marker.
-2. Emit one magic-prefixed line per iteration close, **inside** or adjacent to the trace block. Format:
+2. Emit one magic-prefixed line per iteration close, **inside** or adjacent to the trace block. Format (v0.11.0 — `loss_norm=`/`Δloss_norm=` renamed to `loss=`/`Δloss=`; pre-v0.11.0 lines still ingest correctly):
    ```
-   ⟪LDD-TRACE-v1⟫ 2026-04-22T14:30:00Z inner k=3 skill=root-cause-by-layer loss_norm=0.125 raw=1/8 Δloss_norm=-0.250
+   ⟪LDD-TRACE-v1⟫ 2026-04-22T14:30:00Z inner k=3 skill=root-cause-by-layer loss=0.125 raw=1/8 Δloss=-0.250
    ```
 3. On next session or after any interrupt, search the current conversation for lines starting with `⟪LDD-TRACE-v1⟫` (use the host's conversation-search tool if present; otherwise ask the user to scroll up and paste the block back in). Reconstruct state from those lines.
 4. Announce in the trace header: `│ Store  : conversation history (persists per chat)`.
@@ -116,7 +119,7 @@ If a host memory API is available AND you have established a Tier 1 or Tier 2 st
 2. On next session (new chat, same user), read the memory pointer first to instantly know where the previous trace lives.
 3. Announce in the trace header: `│ Store  : canvas 'ldd-trace.log' (memory-pointer pin)`.
 
-**Anti-pattern — never do this:** saving `loss_norm=0.375 raw=3/8 skill=…` lines directly into the host's memory API. That would pollute the user's personal memory with task-level data, which bleeds across unrelated tasks and eventually hits the memory-length cap. Memory is user-level; the trace is task-level; they must not share a container.
+**Anti-pattern — never do this:** saving `loss=0.375 raw=3/8 skill=…` lines (or legacy `loss_norm=…` lines) directly into the host's memory API. That would pollute the user's personal memory with task-level data, which bleeds across unrelated tasks and eventually hits the memory-length cap. Memory is user-level; the trace is task-level; they must not share a container.
 
 ### Tier 4 — Inline-only
 

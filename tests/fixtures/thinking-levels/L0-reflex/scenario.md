@@ -13,7 +13,7 @@ fix the typo in README.md line 12: "Agent Worklow" should be "Agent Workflow"
 ## Expected dispatch header
 
 ```
-Dispatched: auto-level L0 (signals: explicit-bugfix=-5, single-file=-3)
+Dispatched: L0/reflex (signals: explicit-bugfix=-5, single-file=-3)
 ```
 
 ## Why this task → this level

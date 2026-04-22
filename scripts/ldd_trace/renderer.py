@@ -21,7 +21,11 @@ class Iteration:
     raw_num: float                # numerator; supports 0.5 for half-credit
     raw_max: int                  # rubric size for this phase
     skill_lines: List[str] = field(default_factory=list)
-    mode: str = "reactive"        # "reactive" or "architect" (inner only)
+    # `mode` is a read-compat hook only (v0.11.0+): the scorer no longer
+    # tracks `mode=` as a user-facing axis (it is a pure function of level).
+    # Projections from a log still set it so the design-phase renderer can
+    # pick the right label. Default stays ``reactive`` for backward compat.
+    mode: str = "reactive"
     creativity: Optional[str] = None  # "standard" | "conservative" | "inventive"
     timestamp: str = ""           # ISO-8601 — used for chronological sort
 
@@ -36,6 +40,15 @@ class Task:
     fix_layer_5: str = ""
     docs_synced: str = ""
     terminal: str = ""                 # "complete" | "partial" | "failed" | "aborted" | "in-progress"
+    # v0.11.x — meta-line metadata surfaced in the trace-block header.
+    # bootstrap-userspace mandates Store; using-ldd mandates Dispatched +
+    # mode-indicator whenever a level/creativity was chosen. All optional;
+    # header lines are emitted only when the corresponding field is non-empty.
+    store: str = ""                    # scope label from bootstrap-userspace
+    dispatched: str = ""               # full "Dispatched: ..." line, verbatim
+    level: str = ""                    # "L0".."L4"
+    level_name: str = ""               # "reflex" / "diagnostic" / ... / "method"
+    creativity: str = ""               # "standard" / "conservative" / "inventive"
 
 
 _SPARK_BLOCKS = "▁▂▃▄▅▆▇█"  # 8 levels
@@ -126,12 +139,26 @@ def _format_raw(num: float, denom: int) -> str:
 
 def _format_mode(it: Iteration) -> str:
     if it.phase == "inner":
+        # The v0.11.0 `design` phase label replaces the legacy `architect` word
+        # in display. `it.mode == "architect"` is still set by the projection
+        # layer for pre-v0.11.0 traces so the renderer can distinguish the
+        # design-phase rows from inner-loop rows.
         if it.mode == "architect":
-            return f"architect, {it.creativity or 'standard'}"
+            return f"design, {it.creativity or 'standard'}"
         return "inner, reactive"
     if it.phase == "cot":
         return "cot, dialectical"
     return it.phase
+
+
+def _header_mode_line(task: Task) -> Optional[str]:
+    """Mode indicator — only emitted when a creativity was selected (L3/L4)
+    OR when the explicit mode is non-default. Matches the `mode: architect,
+    creativity: ...` line specified in `using-ldd` §Auto-dispatch.
+    """
+    if task.creativity:
+        return f"│ Mode       : architect, {task.creativity}"
+    return None
 
 
 def render_trace(task: Task) -> str:
@@ -139,13 +166,27 @@ def render_trace(task: Task) -> str:
     lines: List[str] = []
     lines.append("╭─ LDD trace " + "─" * 70 + "╮")
 
+    # v0.11.x — bootstrap-userspace + using-ldd mandated header lines.
+    # Emitted only when the corresponding meta field is populated; otherwise
+    # the header stays backward-compatible with pre-v0.11.x traces.
+    if task.store:
+        lines.append(f"│ Store      : {task.store}")
+    if task.dispatched:
+        lines.append(f"│ Dispatched : {task.dispatched}")
+    mode_line = _header_mode_line(task)
+    if mode_line is not None:
+        lines.append(mode_line)
+
     lines.append(f"│ Task       : {task.title}")
     if task.loops_used:
         loops_str = " → ".join(task.loops_used)
         loops_set = set(task.loops_used)
-        if loops_set == {"inner", "refine", "outer", "cot"}:
-            extra = "  (all four fired)"
-        elif loops_set == {"inner", "refine", "outer"}:
+        # The v0.11.0 `design` loop replaces the old `architect` loop name in
+        # display; either spelling satisfies the "all N fired" annotations.
+        reactive_triple = {"inner", "refine", "outer"}
+        if reactive_triple | {"cot"} == loops_set or reactive_triple | {"cot", "design"} == loops_set:
+            extra = "  (all four fired)" if loops_set == reactive_triple | {"cot"} else "  (all five fired)"
+        elif loops_set == reactive_triple:
             extra = "  (all three fired)"
         else:
             extra = ""
@@ -172,7 +213,7 @@ def render_trace(task: Task) -> str:
     if len(task.iterations) >= 3:
         lines.append("│ Loss curve (auto-scaled, linear):")
         lines.extend(mini_chart(task.iterations))
-        lines.append("│        Phase prefixes: i=inner · r=refine · o=outer · c=cot · p=architect-phase")
+        lines.append("│        Phase prefixes: i=inner · r=refine · o=outer · c=cot · p=design-phase")
         lines.append("│")
 
     # Per-iteration detail — always.

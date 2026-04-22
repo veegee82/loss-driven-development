@@ -1,13 +1,27 @@
 """Persistence layer — read/write `.ldd/trace.log` in a project directory.
 
-Line format (one entry per line, space-separated key=value pairs):
+Line format after v0.11.0 (one entry per line, space-separated key=value):
 
-    2026-04-21T17:30:00Z  inner  k=4  skill=method-evolution  action="..."  \
-        loss_norm=0.000  raw=0/33  loss_type=rate  Δloss_norm=-0.031
+    2026-04-22T02:24:45Z  design  k=0  skill=architect-mode  action="..."  \
+        loss=0.857  raw=6/7
 
-Special event lines:
-    2026-04-21T15:30:00Z  meta  task="..."  loops=inner,refine,outer
+    2026-04-22T02:24:45Z  inner  k=4  skill=method-evolution  action="..."  \
+        loss=0.000  raw=0/33  loss_type=rate  Δloss=-0.031
+
+Meta line (task open) — carries the thinking-level on the meta line, so
+per-iteration lines no longer repeat `mode=`/`creativity=`:
+
+    2026-04-22T02:24:45Z  meta  L4/method  creativity=inventive  dispatch=auto  \
+        task="..."  loops=design,cot,inner,refine,outer
+
+Close lines are unchanged:
     2026-04-21T17:38:00Z  inner  close  terminal=complete  layer="..."  docs=synced
+
+Backward compatibility (read-only): `_parse_line` accepts BOTH formats.
+`loss_norm=` and `loss=` are both accepted on read; `loss_type=normalized-rubric`
+may be absent or present; the loop name `architect` is accepted as an alias
+for `design`; stray `mode=`/`creativity=` fields on iter lines are read and
+discarded (they were redundant with the level on the meta line).
 
 Values that may contain spaces MUST be double-quoted; the parser re-assembles
 them across whitespace splits.
@@ -36,22 +50,77 @@ MAGIC_PREFIX = "⟪LDD-TRACE-v1⟫"
 
 
 def _utcnow_iso() -> str:
-    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Microsecond precision so sequential appends always have strictly
+    # increasing timestamps. Without this, a tight loop of appends collides
+    # in the same second and the projection falls back to stable-sort build
+    # order (design → inner → refine → outer → cot), which mis-orders
+    # narrative events like a mid-task CoT detour. Legacy second-precision
+    # entries still parse and sort correctly (`.` < `Z` lexically keeps
+    # legacy-second entries ordered before any same-second fractional entries).
+    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+# Local copies of the normative mappings. `level_scorer.LEVEL_NAMES` is the
+# single source of truth, but importing it at module load would create a
+# cross-package coupling (scripts/ld_trace lives outside scripts/). These
+# dicts mirror the spec §Level name mapping table verbatim.
+_LEVEL_NAMES = {
+    "L0": "reflex",
+    "L1": "diagnostic",
+    "L2": "deliberate",
+    "L3": "structural",
+    "L4": "method",
+}
+
+_DISPATCH_SHORT = {
+    "auto-level": "auto",
+    "user-explicit": "explicit",
+    "user-bump": "bump",
+    "user-override-down": "override-down",
+}
+
+
+def _level_name_for(code: str) -> str:
+    return _LEVEL_NAMES.get(code, "")
+
+
+def _dispatch_short_for(source: str) -> str:
+    """Translate the legacy long dispatch-source string to its short form.
+
+    Already-short values (``auto`` / ``explicit`` / ``bump`` / ``override-down``)
+    pass through unchanged so the method can be called on either convention.
+    """
+    if source in _DISPATCH_SHORT:
+        return _DISPATCH_SHORT[source]
+    return source
 
 
 @dataclass
 class TraceEntry:
-    """One parsed line from `.ldd/trace.log`."""
+    """One parsed line from `.ldd/trace.log`.
+
+    The ``loop`` field for iteration entries is normalized on read: the legacy
+    ``architect`` loop name from pre-v0.11.0 traces is rewritten to ``design``
+    so downstream consumers only see the new name. Writers always emit the
+    new name.
+    """
 
     timestamp: str
-    loop: str                                  # "inner" | "refine" | "outer" | "architect" | "meta"
+    loop: str                                  # "inner" | "refine" | "outer" | "design" | "cot" | "meta"
     kind: str                                  # "iter" | "close" | "meta"
     fields: Dict[str, str] = field(default_factory=dict)
 
     def get_float(self, key: str, default: float = 0.0) -> float:
         v = self.fields.get(key)
         if v is None:
-            return default
+            # Backward-compat: accept the old `loss_norm` spelling when `loss`
+            # is requested, and vice versa.
+            if key == "loss":
+                v = self.fields.get("loss_norm")
+            elif key == "loss_norm":
+                v = self.fields.get("loss")
+            if v is None:
+                return default
         try:
             return float(v)
         except ValueError:
@@ -65,6 +134,9 @@ class TraceEntry:
             return int(v)
         except ValueError:
             return default
+
+
+_LEVEL_LABEL_RE = __import__("re").compile(r"^L([0-4])/([a-z]+)$")
 
 
 def _parse_line(line: str) -> Optional[TraceEntry]:
@@ -82,6 +154,10 @@ def _parse_line(line: str) -> Optional[TraceEntry]:
     if not rest:
         return None
     loop = rest[0]
+    # Normalize legacy loop name `architect` → `design` (v0.11.0). Writers emit
+    # `design`; readers accept both so pre-v0.11.0 traces still project.
+    if loop == "architect":
+        loop = "design"
     fields: Dict[str, str] = {}
     has_close = False
     has_baseline = False
@@ -92,6 +168,17 @@ def _parse_line(line: str) -> Optional[TraceEntry]:
         if tok == "baseline":
             has_baseline = True
             continue
+        # v0.11.0 meta line carries the level as a positional, unquoted token
+        # `L<n>/<name>` (e.g. `L4/method`). Recognized only on meta lines.
+        if loop == "meta":
+            m = _LEVEL_LABEL_RE.match(tok)
+            if m:
+                fields["level"] = f"L{m.group(1)}"
+                fields["level_name"] = m.group(2)
+                # Keep a back-compat alias so callers that still read
+                # `level_chosen` (the v0.10.1 field) continue to work.
+                fields.setdefault("level_chosen", f"L{m.group(1)}")
+                continue
         if "=" in tok:
             k, _, v = tok.partition("=")
             fields[k] = v
@@ -108,19 +195,69 @@ def _parse_line(line: str) -> Optional[TraceEntry]:
     return TraceEntry(timestamp=timestamp, loop=loop, kind=kind, fields=fields)
 
 
+# Meta-line canonical field order (v0.11.0, spec §Trace-log format):
+#   1. level label (positional `L<n>/<name>`, unquoted)
+#   2. creativity=<value>  (only at L3/L4)
+#   3. dispatch=<auto|explicit|bump|override-down>
+#   4. task="…"
+#   5. loops=…
+_META_FIELD_ORDER = ("creativity", "dispatch", "dispatched", "store", "task", "loops")
+
+# Fields that are synthesized by the reader and must NOT be written back to
+# the log (they appear in `TraceEntry.fields` only as parser artifacts).
+_META_READER_ONLY = {"level", "level_name", "level_chosen"}
+
+
+def _kv(k: str, v: str) -> str:
+    """Serialize ``key=value`` safe for round-trip through :func:`shlex.split`.
+
+    Plain values (no whitespace, no quote characters) pass through as
+    ``key=value``. Anything containing whitespace or a quote character is
+    shlex-quoted — this keeps the `key="` prefix for backward-compatible
+    eyeballing when possible, but switches to :func:`shlex.quote` (which
+    emits single quotes) whenever the value itself contains a double
+    quote. Pre-v0.11.x traces used a naive ``f'{k}="{v}"'`` that silently
+    truncated on inner double quotes; the new form is lossless.
+    """
+    if not any(c in v for c in (" ", "\t", '"', "'")):
+        return f"{k}={v}"
+    if '"' not in v:
+        return f'{k}="{v}"'
+    return f"{k}={shlex.quote(v)}"
+
+
 def _serialize_entry(entry: TraceEntry) -> str:
     parts = [entry.timestamp, entry.loop]
     if entry.kind == "close":
         parts.append("close")
     elif entry.kind == "iter" and entry.fields.get("baseline") == "true":
         parts.append("baseline")
+
+    # Meta lines use the new canonical positional+ordered field layout.
+    if entry.kind == "meta":
+        # Positional level label — prefer the exploded `level` + `level_name`,
+        # fall back to legacy `level_chosen` if only that is set.
+        level = entry.fields.get("level") or entry.fields.get("level_chosen")
+        level_name = entry.fields.get("level_name")
+        if level and level_name:
+            parts.append(f"{level}/{level_name}")
+        for key in _META_FIELD_ORDER:
+            if key in entry.fields:
+                parts.append(_kv(key, entry.fields[key]))
+        # Any additional meta fields not in the canonical order (forward-compat
+        # extensibility) get appended after, skipping reader-only + already-
+        # emitted keys and legacy duplicates we translated above.
+        legacy_skip = {"dispatch_source"} if "dispatch" in entry.fields else set()
+        for k, v in entry.fields.items():
+            if k in _META_FIELD_ORDER or k in _META_READER_ONLY or k in legacy_skip:
+                continue
+            parts.append(_kv(k, v))
+        return "  ".join(parts)
+
     for k, v in entry.fields.items():
         if k == "baseline":
             continue
-        if any(c in v for c in (" ", "\t")):
-            parts.append(f'{k}="{v}"')
-        else:
-            parts.append(f"{k}={v}")
+        parts.append(_kv(k, v))
     return "  ".join(parts)
 
 
@@ -151,26 +288,48 @@ class TraceStore:
         loops: List[str],
         level_chosen: Optional[str] = None,
         dispatch_source: Optional[str] = None,
+        creativity: Optional[str] = None,
+        store_scope: Optional[str] = None,
+        dispatched: Optional[str] = None,
     ) -> TraceEntry:
         """Create trace.log with a meta header. Idempotent per-task — if a
         meta entry already exists with the same title, reuse it.
 
-        Thinking-levels integration (v0.10.1+): `level_chosen` records the
-        L0..L4 bucket selected by scripts/level_scorer.py at task start;
-        `dispatch_source` records how it was selected (auto-level /
-        user-explicit / user-bump / user-override-down). Both are optional
-        for backward compat with pre-thinking-levels trace logs.
+        v0.11.0 layout (spec 2026-04-22-level-name-consolidation):
+        the meta line carries the thinking-level as a positional `L<n>/<name>`
+        token, an optional `creativity=<value>` (only at L3/L4), and a short
+        `dispatch=<auto|explicit|bump|override-down>` field — so per-iter
+        lines no longer need to repeat `mode=`/`creativity=`.
+
+        Inputs:
+            level_chosen: one of ``L0``..``L4`` (back-compat name; new callers
+                may still pass the short code — the name is resolved from
+                :data:`level_scorer.LEVEL_NAMES` when available).
+            dispatch_source: legacy long form (``auto-level`` / ``user-explicit``
+                / ``user-bump`` / ``user-override-down``); translated to the
+                short ``dispatch=`` form on write.
+            creativity: ``conservative`` / ``standard`` / ``inventive`` — only
+                persisted at L3/L4.
         """
         self.ensure_dir()
         if self.exists():
             for entry in self.read_all():
                 if entry.kind == "meta" and entry.fields.get("task") == task_title:
                     return entry
-        fields: Dict[str, str] = {"task": task_title, "loops": ",".join(loops)}
+        fields: Dict[str, str] = {}
         if level_chosen is not None:
-            fields["level_chosen"] = level_chosen
+            fields["level"] = level_chosen
+            fields["level_name"] = _level_name_for(level_chosen)
+        if creativity is not None and level_chosen in ("L3", "L4"):
+            fields["creativity"] = creativity
         if dispatch_source is not None:
-            fields["dispatch_source"] = dispatch_source
+            fields["dispatch"] = _dispatch_short_for(dispatch_source)
+        if dispatched is not None:
+            fields["dispatched"] = dispatched
+        if store_scope is not None:
+            fields["store"] = store_scope
+        fields["task"] = task_title
+        fields["loops"] = ",".join(loops)
         entry = TraceEntry(
             timestamp=_utcnow_iso(),
             loop="meta",
@@ -197,7 +356,14 @@ class TraceStore:
         return [e for e in self.read_all() if e.kind == "iter"]
 
     def next_k(self, loop: str) -> int:
-        """Next iteration index for `loop`, derived from existing entries."""
+        """Next iteration index for `loop`, derived from existing entries.
+
+        The v0.11.0 loop rename `architect → design` is honored on read:
+        callers asking for `next_k("architect")` also see pre-rename entries
+        and vice versa (the reader normalizes on parse).
+        """
+        if loop == "architect":
+            loop = "design"
         max_k = -1
         for e in self.iterations():
             if e.loop != loop:
@@ -224,28 +390,38 @@ class TraceStore:
         notes: Optional[str] = None,
         predicted_delta: Optional[float] = None,
     ) -> TraceEntry:
+        # v0.11.0: the legacy loop name `architect` collapses to `design`
+        # (the protocol's design phase). Writers always emit the new name.
+        if loop == "architect":
+            loop = "design"
+        # `mode` is derived from level and no longer persisted; `creativity`
+        # is carried once on the meta line, not per iter. The keyword args
+        # are kept in the signature for backward-compatible call sites
+        # (scripts/demo-*, tests) but are silently ignored on write.
+        _ = mode
+        _ = creativity
         prev_same_loop = [e for e in self.iterations() if e.loop == loop]
         delta: Optional[float] = None
         if prev_same_loop and not baseline:
-            prev_loss = prev_same_loop[-1].get_float("loss_norm", 0.0)
+            prev_loss = prev_same_loop[-1].get_float("loss", 0.0)
             delta = loss_norm - prev_loss
         fields: Dict[str, str] = {
             "k": str(k),
             "skill": skill,
             "action": action,
-            "loss_norm": f"{loss_norm:.3f}",
+            "loss": f"{loss_norm:.3f}",
             "raw": raw,
-            "loss_type": loss_type,
         }
-        if mode:
-            fields["mode"] = mode
-        if creativity:
-            fields["creativity"] = creativity
+        # `loss_type` is persisted only when it differs from the default
+        # `normalized-rubric` — the default is implicit in the absence of
+        # the field, matching the new v0.11.0 per-iter format.
+        if loss_type and loss_type != "normalized-rubric":
+            fields["loss_type"] = loss_type
         if baseline:
             fields["baseline"] = "true"
         if delta is not None:
             sign = "-" if delta < 0 else ("+" if delta > 0 else "±")
-            fields["Δloss_norm"] = f"{sign}{abs(delta):.3f}" if sign != "±" else "±0.000"
+            fields["Δloss"] = f"{sign}{abs(delta):.3f}" if sign != "±" else "±0.000"
         if predicted_delta is not None:
             # v0.7.0 calibration — log predicted Δloss from the dialectical pass
             p_sign = "-" if predicted_delta < 0 else ("+" if predicted_delta > 0 else "±")
@@ -334,27 +510,36 @@ class TraceStore:
         loops_decl = [l for l in loops_decl if l]
 
         iteration_entries = self.iterations()
-        architect_entries = [
-            e for e in iteration_entries if e.loop == "architect"
-        ]
+        # `design` is the new canonical name for what v0.10.x called the
+        # `architect` loop. `_parse_line` already normalizes on read, so a
+        # trace log mixing both spellings projects cleanly here.
+        design_entries = [e for e in iteration_entries if e.loop == "design"]
         inner_entries = [e for e in iteration_entries if e.loop == "inner"]
         refine_entries = [e for e in iteration_entries if e.loop == "refine"]
         outer_entries = [e for e in iteration_entries if e.loop == "outer"]
         cot_entries = [e for e in iteration_entries if e.loop == "cot"]
 
+        # Pull the meta-line creativity once (if present) so design iterations
+        # inherit it for rendering — per-iter `creativity=` is no longer written.
+        meta_creativity = (
+            meta_entry.fields.get("creativity", "standard") if meta_entry else "standard"
+        )
+
         iterations: List[Iteration] = []
-        for e in architect_entries:
+        for e in design_entries:
             k = e.get_int("k", 0)
             iterations.append(
                 Iteration(
                     phase="inner",
                     label=f"p{k}",
-                    loss_norm=e.get_float("loss_norm"),
+                    loss_norm=e.get_float("loss"),
                     raw_num=_raw_num(e.fields.get("raw", "0/1")),
                     raw_max=_raw_max(e.fields.get("raw", "0/1")),
                     skill_lines=[f"*{e.fields.get('skill', '')}* → {e.fields.get('action', '')}"],
+                    # `mode` is kept on Iteration for one release as a read-compat
+                    # hook; "architect" is only the renderer's phase-label cue.
                     mode="architect",
-                    creativity=e.fields.get("creativity", "standard"),
+                    creativity=e.fields.get("creativity", meta_creativity),
                     timestamp=e.timestamp,
                 )
             )
@@ -370,7 +555,7 @@ class TraceStore:
                     Iteration(
                         phase=phase,
                         label=f"{prefix}{k}",
-                        loss_norm=e.get_float("loss_norm"),
+                        loss_norm=e.get_float("loss"),
                         raw_num=_raw_num(e.fields.get("raw", "0/1")),
                         raw_max=_raw_max(e.fields.get("raw", "0/1")),
                         skill_lines=[
@@ -390,8 +575,8 @@ class TraceStore:
         docs = close_entries[-1].fields.get("docs", "") if close_entries else ""
 
         budgets = {}
-        if architect_entries:
-            budgets["architect"] = (len(architect_entries), 5)
+        if design_entries:
+            budgets["design"] = (len(design_entries), 5)
         if inner_entries:
             budgets["inner"] = (len(inner_entries), 5)
         if refine_entries:
@@ -402,8 +587,8 @@ class TraceStore:
             budgets["cot"] = (len(cot_entries), 8)
 
         loops_used = []
-        if architect_entries:
-            loops_used.append("architect")
+        if design_entries:
+            loops_used.append("design")
         if inner_entries:
             loops_used.append("inner")
         if refine_entries:
@@ -419,6 +604,31 @@ class TraceStore:
         layer_4 = layer_parts[0] if len(layer_parts) >= 1 else ""
         layer_5 = layer_parts[1] if len(layer_parts) >= 2 else ""
 
+        # Meta-line header fields (v0.11.x) — bootstrap-userspace + using-ldd
+        # carry Store + Dispatched + Mode indicator through the meta line so
+        # the renderer can surface them without a separate sidecar file.
+        meta_fields = meta_entry.fields if meta_entry is not None else {}
+        store_scope = meta_fields.get("store", "")
+        dispatched_raw = meta_fields.get("dispatched", "")
+        level = meta_fields.get("level", "")
+        level_name = meta_fields.get("level_name", "")
+        creativity = meta_fields.get("creativity", "")
+
+        # Derive a default Dispatched line when the caller only supplied
+        # level + dispatch-source, so a trace initialized with just level=L4 /
+        # dispatch=auto still renders a useful header line.
+        if not dispatched_raw and level:
+            dispatch_short = meta_fields.get("dispatch", "")
+            level_label = f"{level}/{level_name}" if level_name else level
+            dispatch_long = {
+                "auto": "auto-level",
+                "explicit": "user-explicit",
+                "bump": "user-bump",
+                "override-down": "user-override-down",
+            }.get(dispatch_short, dispatch_short)
+            if dispatch_long:
+                dispatched_raw = f"{dispatch_long} {level_label}"
+
         return Task(
             title=title,
             loops_used=loops_used,
@@ -428,6 +638,11 @@ class TraceStore:
             fix_layer_5=layer_5,
             docs_synced=docs,
             terminal=terminal,
+            store=store_scope,
+            dispatched=dispatched_raw,
+            level=level,
+            level_name=level_name,
+            creativity=creativity,
         )
 
 
@@ -560,7 +775,11 @@ class TaskSlice:
         return out
 
     def loss_series(self, loop: str) -> List[float]:
-        return [e.get_float("loss_norm") for e in self.iterations if e.loop == loop]
+        # `get_float("loss")` auto-falls-back to the legacy `loss_norm` spelling,
+        # so this call works on both pre- and post-v0.11.0 traces.
+        if loop == "architect":
+            loop = "design"
+        return [e.get_float("loss") for e in self.iterations if e.loop == loop]
 
 
 def segment_tasks(entries: List[TraceEntry]) -> List[TaskSlice]:

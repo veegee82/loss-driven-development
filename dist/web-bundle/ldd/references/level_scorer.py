@@ -48,6 +48,36 @@ class Level(str, Enum):
         return int(self.value[1])
 
 
+# Normative level-name mapping (spec 2026-04-22-level-name-consolidation).
+# Every display of a level MUST use the `L<n>/<name>` combined form.
+LEVEL_NAMES: dict[str, str] = {
+    "L0": "reflex",
+    "L1": "diagnostic",
+    "L2": "deliberate",
+    "L3": "structural",
+    "L4": "method",
+}
+
+
+def level_label(level: "Level") -> str:
+    """Return the canonical `L<n>/<name>` string for a level."""
+    return f"{level.value}/{LEVEL_NAMES[level.value]}"
+
+
+# Short dispatch keyword mapped onto the meta-line `dispatch=` field.
+DISPATCH_SHORT: dict[str, str] = {
+    "auto-level": "auto",
+    "user-explicit": "explicit",
+    "user-bump": "bump",
+    "user-override-down": "override-down",
+}
+
+
+def creativity_applies(level: "Level") -> bool:
+    """Creativity is a first-class axis only at L3 and L4."""
+    return level in (Level.L3, Level.L4)
+
+
 class Creativity(str, Enum):
     CONSERVATIVE = "conservative"
     STANDARD = "standard"
@@ -91,28 +121,44 @@ class ScoreResult:
         )[:n]
 
     def dispatch_header(self) -> str:
-        """Render the mandatory trace-header line."""
+        """Render the mandatory single-line dispatch header.
+
+        Format (spec 2026-04-22-level-name-consolidation):
+            Dispatched: L<n>/<name>[ · creativity=<value>] (<context>)[ [clamped from L4]]
+
+        The `creativity=` segment is echoed inline only at L3/L4. The
+        previously-emitted second line ``mode: architect, creativity: …`` is
+        gone — ``mode`` is derived from level and no longer user-facing.
+        """
+        label = level_label(self.final_level)
+        creativity_suffix = ""
+        if creativity_applies(self.final_level):
+            creativity_suffix = f" · creativity={self.creativity.value}"
+
         if self.dispatch_source == DispatchSource.AUTO:
             sigs = ", ".join(f"{s.name}={_fmt_weight(s.weight)}" for s in self.top_signals())
-            line = f"Dispatched: auto-level {self.final_level.value} (signals: {sigs})"
+            line = f"Dispatched: {label}{creativity_suffix} (signals: {sigs})"
             if self.clamp_reason:
                 line += f" [{self.clamp_reason}]"
             return line
         if self.dispatch_source == DispatchSource.USER_EXPLICIT:
             return (
-                f"Dispatched: user-explicit {self.final_level.value} "
-                f"(scorer proposed {self.auto_level.value})"
+                f"Dispatched: {label}{creativity_suffix} "
+                f"(user-explicit; scorer proposed {self.auto_level.value})"
             )
         if self.dispatch_source == DispatchSource.USER_BUMP:
             frag = self.override_fragment or ""
+            # Strip surrounding quotes added by natural-bump deduplication
+            # (fragments like `"take your time"`) so the header reads cleanly.
+            clean_frag = frag.strip('"')
             return (
-                f"Dispatched: user-bump {self.final_level.value} "
-                f"(scorer proposed {self.auto_level.value}, bump: {frag})"
+                f"Dispatched: {label}{creativity_suffix} "
+                f"(user-bump from {self.auto_level.value}, fragment: \"{clean_frag}\")"
             )
         if self.dispatch_source == DispatchSource.USER_OVERRIDE_DOWN:
             return (
-                f"Dispatched: user-override-down {self.final_level.value} "
-                f"(scorer proposed {self.auto_level.value}). User accepts loss risk."
+                f"Dispatched: {label}{creativity_suffix} "
+                f"(user-override-down from {self.auto_level.value}). User accepts loss risk."
             )
         raise ValueError(f"unknown dispatch source: {self.dispatch_source}")
 
@@ -414,6 +460,15 @@ _OVERRIDE_MAX = re.compile(r"\bLDD=max:", re.IGNORECASE)
 _OVERRIDE_PLUSPLUS = re.compile(r"\bLDD\+\+:")
 _OVERRIDE_PLUS = re.compile(r"\bLDD\+:")
 
+# Deprecated one-release aliases (v0.11.0 only; removed in v0.12.0).
+# `LDD[mode=architect]:` → `LDD[level=L3]:`
+# `LDD[mode=reactive]:`  → `LDD[level=L2]:`
+_OVERRIDE_MODE_ALIAS = re.compile(r"\bLDD\[mode=(architect|reactive)\]:", re.IGNORECASE)
+_MODE_ALIAS_TO_LEVEL: dict[str, Level] = {
+    "architect": Level.L3,
+    "reactive": Level.L2,
+}
+
 _NATURAL_BUMP_1 = [
     r"\btake your time\b",
     r"\bthink hard\b",
@@ -458,6 +513,16 @@ def parse_override(text: str) -> Override | None:
     if m:
         lvl = Level(f"L{m.group(1)}")
         return Override("explicit", delta=None, absolute_level=lvl, fragment=m.group(0))
+
+    # 1b. deprecated LDD[mode=architect|reactive]: — v0.11.0 silent alias.
+    # Maps to the equivalent `LDD[level=...]` override. A trace-header note is
+    # emitted at runtime by the caller (not here — this is a pure parser).
+    m = _OVERRIDE_MODE_ALIAS.search(text)
+    if m:
+        lvl = _MODE_ALIAS_TO_LEVEL[m.group(1).lower()]
+        return Override(
+            "explicit", delta=None, absolute_level=lvl, fragment=m.group(0)
+        )
 
     # 2. LDD=max:
     m = _OVERRIDE_MAX.search(text)
@@ -525,7 +590,9 @@ def score_task(text: str, history: list[str] | None = None) -> ScoreResult:
     clamp_reason: str | None = None
     if auto_level == Level.L4 and creativity == Creativity.STANDARD:
         auto_level = Level.L3
-        clamp_reason = "clamped from L4 (creativity=standard)"
+        # The creativity is already echoed inline in the main header; the
+        # bracketed clamp reason collapses to `[clamped from L4]`.
+        clamp_reason = "clamped from L4"
 
     # Parse override
     override = parse_override(text)
@@ -610,9 +677,9 @@ def _cli() -> int:
         }
         print(json.dumps(payload, indent=2))
     else:
+        # Single line only. `mode` is derived from level and no longer printed;
+        # `creativity` (at L3/L4) is already echoed inline in the header.
         print(result.dispatch_header())
-        if result.creativity != Creativity.STANDARD or result.final_level == Level.L4:
-            print(f"mode: architect, creativity: {result.creativity.value}")
     return 0
 
 

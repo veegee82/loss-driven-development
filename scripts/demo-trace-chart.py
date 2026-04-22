@@ -164,17 +164,21 @@ def _format_raw(num: float, denom: int) -> str:
 
 
 def _format_mode(it: Iteration) -> str:
-    """Render the mode+creativity parenthetical content for an iteration label.
+    """Render the phase+creativity parenthetical content for an iteration label.
 
-    Per v0.5.0 SKILL.md § Loss visualization, grammar is:
+    Per v0.11.0 SKILL.md § Loss visualization, grammar is:
       inner + reactive   → "inner, reactive"
-      inner + architect  → "architect, <creativity>"  (caller uses "Phase")
+      inner + architect  → "design, <creativity>"  (caller uses "Phase")
       refine             → "refine"    (no mode/creativity)
       outer              → "outer"     (no mode/creativity)
+
+    The legacy `mode == "architect"` field is read-only (it marks design-phase
+    iterations projected from pre-v0.11.0 traces); the label shown to users
+    is now always `design`.
     """
     if it.phase == "inner":
         if it.mode == "architect":
-            return f"architect, {it.creativity or 'standard'}"
+            return f"design, {it.creativity or 'standard'}"
         return "inner, reactive"
     return it.phase
 

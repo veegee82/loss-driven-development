@@ -89,19 +89,18 @@ Full per-level spec: [`../../skills/architect-mode/SKILL.md`](../../skills/archi
 Four opt-in paths (precedence: inline flag > command arg > trigger-phrase > auto-dispatch > bundle default):
 
 ```
-LDD[mode=architect]: design a billing service for 50M users
+LDD[level=L3]: design a billing service for 50M users
                                      ↑ inline flag, this task only
+                                       (v0.11.0: LDD[mode=architect] is a
+                                        deprecated alias for LDD[level=L3])
 
-/loss-driven-development:ldd-architect          # session: flips for next task
+/loss-driven-development:ldd-architect          # session: flips to L3 for next task
                                                  # then auto-reverts after hand-off
-
-# .ldd/config.yaml — project-level default (rare; only for mostly-greenfield repos)
-mode: architect
 ```
 
-Auto-trigger phrases (design, architect, greenfield, from scratch, decompose, structure for X) flip the mode temporarily — the user sees `mode: architect` in the trace header whenever it's active.
+Auto-trigger phrases (design, architect, greenfield, from scratch, decompose, structure for X) flip the **level** to L3/L4 for the task — and the architect-mode 5-phase protocol runs because that is what the L3/L4 preset pulls in. The user sees the single-line `Dispatched: L3/structural · creativity=<value> (signals: …)` header whenever it's active; there is no separate `mode: architect` display (v0.11.0).
 
-**Auto-dispatch via the thinking-levels scorer** — the coding agent scores every non-trivial task against 9 signals (the 6 original architect-dispatch signals — greenfield `+3`, ≥ 3 new components `+2`, cross-layer `+2`, ambiguous `+2`, bugfix `−5`, single-file `−3` — plus `layer-crossings +2`, `contract-rule-hit +2`, `unknown-file-territory +1`). The sum buckets into a thinking-level L0..L4; architect-mode is reached through the **L3 and L4 presets** (score ≥ 4 buckets L3 directly; score ≥ 8 buckets L4, with a creativity-clamp back to L3 when no inventive cues are present). Creativity is inferred from the same task signals (regulated → `conservative`, research / novel → `inventive`, else `standard`). The agent MUST echo `Dispatched: auto-level L<n> (signals: …)` in the trace header. Full scorer + inference table + buckets: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch: thinking-levels (and [`../../scripts/level_scorer.py`](../../scripts/level_scorer.py) for the deterministic implementation).
+**Auto-dispatch via the thinking-levels scorer** — the coding agent scores every non-trivial task against 9 signals (the 6 original architect-dispatch signals — greenfield `+3`, ≥ 3 new components `+2`, cross-layer `+2`, ambiguous `+2`, bugfix `−5`, single-file `−3` — plus `layer-crossings +2`, `contract-rule-hit +2`, `unknown-file-territory +1`). The sum buckets into a thinking-level L0..L4; the architect-mode protocol runs at **L3 and L4** (score ≥ 4 buckets L3 directly; score ≥ 8 buckets L4, with a creativity-clamp back to L3 when no inventive cues are present). Creativity is inferred from the same task signals (regulated → `conservative`, research / novel → `inventive`, else `standard`). The agent MUST echo the single-line dispatch header `Dispatched: L<n>/<name>[ · creativity=<value>] (signals: …)`. Full scorer + inference table + buckets: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch: thinking-levels (and [`../../scripts/level_scorer.py`](../../scripts/level_scorer.py) for the deterministic implementation).
 
 ## Full skill
 

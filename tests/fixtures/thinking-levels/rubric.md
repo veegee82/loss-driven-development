@@ -6,15 +6,15 @@ The rubric is intentionally narrow — it measures *dispatch-correctness*, not w
 
 ## Items (apply to every scenario)
 
-1. **Correct level chosen.** The response announces a level that matches the scenario's expected level. "Announce a level" means an explicit `Dispatched: … L<n> …` line OR an unambiguous natural-language equivalent (e.g. `"running at level L2"`). For `override-natural-language`, both L1 and L2 are GREEN. For `override-down-warning`, L0 is GREEN as long as item 3 is also satisfied (see below).
+1. **Correct level chosen.** The response announces a level that matches the scenario's expected level. "Announce a level" means an explicit `Dispatched: L<n>/<name> …` line (v0.11.0 format) OR an unambiguous natural-language equivalent (e.g. `"running at level L2/deliberate"`). For `override-natural-language`, both L1 and L2 are GREEN. For `override-down-warning`, L0 is GREEN as long as item 3 is also satisfied (see below).
 
-2. **Dispatch source named.** The response includes a dispatch source token matching one of: `auto-level`, `user-explicit`, `user-bump`, `user-override-down`. Per scenario:
-   - Scenarios 1–5 (the L0–L4 level scenarios): `auto-level`.
+2. **Dispatch source named.** The response includes a dispatch-source phrase matching one of: (auto — implicit, no keyword required in v0.11.0), `user-explicit`, `user-bump`, `user-override-down`. Per scenario:
+   - Scenarios 1–5 (the L0–L4 level scenarios): auto-dispatch (implicit — no dispatch-source phrase in the parenthetical means auto).
    - Scenario 6, 7: `user-bump`.
    - Scenario 8 (`override-natural-language`): `user-bump`.
    - Scenario 9 (`override-down-warning`): `user-override-down`.
 
-3. **Top-2 signals echoed (or user-override-down warning emitted).** For `auto-level` scenarios: the trace header names the top-2 signals by absolute weight that produced the level. For `user-bump` scenarios: the header names the phrase or flag that triggered the bump (e.g. `"LDD++"`, `"take your time"`). For `user-override-down`: the header contains the literal substring `"scorer proposed L"` and some form of "user accepts" / "loss risk" / "override" warning language — silent downgrade is an automatic item-3 violation.
+3. **Top-2 signals echoed (or user-override-down warning emitted).** For auto-dispatch scenarios: the trace header names the top-2 signals by absolute weight that produced the level. For `user-bump` scenarios: the header names the phrase or flag that triggered the bump (e.g. `fragment: "LDD++"`, `fragment: "take your time"`). For `user-override-down`: the header contains the literal substring `"from L"` naming the scorer's proposal and some form of "user accepts" / "loss risk" / "override" warning language — silent downgrade is an automatic item-3 violation.
 
 4. **Upward-bias compliance.** The response must not drift downward from the scorer's proposal without the `user-override-down` marker. Specifically:
    - If the scorer would produce L2 or higher, the response must not silently announce L0 or L1.

@@ -13,8 +13,7 @@ we need to add a new critique gate for repair-fixpoint detection between the exi
 ## Expected dispatch header
 
 ```
-Dispatched: auto-level L3 (signals: cross-layer=+2, contract-rule-hit=+2)
-mode: architect, creativity: standard
+Dispatched: L3/structural · creativity=standard (signals: cross-layer=+2, contract-rule-hit=+2)
 ```
 
 (Top-2 signals may be any pair of the fired +2 signals by tie-break on name.)
@@ -45,7 +44,8 @@ mode: architect, creativity: standard
 |---|---|
 | k_max | 5 |
 | reproduce_runs | 2 |
-| mode | architect / standard |
+| mode | derived: architect (from L3) |
+| creativity | standard (default at L3) |
 | max_refinement_iterations | 3 |
 | Skill floor | + `architect-mode` (standard), `drift-detection`, `iterative-refinement` |
 

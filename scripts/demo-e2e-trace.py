@@ -140,10 +140,15 @@ def _format_raw(num: float, denom: int) -> str:
 
 
 def _format_mode(it: Iteration) -> str:
-    """Mode+creativity parenthetical per v0.5.0 SKILL.md § Loss visualization."""
+    """Phase+creativity parenthetical per v0.11.0 SKILL.md § Loss visualization.
+
+    The legacy per-iter `architect` label is now rendered as `design` (the
+    protocol's design phase); the underlying `mode` flag is read-only and
+    only marks rows projected from pre-v0.11.0 traces.
+    """
     if it.phase == "inner":
         if it.mode == "architect":
-            return f"architect, {it.creativity or 'standard'}"
+            return f"design, {it.creativity or 'standard'}"
         return "inner, reactive"
     return it.phase
 

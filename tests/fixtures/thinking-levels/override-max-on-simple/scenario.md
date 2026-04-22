@@ -13,7 +13,7 @@ LDD=max: fix the typo in README.md line 12
 ## Expected dispatch header
 
 ```
-Dispatched: user-bump L4 (scorer proposed L0, bump: LDD=max)
+Dispatched: L4/method · creativity=inventive (user-bump from L0, fragment: "LDD=max")
 ```
 
 ## Why this task → this level
@@ -28,7 +28,7 @@ L4 preset (k_max=8, architect/inventive ack-gated, `method-evolution` + `dialect
 
 ## The `inventive` acknowledgment edge case
 
-The L4 preset sets `mode=architect, creativity=inventive (ack-gated)`. The ack flow requires a literal `acknowledged` reply from the user before `inventive` takes effect. Without it, silent downgrade to creativity=standard (NOT a level downgrade — the level stays L4, only the creativity inside architect-mode falls back).
+At L4 the architect-mode 5-phase protocol is active (derived from the level) and the default `creativity` is `inventive` (ack-gated). The ack flow requires a literal `acknowledged` reply from the user before `inventive` takes effect. Without it, silent downgrade to creativity=standard (NOT a level downgrade — the level stays L4, only the creativity falls back).
 
 For this fixture, the ack handling is a side concern — what matters is that L4 is ANNOUNCED. The subsequent behavior (ask for ack → proceed as architect/standard if no ack → proceed as architect/inventive with ack) is covered by existing architect-mode fixtures.
 

@@ -1,6 +1,6 @@
 ---
 name: architect-mode
-description: Use when the user wants an architecture, design, or structure invented from requirements — greenfield service, new module, system decomposition, or the conceptual/structural layer "between X and Y" where X is the problem and Y is the delivered system. NOT the default mode. Opt-in via four paths — inline `LDD[mode=architect]:` prefix, the `/ldd-architect` command, trigger phrases like "design" / "architect" / "from scratch" / "greenfield", or the thinking-levels auto-dispatch landing at L3 or L4 (9-signal scorer; see `../using-ldd/SKILL.md` § Auto-dispatch: thinking-levels). Supports three creativity levels (`conservative` | `standard` | `inventive`) that change the loss function, not the amount of structure.
+description: The 5-phase design protocol that is active at thinking-levels L3 and L4. NOT a separate mode — it is the discipline the level preset pulls in. Opt-in via four paths — inline `LDD[level=L3]:` (or `LDD[level=L4]:`) prefix, the `/ldd-architect` command, trigger phrases like "design" / "architect" / "from scratch" / "greenfield", or the thinking-levels auto-dispatch landing at L3 / L4 (9-signal scorer; see `../using-ldd/SKILL.md` § Auto-dispatch: thinking-levels). Supports three creativity levels (`conservative` | `standard` | `inventive`) that change the loss function, not the amount of structure.
 ---
 
 # Architect Mode — opt-in discipline, orthogonal to the four loops
@@ -110,10 +110,11 @@ Invoke when **all** of:
 
 Signals that trigger this mode:
 
-- `LDD[mode=architect]:` or `LDD[mode=architect, creativity=<level>]:` prefix
-- `/loss-driven-development:ldd-architect` command (accepts optional `creativity` arg)
+- `LDD[level=L3]:` or `LDD[level=L4]:` (optionally combined with `LDD[creativity=<level>]:`) — explicit level override
+- `/loss-driven-development:ldd-architect` command (accepts optional `creativity` arg) — documented sugar for `LDD[level=L3]:`
 - Phrases: "design", "architect", "from scratch", "greenfield", "how should I structure", "propose an architecture", "decompose this", "what's the right shape for X"
 - Additional auto-trigger for `inventive`: "invent", "novel paradigm", "research", "experiment", "prototype a new" — the agent asks for acknowledgment per the inventive-level spec before proceeding
+- **Deprecated (v0.11.0, removed in v0.12.0):** `LDD[mode=architect]:` is a silent alias for `LDD[level=L3]:`. `mode` is a pure function of level (L0–L2 ⇒ reactive, L3/L4 ⇒ architect) and is no longer a user-facing axis.
 
 **Do not use** for:
 
@@ -124,26 +125,26 @@ Signals that trigger this mode:
 
 ## Auto-dispatch by the coding agent
 
-The agent MAY enter architect-mode on its own — without an explicit `LDD[mode=architect]:` flag, `/ldd-architect` command, or trigger-phrase match — when the task description carries enough structural signals. This covers the case where a user describes a greenfield design without using the dispatch vocabulary (`"design"`, `"architect"`, `"greenfield"`); the signals in the task shape itself are enough to warrant the 5-phase discipline.
+The agent MAY enter the architect-mode protocol on its own — without an explicit `LDD[level=L3]:` flag, `/ldd-architect` command, or trigger-phrase match — when the task description carries enough structural signals that the thinking-level scorer buckets the task at L3 or L4. This covers the case where a user describes a greenfield design without using the dispatch vocabulary (`"design"`, `"architect"`, `"greenfield"`); the signals in the task shape itself are enough to warrant the 5-phase discipline.
 
 **Full scorer + creativity-inference table + precedence rule live in [`../SKILL.md`](../SKILL.md) § Auto-dispatch: thinking-levels** (and the deterministic implementation at [`./level_scorer.py`](./level_scorer.py)). Summary here:
 
-- **Score ≥ 4 → L3, score ≥ 8 → L4** (weighted sum of 9 signals). L3 and L4 presets both set `mode=architect`, so architect-mode is reached through the level bucket, not via a separate threshold. Dominant positive signals are greenfield (+3), ≥ 3 new components (+2), cross-layer scope (+2), ambiguous requirements (+2), layer-crossings (+2), contract/R-rule hit (+2). Negatives: explicit bug-fix (−5), single-file known-solution (−3). One small positive: unknown-file-territory (+1).
+- **Score ≥ 4 → L3, score ≥ 8 → L4** (weighted sum of 9 signals). At L3 and L4 the architect-mode 5-phase protocol is active automatically — there is no separate `mode=architect` axis to set, and no separate threshold. Dominant positive signals are greenfield (+3), ≥ 3 new components (+2), cross-layer scope (+2), ambiguous requirements (+2), layer-crossings (+2), contract/R-rule hit (+2). Negatives: explicit bug-fix (−5), single-file known-solution (−3). One small positive: unknown-file-territory (+1).
 - **Creativity is inferred from the same task signals:** regulatory / no-new-tech / tight-team-deadline cues → `conservative`; research / novelty / experiment cues → `inventive`; neither → `standard`.
-- **Explicit user triggers always win** (inline flag > command > trigger phrase > auto-dispatch > bundle default). If the user wrote `LDD[mode=reactive]:` on a task with auto-score 6, the agent stays reactive.
+- **Explicit user triggers always win** (inline `LDD[level=Lx]:` flag > command > trigger phrase > auto-dispatch > bundle default). If the user wrote `LDD[level=L2]:` on a task with auto-score 6, the level stays L2 (reactive) and the architect-mode protocol does not run.
 - **The `inventive` acknowledgment flow is unchanged.** Auto-dispatch can *propose* `inventive`, but without the literal `acknowledged` reply the run silently downgrades to `standard`. The scorer is allowed to nominate; the ack gate is not.
 
 ### Mandatory trace echo when auto-dispatch fires
 
-When the agent enters architect-mode via auto-dispatch (not via an explicit flag / command / trigger phrase), it MUST echo the decision AND the top-2 signals in the trace-block header. The user gets to see and override the agent's judgment with one follow-up:
+When the scorer buckets a task at L3 or L4, the agent MUST echo the single-line dispatch header before any work begins. The user gets to see and override the agent's judgment with one follow-up:
 
 ```
-│ Dispatched : auto (signals: greenfield=+3, cross-layer=+2)
+Dispatched: L3/structural · creativity=standard (signals: greenfield=+3, cross-layer=+2)
 ```
 
-Without the echo, the user cannot distinguish "I asked for architect-mode" from "the agent chose architect-mode on my behalf" — and the audit trail for the decision is lost. Silent auto-dispatch is a trace-integrity violation.
+Without the echo, the user cannot distinguish "I asked for L3/L4" from "the agent chose L3/L4 on my behalf" — and the audit trail for the decision is lost. Silent auto-dispatch is a trace-integrity violation.
 
-Other valid `Dispatched` values: `inline-flag`, `command`, `trigger-phrase: "<phrase>"`. See [`../SKILL.md`](../SKILL.md) § "Architect-mode variant of the trace block" for the full format.
+The auto case is implicit — no `auto-level` keyword. When the header carries `user-explicit` / `user-bump` / `user-override-down` in the parenthetical, the dispatch came from an inline flag / command / trigger phrase / natural-language bump. See [`../SKILL.md`](../SKILL.md) § "Design-phase (L3/L4) variant of the trace block" for the full format.
 
 ## The architect protocol
 
@@ -289,7 +290,7 @@ Phase 5 produces failing tests — those are the first `loss_0` for the inner lo
    ```
 2. In the reply, say to the user one line: *"architect-mode complete. To start implementation, say `LDD: begin implementation` or similar — I'll switch to reactive mode and run `reproducibility-first` + `root-cause-by-layer` against the first failing scaffold test."*
 3. **Do not auto-resume.** The user must explicitly trigger the next task. This prevents architect-mode from silently consuming K_MAX iterations of inner-loop budget on its own implementation.
-4. If the user replies with a resume trigger, drop `mode=architect`; all subsequent LDD flags revert to defaults unless overridden.
+4. If the user replies with a resume trigger, drop back to the scorer's default (typically L2/deliberate); all subsequent LDD flags revert to defaults unless overridden. The architect-mode 5-phase protocol is no longer active because the level is no longer L3/L4 — same outcome as if the user had explicitly said `LDD[level=L2]:`.
 
 ## Compliance checklist
 

@@ -39,19 +39,20 @@ The bundle deliberately exposes **four core knobs** that apply to every LDD run 
   - Reduce to `1` or `2` for time-critical polish
   - Increase cautiously — refinement is asymptotic; past iteration 5 the returns are typically indistinguishable from noise
 
-### 4. `mode` — reactive vs. architect
+### 4. `mode` — **derived, no longer user-facing (v0.11.0)**
 
-- **Default:** `reactive`
-- **Values:** `reactive` | `architect`
-- **What it controls:** whether LDD operates as a debugger / fixer over existing code (`reactive`) or as an architect generating structure from requirements (`architect`). See [`../../skills/architect-mode/SKILL.md`](../../skills/architect-mode/SKILL.md) for the full 5-phase protocol.
-- **When to change:**
-  - Switch to `architect` when starting a greenfield system, proposing a new module, or when the user explicitly asks for "architecture" / "design" / "structure for X"
-  - Stay on `reactive` for bug fixes, feature additions, refactors, incident response — the default 95 % of the time
-  - Architect mode is strictly opt-in; an auto-trigger on phrases like "design" / "architect" / "greenfield" / "from scratch" flips it temporarily for that one task, then reverts. As of the thinking-levels design, the coding agent auto-dispatches a **thinking level (L0..L4)** via a 9-signal scorer (the 6 original architect-dispatch signals plus `layer-crossings +2`, `contract-rule-hit +2`, `unknown-file-territory +1`). Architect-mode is reached through the **L3 / L4 presets** — there is no separate architect-only threshold anymore. The agent echoes `Dispatched: auto-level L<n> (signals: …)` in the trace header so you always see what's active and can override with one reply. Full scorer + CLI + buckets: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch: thinking-levels (and [`../../scripts/level_scorer.py`](../../scripts/level_scorer.py) for the deterministic implementation).
+`mode` is a pure function of the thinking level:
 
-### 5. `creativity` — architect-mode loss-function selection
+- L0, L1, L2 ⇒ `reactive`
+- L3, L4 ⇒ `architect` (the 5-phase protocol from [`../../skills/architect-mode/SKILL.md`](../../skills/architect-mode/SKILL.md) is active)
 
-**Only meaningful when `mode=architect`.** Ignored otherwise.
+It is no longer displayed in the dispatch header or trace log, and the `LDD[mode=architect]:` / `LDD[mode=reactive]:` overrides are **deprecated** (silent aliases for `LDD[level=L3]:` and `LDD[level=L2]:` for one release; removed in v0.12.0). To change the discipline for a task, pick the level explicitly (`LDD[level=Lx]:`) or trust the scorer.
+
+As of the thinking-levels design, the coding agent auto-dispatches a **thinking level (L0..L4)** via a 9-signal scorer (the 6 original architect-dispatch signals plus `layer-crossings +2`, `contract-rule-hit +2`, `unknown-file-territory +1`). The architect-mode 5-phase protocol runs at **L3 and L4** — there is no separate architect-only threshold anymore. The agent echoes the single-line `Dispatched: L<n>/<name>[ · creativity=<value>] (signals: …)` in the trace header so you always see what's active and can override with one reply. Full scorer + CLI + buckets: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch: thinking-levels (and [`../../scripts/level_scorer.py`](../../scripts/level_scorer.py) for the deterministic implementation).
+
+### 5. `creativity` — loss-function selection at L3/L4
+
+**Only meaningful at L3 and L4.** Ignored at L0/L1/L2, with a trace warning `ignored (level=L<n> does not accept creativity)`.
 
 - **Default:** `standard`
 - **Values:** `conservative` | `standard` | `inventive`
@@ -101,9 +102,9 @@ Syntax:
 - `reproduce=<N>` — override `reproduce_runs`
 - `max-refinement=<N>` — override `max_refinement_iterations`
 - `no-reproduce` — shortcut for `reproduce=0` with the explicit caveat that you are asserting Branch-B-level evidence
-- `mode=architect` — switch to architect mode for this task (see architect-mode skill)
-- `mode=reactive` — force reactive mode even if the task description looks architect-flavored (override auto-trigger)
-- `creativity=conservative|standard|inventive` — architect-mode sub-parameter selecting the loss function for this task. `inventive` triggers an acknowledgment flow before architecture work begins.
+- `level=L0|L1|L2|L3|L4` — explicit thinking-level override (per-task only; cannot be persisted). L3 and L4 run the architect-mode 5-phase protocol.
+- `creativity=conservative|standard|inventive` — loss-function selection for this task. Valid only at L3/L4; ignored with a warning at L0/L1/L2. `inventive` triggers an acknowledgment flow before architecture work begins.
+- **Deprecated (v0.11.0):** `mode=architect` is a silent alias for `level=L3`; `mode=reactive` is a silent alias for `level=L2`. Removed in v0.12.0.
 
 Multiple flags comma-separated. Agent echoes the applied values in the trace block (`Budget : k=3/K_MAX=3 (override)`).
 
@@ -144,22 +145,22 @@ inline `LDD[...]` flags      ← wins
 bundle defaults              ← loses
 ```
 
-### Extra precedence layer for `mode` (architect vs. reactive)
+### Extra precedence layer for `level` (the derived `mode` axis)
 
-The `mode` key has two additional value-sources on top of the generic chain above, both sitting BELOW inline flags and /ldd-set and ABOVE bundle defaults. Full chain:
+`mode` is no longer an independently-configured key (v0.11.0); the value-sources below apply to `level`, and `mode` is read off of it (L0–L2 ⇒ reactive, L3/L4 ⇒ architect). Full chain:
 
 ```
-inline LDD[mode=…] flag
+inline LDD[level=Lx] flag
     ↓
-/ldd-architect command arg / /ldd-set mode=…
+inline LDD[mode=…] flag             (deprecated silent alias: architect⇒L3, reactive⇒L2)
     ↓
-.ldd/config.yaml
+/ldd-architect command              (sugar for LDD[level=L3])
     ↓
 trigger-phrase match in the dispatch table ("design" / "architect" / "greenfield" / …)
     ↓
-auto-dispatch scorer (score ≥ 4)     ← v0.4.0; lowest before default
+auto-dispatch scorer (score ≥ 4 ⇒ L3, ≥ 8 ⇒ L4)
     ↓
-bundle default (mode=reactive)
+bundle default (scorer output — typically L2/deliberate for zero-signal prompts)
 ```
 
 Same ordering for `creativity`: inline flag → command → session → config → trigger-phrase → auto-inferred-from-task-signals → bundle default (`standard`). `inventive` additionally requires per-task user acknowledgment regardless of which layer proposed it.

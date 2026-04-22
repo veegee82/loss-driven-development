@@ -13,7 +13,7 @@ the unit test test_parser_handles_empty_input in packages/awp-core/tests/test_pa
 ## Expected dispatch header
 
 ```
-Dispatched: auto-level L1 (signals: explicit-bugfix=-5, single-file=-3)
+Dispatched: L1/diagnostic (signals: explicit-bugfix=-5, single-file=-3)
 ```
 
 (Acceptable alternatives: top-2 signals may include `single-file=-3` or a tied pair; the key assertion is level = L1.)

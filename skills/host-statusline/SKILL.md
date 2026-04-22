@@ -170,23 +170,35 @@ One suffix, two short status tokens, no dialog. The user who glances at the trac
 
 ## What the statusline shows
 
+v0.11.0 format (level-aware):
+
+```
+Idle           : LDD · idle
+Active L0..L2  : LDD · L2/deliberate · inner k=1 · loss=0.167 · <task> · <sparkline> <trend> · <source>
+Active L3/L4   : LDD · L3/structural · creativity=standard · design k=2 · loss=0.286 · <task> · <sparkline> <trend> · <source>
+```
+
+When a pre-v0.11.0 trace is read (no `L<n>/<name>` meta-line token), the statusline falls back to the legacy layout:
+
 ```
 LDD · <task> · <loop> i<k> · loss <value><±delta arrow> · <sparkline> <trend> · <source>
 ```
 
-Concrete example after 4 inner iterations:
+Concrete post-v0.11.0 example after 3 design-phase iterations:
 
 ```
-LDD · fix JSON parser · inner i3 · loss 0.125 ↓-0.250 · █▆▃▂ ↓ · .ldd
+LDD · L3/structural · creativity=standard · design k=2 · loss=0.286 · design a billing service · █▆▃ ↓ · .ldd
 ```
 
 Legend:
 
-- `task` — first `task="…"` string found in the trace, truncated to 40 chars.
-- `loop` — the loop name on the most recent iteration line (`inner`, `refine`, `outer`).
-- `i<k>` — the most recent iteration index.
-- `loss <value>` — the most recent `loss_norm` value, formatted to 3 decimals.
+- `L<n>/<name>` — the thinking-level and its canonical name, pulled from the meta line.
+- `creativity=<value>` — echoed only at L3/L4 (omitted at L0/L1/L2).
+- `loop` — the loop on the most recent iteration line (`inner`, `refine`, `outer`, `design`, `cot`).
+- `k=<N>` — the most recent iteration index.
+- `loss=<value>` — the most recent `loss=` value (v0.11.0 field name; old `loss_norm=` is also accepted on read), formatted to 3 decimals.
 - `±delta arrow` — per-step Δ with `↓` / `↑` / `→` between last two iterations. Omitted on iter 1.
+- `task` — first `task="…"` string found in the trace, truncated to 40 chars.
 - `sparkline` — up to the last 30 losses rendered as Unicode blocks `▁▂▃▄▅▆▇█`, auto-scaled to `max(losses)`; zero values render as `·`.
 - `trend` — end-to-end first-vs-last arrow (same rule as in `using-ldd` — `↓` if `(last − first) < −0.005`).
 - `source` — `.ldd` if data came from `.ldd/trace.log`, `jsonl` if it came from ⟪LDD-TRACE-v1⟫ marker grep. Tells the user which persistence tier is actually feeding the display.

@@ -3,7 +3,7 @@ name: root-cause-by-layer
 description: Use when encountering a bug, failing test, or unexpected behavior — especially under time pressure where try/except, retry loops, xfail, type-tolerance shims, "I'll clean up later," or compat-for-both-shapes feel like the fastest path. Forbids symptom patches until structural and conceptual origins are named.
 ---
 
-# Root-Cause-by-Layer
+# Root-Cause-by-Layer — inner loop (`∂L/∂code`), the gradient computer
 
 ## The Metaphor
 
@@ -11,7 +11,7 @@ description: Use when encountering a bug, failing test, or unexpected behavior �
 
 ## Overview
 
-A bug is a **symptom**. The disease almost always lives at a layer boundary, a contract violation, or a conceptual mismatch — rarely on the line that threw the exception. Walk the 5-layer ladder before proposing any fix.
+In [Gradient Descent for Agents](../../docs/theory.md), this skill is **how you compute `∂L/∂code`**. Without the 5-layer ladder, any proposed edit is a random direction in parameter space — on average it raises generalization loss even when it happens to lower training loss. A bug is a **symptom**. The disease almost always lives at a layer boundary, a contract violation, or a conceptual mismatch — rarely on the line that threw the exception. Walk the 5-layer ladder before proposing any fix.
 
 **Core principle:** A change that turns the symptom green without a causal story at layers 3–5 is a **suppression, not a cure.** It re-emerges in a different guise within a few iterations.
 

@@ -3,7 +3,7 @@ name: docs-as-definition-of-done
 description: Use when finishing any code change that modifies behavior, public API, CLI flags, config shape, defaults, error messages, or anything a reader-of-the-docs would model — before committing, pushing, or declaring "done." Forbids deferring doc updates to a follow-up commit, ticket, or "cleanup later."
 ---
 
-# Docs-as-Definition-of-Done
+# Docs-as-Definition-of-Done — the regularizer that closes every loop
 
 ## The Metaphor
 
@@ -11,7 +11,7 @@ description: Use when finishing any code change that modifies behavior, public A
 
 ## Overview
 
-Docs describe code **exactly, but at the conceptual level**. A reader of the markdown must get a faithful, current mental model of the code without reading the code.
+In [Gradient Descent for Agents](../../docs/theory.md), this skill is **the regularizer** that applies on all [four gradients](../../docs/ldd/convergence.md). It closes every loop: the inner loop isn't closed until code + tests + docs land together, the refinement loop isn't closed until the updated deliverable has its doc-level mental model re-synced, the outer loop isn't closed until the evolved skill is mirrored in the methodology docs, and a CoT chain closed against ground truth contributes to a running calibration record that is itself a documented artifact. Docs describe code **exactly, but at the conceptual level**. A reader of the markdown must get a faithful, current mental model of the code without reading the code.
 
 **Core principle:** A code change is **not done** until every documentation statement that the change invalidated has been updated **in the same logical task**. No "I'll fix the docs later." No separate doc-cleanup commits. No stub TODOs.
 

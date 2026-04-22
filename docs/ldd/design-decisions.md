@@ -4,7 +4,7 @@ Load this when the user says: "should we...", "is X the right approach", "ship o
 
 ## Skill
 
-Primary: `dialectical-reasoning`. Secondary: `loss-backprop-lens` for step-size calibration.
+Primary: [`dialectical-reasoning`](../../skills/dialectical-reasoning/SKILL.md) — cross-cutting discipline that applies on every one of the [four gradients](../theory.md). Secondary: [`loss-backprop-lens`](../../skills/loss-backprop-lens/SKILL.md) for step-size calibration.
 
 ## The protocol — thesis → antithesis → synthesis
 

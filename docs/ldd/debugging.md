@@ -2,6 +2,8 @@
 
 Load this when the user says: "bug", "failing test", "CI is red", "flaky", "error", "exception", "unexpected behavior".
 
+This is the **inner loop** (`∂L/∂code`) — one of the [four gradients](../theory.md) LDD optimizes across. You are moving `θ = code` against a failing-test signal. If the symptom turns out to be on the deliverable axis (weak doc) invoke [`refinement.md`](./refinement.md); if it is a recurring pattern across 3+ tasks, escalate to [`method-maintenance.md`](./method-maintenance.md).
+
 ## Skill cascade (strict order)
 
 ```

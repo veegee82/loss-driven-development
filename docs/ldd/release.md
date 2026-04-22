@@ -2,9 +2,11 @@
 
 Load this when the user says: "ready to commit", "commit this", "ready to merge", "ship it", "declare done", "push this", "release candidate", "cut a release".
 
+This closes **every** loop — release-gating is cross-cutting in the [Gradient Descent for Agents](../theory.md) frame: whichever of the four gradients you just descended, you don't ship until the regularizer holds (docs synced, no cumulative drift, ship/don't-ship counter-case heard).
+
 ## Skills
 
-Primary: `docs-as-definition-of-done` (every commit). Secondary: `drift-detection` (release candidate / weekly / version bump). Tertiary: `dialectical-reasoning` (for ship/don't-ship final call).
+Primary: [`docs-as-definition-of-done`](../../skills/docs-as-definition-of-done/SKILL.md) (every commit — cross-cutting). Secondary: [`drift-detection`](../../skills/drift-detection/SKILL.md) (release candidate / weekly / version bump — outer-loop upstream check). Tertiary: [`dialectical-reasoning`](../../skills/dialectical-reasoning/SKILL.md) (for ship/don't-ship final call — cross-cutting).
 
 ## Per-commit gate — `docs-as-definition-of-done`
 

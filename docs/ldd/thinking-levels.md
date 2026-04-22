@@ -1,6 +1,12 @@
-# LDD Thinking Levels
+# LDD Thinking Levels — the step-size controller for the gradient descent
 
 > Authoritative reference for the 5-level auto-dispatch system. Reference spec: [`../superpowers/specs/2026-04-22-ldd-thinking-levels-design.md`](../superpowers/specs/2026-04-22-ldd-thinking-levels-design.md). Implementation: [`../../scripts/level_scorer.py`](../../scripts/level_scorer.py). Skill integration: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch: thinking-levels.
+
+## Where this sits in the framework
+
+**LDD is [gradient descent across four parameter spaces](../theory.md).** Thinking-levels is the **step-size controller** for that descent — it picks how much rigor to bring to the task *before* any of the four loops (inner / refinement / outer / CoT) starts descending. It is not a fifth loop; it is a learning-rate scheduler that sets `k_max` (inner-loop budget), `reproduce_runs`, `max_refinement_iterations`, `mode` (reactive vs. architect), and the skill floor (minimum set of skills that must fire for this task).
+
+A too-low level ships a symptom-patch on an axis that needed more iterations; a too-high level wastes tokens on a problem the reflex loop would have solved. The scorer encodes the asymmetric-loss rule "lieber ein klein wenig schlau als zu dumm" — bias upward on ties, because a missed gradient is more expensive than a wasted one.
 
 ## One-line summary
 

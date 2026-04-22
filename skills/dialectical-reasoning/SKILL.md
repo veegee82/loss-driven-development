@@ -3,13 +3,15 @@ name: dialectical-reasoning
 description: Use when making any non-trivial recommendation, analysis, plan, design decision, code-review note, or architectural trade-off — before presenting to the user or acting. Forces a thesis / antithesis / synthesis pass so first-pass conclusions cannot ship without surviving their strongest counter-case.
 ---
 
-# Dialectical-Reasoning
+# Dialectical-Reasoning — cross-cutting, applies on every gradient
 
 ## The Metaphor
 
 **The courtroom cross-examination.** A witness states their account — confident, coherent, believable. The defense attorney stands. She doesn't just listen politely: she probes the edges of the account, hunts for the inconsistencies, names the hidden assumptions. *If the account survives, it has been tested.* If it crumbles, the truth is narrower than the witness thought. No verdict without a cross-examination. No synthesis without an antithesis. First-pass reasoning that skips this step is uncalibrated; what feels right is not necessarily right.
 
 ## Overview
+
+**This is a cross-cutting discipline.** LDD has [four gradients](../../docs/theory.md) — code (inner), output (refinement), method (outer), thought (CoT) — and this skill fires on **all of them**. Every non-trivial recommendation, plan, diagnosis, or design trade-off on any axis passes through thesis → antithesis → synthesis before it is admissible output. The quantitative extension of this skill (v0.7.0) produces an `E[ΔL | thesis]` number that can be validated post-hoc — that is what makes [`dialectical-cot`](../dialectical-cot/SKILL.md) (the fourth-axis skill) possible: same protocol, applied per-step to the reasoning chain.
 
 First-pass reasoning tends to overfit to the framing of the prompt. A proposal that has not survived its own strongest counter-case is a **symptom patch at the reasoning layer** — it will look right and fail in production, code review, or the next conversation.
 

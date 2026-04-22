@@ -1,6 +1,6 @@
 # docs/ldd/ — LDD methodology reference
 
-This directory is the **canonical home for LDD methodology text**. Every LDD skill links back into here; every user-project that installs LDD should reference these files rather than copying methodology into their own docs (which would drift).
+This directory is the **canonical home for LDD methodology text** — the practitioner-facing part of the [**Gradient Descent for Agents**](../theory.md) framework. Every LDD skill links back into here; every user-project that installs LDD should reference these files rather than copying methodology into their own docs (which would drift). The long-form theory (four-loop architecture, formal loss, quantitative dialectic) lives in [`../theory.md`](../theory.md); this directory is the task-scoped practitioner cuts.
 
 ## What lives here
 
@@ -16,7 +16,8 @@ This directory is the **canonical home for LDD methodology text**. Every LDD ski
 | [`release.md`](./release.md) | Pre-commit / pre-release, drift scan | ~1 page |
 | [`incident.md`](./incident.md) | Production fire, fast-path diagnosis | ~1 page |
 | [`method-maintenance.md`](./method-maintenance.md) | Skill itself might be wrong — outer loop | ~1 page |
-| [`convergence.md`](./convergence.md) | Formal mental model: three loops, divergence patterns, drift taxonomy | ~5 pages (heavy reference) |
+| [`convergence.md`](./convergence.md) | Formal mental model: four loops, divergence patterns, drift taxonomy | ~5 pages (heavy reference) |
+| [`thinking-levels.md`](./thinking-levels.md) | Step-size controller — how the agent picks rigor per task (L0 reflex → L4 method) before any gradient descends | ~2 pages |
 | [`in-awp.md`](./in-awp.md) | You want to see LDD running in a full framework (AWP) | ~3 pages |
 
 ## How Claude Code (and other agents) use this

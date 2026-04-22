@@ -1,8 +1,10 @@
-# Loss-Driven Development (LDD) — Skills for any coding agent
+# Loss-Driven Development (LDD) — **Gradient Descent for Agents**
 
-**Twelve composable skills** for **loss-driven development** — the AI-era counterpart of TDD. Platform-agnostic content; multiple distribution formats so the same skills work in Claude Code, Codex, Gemini CLI, Aider, Cursor, Copilot CLI, and any agent that reads project-level instruction files.
+**Twelve composable skills** for **loss-driven development** — a full optimization discipline for coding agents, organized as **gradient descent across four parameter spaces**. Platform-agnostic content; multiple distribution formats so the same skills work in Claude Code, Codex, Gemini CLI, Aider, Cursor, Copilot CLI, and any agent that reads project-level instruction files.
 
-**The metaphor in one paragraph**: imagine a climber on a cloud-shrouded mountain (the codebase). She can't see the summit (`L = 0`) — only her altimeter, the local slope, her log book of past climbs, and a fellow climber asking hostile questions. LDD encodes those four instruments as a reasoning discipline: *measure before every step* (inner loop), *probe the slope from a hostile angle* (dialectical reasoning), *consult the log book for patterns* (project memory), and *calibrate predictions against observations* (drift detection). Full theory with metaphor → high-level → formulas: [`docs/theory.md`](./docs/theory.md).
+**Anchor**: LDD is gradient descent for agents. Four gradients, four loops — code (`∂L/∂code`, inner), deliverable (`∂L/∂output`, refinement), method (`∂L/∂method`, outer), reasoning chain (`∂L/∂thought`, CoT v0.8.0). A step-size controller ([thinking-levels](./docs/ldd/thinking-levels.md), v0.10.1) picks HOW MUCH rigor to apply before any loop starts.
+
+**The metaphor in one paragraph**: imagine a climber on a cloud-shrouded mountain (the codebase). She can't see the summit (`L = 0`) — only her altimeter, the local slope, her log book of past climbs, and a fellow climber asking hostile questions. LDD encodes those four instruments as a reasoning discipline — *measure before every step*, *probe the slope from a hostile angle*, *consult the log book for patterns*, *calibrate predictions against observations* — and generalizes the same discipline across **four parameter spaces** instead of one. Full theory with metaphor → four-loop architecture → formulas: [`docs/theory.md`](./docs/theory.md).
 
 ## What this is
 
@@ -78,17 +80,17 @@ Users can prefix any message with `LDD:` to guarantee bundle activation. The age
 
 ## Principle — one page
 
-Engineering is **gradient descent on code**. Tests are forward passes. The delta between expected and actual is the loss. Every edit is an SGD step — many are noise, not signal. A symptom patch that turns the current test green but violates a contract is **overfitting**: low training loss, high generalization loss. Rejected even when CI is green.
+Engineering with an AI agent is **gradient descent across four parameter spaces**. Tests / rubrics / critiques / eval harnesses are forward passes. The delta between expected and actual is the loss. Every edit — on code, on output, on method, or on a reasoning step — is an SGD step on one of the four axes. Many are noise, not signal. A symptom patch that turns the current test green but violates a contract is **overfitting**: low training loss, high generalization loss. Rejected even when CI is green.
 
 Docs are the **regularizer** — they pin the conceptual model; drift raises generalization loss silently.
 
-LDD separates **four** optimization loops: **inner** (θ = code), **refinement** (θ = deliverable, y-axis), **outer** (θ = skills / rubrics, θ-axis), **thought** (θ = reasoning chain, v0.8.0). Mixing them is the single biggest cause of "iterative work that never converges." Three navigational instruments layer on top without modifying the loss function:
+LDD separates **four** optimization loops: **inner** (`θ` = code, `∂L/∂code`), **refinement** (`y` = deliverable, `∂L/∂output`), **outer** (`m` = skills / rubrics, `∂L/∂method`), **CoT** (`t` = reasoning chain, `∂L/∂thought`, v0.8.0). Mixing them is the single biggest cause of "iterative work that never converges." Three navigational instruments layer on top without modifying the loss function:
 
 - **Project memory** (v0.5.2) — per-project aggregate at `.ldd/project_memory.json`; first-moment statistical priors over skill effectiveness
 - **Memory × dialectical coupling** (v0.6.0) — `prime-antithesis` surfaces memory-derived primers for the dialectical synthesis step; Bayesian-style `confidence(action) ∝ memory × dialectical × prior`
 - **Quantitative dialectic** (v0.7.0) — the synthesis step computes `E[Δloss | thesis]`, logs the prediction, and the aggregator computes `MAE` vs. observed Δloss; `drift_warning` when `MAE > 0.15` over `n ≥ 5`
 
-Full mental model: [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) (practitioner-facing) and [`docs/theory.md`](./docs/theory.md) (paper-style). Diagrams in [`diagrams/`](./diagrams/) — start with `three-loops.svg`, then `gradient-via-dialectic.svg`, `memory-dialectical-coupling.svg`, `calibration-feedback-loop.svg`.
+Full mental model: [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) (practitioner-facing) and [`docs/theory.md`](./docs/theory.md) (paper-style). Diagrams in [`diagrams/`](./diagrams/) — start with `four-axes-gradient-descent.svg` (the top-level picture), then `three-loops.svg` (code-axis detail), `dialectical-cot.svg` (CoT per-step protocol), `gradient-via-dialectic.svg`, `memory-dialectical-coupling.svg`, `calibration-feedback-loop.svg`.
 
 ## Methodology
 

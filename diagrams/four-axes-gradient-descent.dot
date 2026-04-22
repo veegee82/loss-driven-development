@@ -1,0 +1,88 @@
+digraph four_axes_gradient_descent {
+  rankdir=TB;
+  node [fontname="Helvetica", shape=box, style="rounded,filled"];
+  edge [fontname="Helvetica", fontsize=10, color="#888888"];
+  labelloc="t";
+  label=<<b>Gradient Descent for Agents — four parameter spaces, one discipline</b><br/><font point-size="10">LDD as the optimizer navigating code (θ), deliverable (y), method (m), and reasoning chain (t).</font>>;
+  fontname="Helvetica";
+  fontsize=14;
+
+  // Step-size controller sits above all four axes
+  subgraph cluster_scheduler {
+    label=<<b>step-size controller</b><br/><font point-size="9">picked per task, before any gradient descends</font>>;
+    style="rounded,filled"; fillcolor="#fff9e6"; color="#d4a017"; fontsize=11;
+    levels [
+      label=<<b>thinking-levels (v0.10.1)</b><br/><font point-size="9">9-signal scorer → L0 reflex · L1 diagnostic · L2 deliberate · L3 structural · L4 method<br/>sets k_max, reproduce_runs, max_refinement, mode, skill floor</font>>,
+      fillcolor="#ffffff"
+    ];
+  }
+
+  // The four axes
+  subgraph cluster_inner {
+    label=<<b>Inner loop — ∂L/∂code</b><br/><font point-size="9">θ = code of the current task</font>>;
+    style="rounded,filled"; fillcolor="#e8f4fd"; color="#1f77b4"; fontsize=11;
+    inner_param [label=<<b>θ</b><br/>code>, fillcolor="#ffffff"];
+    inner_loss [label="L = failing test,\ngate rejection,\nrubric violation", fillcolor="#ffffff"];
+    inner_grad [label="∇L via\nroot-cause-by-layer\n(5-layer ladder)", fillcolor="#ffffff"];
+    inner_budget [label="K_MAX = 5", fillcolor="#ffffff"];
+    inner_param -> inner_loss -> inner_grad -> inner_budget [style=invis];
+  }
+
+  subgraph cluster_refine {
+    label=<<b>Refinement loop — ∂L/∂output</b><br/><font point-size="9">y = deliverable of a completed run</font>>;
+    style="rounded,filled"; fillcolor="#fef4ea"; color="#ff7f0e"; fontsize=11;
+    refine_param [label=<<b>y</b><br/>deliverable>, fillcolor="#ffffff"];
+    refine_loss [label="L = critique defects\n+ gate rejections\n+ eval deltas", fillcolor="#ffffff"];
+    refine_grad [label="∇L = derived\ndefect list\n(not imagined)", fillcolor="#ffffff"];
+    refine_budget [label="halve per iter,\nstop on plateau", fillcolor="#ffffff"];
+    refine_param -> refine_loss -> refine_grad -> refine_budget [style=invis];
+  }
+
+  subgraph cluster_outer {
+    label=<<b>Outer loop — ∂L/∂method</b><br/><font point-size="9">m = skills / prompts / rubrics</font>>;
+    style="rounded,filled"; fillcolor="#f5ebfd"; color="#9467bd"; fontsize=11;
+    outer_param [label=<<b>m</b><br/>method>, fillcolor="#ffffff"];
+    outer_loss [label="L = mean_loss\nacross N-task suite", fillcolor="#ffffff"];
+    outer_grad [label="∇L via\nmethod-evolution\n+ drift-detection", fillcolor="#ffffff"];
+    outer_budget [label="N epochs,\nrollback on regression", fillcolor="#ffffff"];
+    outer_param -> outer_loss -> outer_grad -> outer_budget [style=invis];
+  }
+
+  subgraph cluster_cot {
+    label=<<b>CoT loop — ∂L/∂thought</b><br/><font point-size="9">t = reasoning chain (v0.8.0)</font>>;
+    style="rounded,filled"; fillcolor="#e6fbe6"; color="#2ca02c"; fontsize=11;
+    cot_param [label=<<b>t</b><br/>thought>, fillcolor="#ffffff"];
+    cot_loss [label="L = per-step dialectic\n+ ground-truth\nverification", fillcolor="#ffffff"];
+    cot_grad [label="∇L via\ndialectical-cot\n(commit / revise /\nbacktrack per step)", fillcolor="#ffffff"];
+    cot_budget [label="max_steps per chain,\nbacktracks ≤ 3", fillcolor="#ffffff"];
+    cot_param -> cot_loss -> cot_grad -> cot_budget [style=invis];
+  }
+
+  // Regularizer under all four
+  subgraph cluster_regularizer {
+    label=<<b>regularizer (applies on all four)</b>>;
+    style="rounded,filled"; fillcolor="#fdeaea"; color="#d62728"; fontsize=11;
+    reg [
+      label="contracts · layer boundaries · invariants · docs synced\nenforced by docs-as-definition-of-done (per commit)\nand drift-detection (periodic)",
+      fillcolor="#ffffff"
+    ];
+  }
+
+  // Connect scheduler to all four axes
+  levels -> inner_param [lhead=cluster_inner, label="L0..L4\npreset", fontsize=9, color="#d4a017"];
+  levels -> refine_param [lhead=cluster_refine, fontsize=9, color="#d4a017"];
+  levels -> outer_param [lhead=cluster_outer, fontsize=9, color="#d4a017"];
+  levels -> cot_param [lhead=cluster_cot, fontsize=9, color="#d4a017"];
+
+  // Connect each axis to regularizer
+  inner_budget -> reg [ltail=cluster_inner, label="close", style=dashed, fontsize=9];
+  refine_budget -> reg [ltail=cluster_refine, style=dashed, fontsize=9];
+  outer_budget -> reg [ltail=cluster_outer, style=dashed, fontsize=9];
+  cot_budget -> reg [ltail=cluster_cot, style=dashed, fontsize=9];
+
+  // Rule note
+  note [
+    label=<<b>Rule:</b> four axes are independent. Mixing them (inner-loop editing a weak deliverable,<br/>refinement polishing buggy code, outer-loop editing without a suite, greedy CoT<br/>on a verifiable task) produces unstable gradients. Name the axis before editing.>,
+    shape=note, fillcolor="#fff9e6", color="#d4a017"
+  ];
+}

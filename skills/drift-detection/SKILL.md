@@ -3,13 +3,15 @@ name: drift-detection
 description: Use periodically (weekly, at release candidates, before major version bumps) to scan a codebase for cumulative drift that no per-commit gate catches. Complements docs-as-definition-of-done, which prevents drift from being introduced per commit; this skill surfaces drift that already happened despite per-commit gates.
 ---
 
-# Drift-Detection
+# Drift-Detection — outer loop (`∂L/∂method`), periodic upstream check
 
 ## The Metaphor
 
 **The geologist, not the meteorologist.** The meteorologist watches yesterday's weather. The geologist reads the erosion patterns that took decades to form — features *no single rainstorm* could have produced. Cumulative drift is geological: twenty reasonable commits, each individually innocent, erode the codebase's coherence. No per-commit gate can catch it. Looking for drift requires a different timescale and a different instrument — the aggregate, not the diff.
 
 ## Overview
+
+In [Gradient Descent for Agents](../../docs/theory.md), this skill is the outer-loop sibling of [`method-evolution`](../method-evolution/SKILL.md): `method-evolution` moves `m = skills/rubrics` in response to patterns; `drift-detection` surfaces the patterns worth moving against. Together they own the **method axis**. The complementary per-commit regularizer is [`docs-as-definition-of-done`](../docs-as-definition-of-done/SKILL.md) — it prevents drift being introduced; this skill finds drift that snuck through anyway.
 
 **Drift is divergence on a timescale longer than one work session.** Twenty individually-reasonable commits can compose into a system whose mental model no longer matches the code. Per-commit gates (`docs-as-definition-of-done`) cannot catch it because no single commit violates a rule — the violation is the **cumulative pattern**.
 

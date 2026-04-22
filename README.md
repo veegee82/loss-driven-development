@@ -1,17 +1,17 @@
-# Loss-Driven Development (LDD)
+# Loss-Driven Development (LDD) — **Gradient Descent for Agents**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Plugin format: Claude Code · Codex · Gemini CLI](https://img.shields.io/badge/plugin-Claude%20Code%20·%20Codex%20·%20Gemini%20CLI-green.svg)](#installation)
 [![Δloss_bundle: 0.561 (normalized)](https://img.shields.io/badge/%CE%94loss__bundle-0.561-brightgreen.svg)](./tests/README.md#current-measurements)
-[![Skills: 10 + architect + entry](https://img.shields.io/badge/skills-10%20%2B%20architect%20%2B%20entry--point-blueviolet.svg)](./skills/)
-[![Theory](https://img.shields.io/badge/theory-%C2%A7%20SGD%20on%20code-informational.svg)](./docs/theory.md)
+[![Skills: 12 on four gradients](https://img.shields.io/badge/skills-12%20on%20four%20gradients-blueviolet.svg)](./skills/)
+[![Theory](https://img.shields.io/badge/theory-%C2%A7%20gradient%20descent%20for%20agents-informational.svg)](./docs/theory.md)
 
-> **LDD is to AI-era coding what TDD was to human coding.**
-> Ten portable skills (+ bootstrap entry-point) for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured* discipline where symptom patches, local-minimum traps, and silent code drift can't hide.
+> **LDD is gradient descent for coding agents.**
+> Twelve portable skills for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured optimization procedure* with a loss function, a gradient, a step-size rule, and a regularizer across **four parameter spaces**: code (`θ`), deliverable (`y`), method (`m`), and reasoning chain (`t`).
 
 ### The metaphor in one paragraph
 
-Imagine a climber on a cloud-shrouded mountain. The summit is `L = 0` (no rubric violations). She can't see the top, only her altimeter, the local slope, her log book of past steps, and a fellow climber asking hostile questions about her next move. **LDD encodes those four instruments** as a reasoning discipline: *measure before every step* (inner loop), *probe the slope from a hostile angle* (dialectical reasoning), *consult the log book for patterns* (project memory), and *calibrate predictions against observations* (drift detection). The full theory — metaphor, architecture, formulas — lives in [`docs/theory.md`](./docs/theory.md).
+Imagine a climber on a cloud-shrouded mountain. The summit is `L = 0` (no rubric violations). She can't see the top, only her altimeter, the local slope, her log book of past steps, and a fellow climber asking hostile questions about her next move. **LDD encodes those four instruments** — *measure before every step* ([inner loop](./docs/theory.md)), *probe the slope from a hostile angle* ([`dialectical-reasoning`](./skills/dialectical-reasoning/SKILL.md)), *consult the log book for patterns* (project memory), *calibrate predictions against observations* ([`drift-detection`](./skills/drift-detection/SKILL.md)) — and extends them across the **four gradients** the agent actually works on: code, output, method, and thought. The full theory — metaphor, four-axis architecture, formulas — lives in [`docs/theory.md`](./docs/theory.md).
 
 ### Install in 30 seconds (Claude Code)
 
@@ -26,9 +26,9 @@ Then prefix any message with `LDD:` — the agent announces which skill it's inv
 
 Full install for other agents (Codex · Gemini CLI · Aider · Cursor · …) below.
 
-### Zero-config thinking-levels (v0.10.1+)
+### Zero-config thinking-levels — the step-size controller (v0.10.1+)
 
-Every non-trivial task is now auto-scored onto a **5-step rigor ladder**: L0 reflex (typo fix) → L1 diagnostic (failing test) → L2 deliberate (default baseline) → L3 structural (cross-layer / architect) → L4 method (greenfield / inventive). You don't configure anything — the scorer reads the task text, picks a level, announces it:
+Before any of the four gradients starts descending, LDD picks **how much rigor to bring** to the task. Every non-trivial task is auto-scored onto a **5-step rigor ladder**: L0 reflex (typo fix) → L1 diagnostic (failing test) → L2 deliberate (default baseline) → L3 structural (cross-layer / architect) → L4 method (greenfield / inventive). This is the **learning-rate scheduler for the gradient descent**, not a fifth loop — it decides depth-of-deliberation before the first forward pass. You don't configure anything — the scorer reads the task text, picks a level, announces it:
 
 ```
 Dispatched: auto-level L3 (signals: greenfield=+3, components>=3=+2)
@@ -37,7 +37,7 @@ mode: architect, creativity: standard
 
 Override with one token when you disagree: `LDD+:` (one level up), `LDD++:` (two), `LDD=max:` (to L4), `LDD[level=L1]:` (explicit). Natural-language works too: `"take your time"`, `"denk gründlich"`, `"volle Kanne"`. The scorer is upward-biased on boundaries — better a hair too careful than silently too shallow. Full spec: [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md).
 
-> 📦 **Where this came from:** distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) ([`pip install awp-agents`](https://pypi.org/project/awp-agents/)), an open standard for multi-agent orchestration where all three LDD loops — inner, refinement, outer — are implemented as live SGD code, not metaphor. See [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one mapping, a concrete debugging case study, and how to try the framework itself.
+> 📦 **Where this came from:** distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) ([`pip install awp-agents`](https://pypi.org/project/awp-agents/)), an open standard for multi-agent orchestration where three of the four LDD gradients — inner, refinement, outer — are implemented as live SGD code, not metaphor. The fourth gradient (CoT, v0.8.0) extends the same discipline to the reasoning chain itself. See [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one mapping, a concrete debugging case study, and how to try the framework itself.
 
 ## Here's what an LDD session looks like
 
@@ -88,11 +88,13 @@ Four parallel visualization channels encode the same SGD descent at different gr
 
 Full format spec in [`skills/using-ldd/SKILL.md`](./skills/using-ldd/SKILL.md) § Loss visualization. Persistence + slash commands in [§ Live trace below](#live-trace--see-the-loop-happen-in-real-time). Renderer + executed E2E demo: [`scripts/demo-trace-chart.py`](./scripts/demo-trace-chart.py) and [`scripts/demo-e2e-trace.py`](./scripts/demo-e2e-trace.py) — both runnable with zero deps.
 
-![Three loops](./diagrams/three-loops.svg)
+![Four axes of gradient descent — code (θ), deliverable (y), method (m), reasoning chain (t) — with LDD as the optimizer](./diagrams/four-axes-gradient-descent.svg)
+
+![Three code-axis loops: inner (code), refinement (deliverable), outer (method)](./diagrams/three-loops.svg)
 
 ## The one-sentence pitch
 
-Every code change is an SGD step. Most agents optimize training loss (the visible test) and drive generalization loss (everything else) through the roof. **LDD installs a loss function, a gradient, a step-size rule, and a regularizer — so your agent's iteration converges instead of drifts.**
+**Gradient Descent for Agents.** Every code change, every output revision, every skill edit, every reasoning step is an SGD step on one of four parameter spaces. Most agents optimize training loss (the visible test) on one axis and drive generalization loss (everything else) through the roof on the other three. LDD installs a loss function, a gradient, a step-size rule, and a regularizer on **all four axes at once** — so your agent's iteration converges instead of drifts.
 
 ## Why you want this
 
@@ -105,49 +107,87 @@ Every code change is an SGD step. Most agents optimize training loss (the visibl
 | Same rubric violation across tasks; nobody notices | Outer-loop `method-evolution`: the skill itself is the bug |
 | README describes a system that no longer exists | Periodic `drift-detection` scan finds it before onboarding does |
 
-## The 10 reactive skills (+ architect-mode + `using-ldd` entry-point)
+## Twelve skills on four gradients
 
-![LDD skills overview — ten skills across three optimization loops, connected to the loop-driven-engineering entry-point and closed by docs-as-definition-of-done](./diagrams/skills-overview.svg)
+![LDD skills overview — skills across the three code-axis loops, connected to the loop-driven-engineering entry-point and closed by docs-as-definition-of-done](./diagrams/skills-overview.svg)
 
-| Skill | Type | What it catches |
-|---|---|---|
-| **using-ldd** | entry-point | Bootstraps the bundle and dispatches the others via trigger-phrase table; fires on `LDD:` prefix or any trigger match |
-| **loop-driven-engineering** | pattern (dach) | "Just start coding" without a plan or a budget |
-| **reproducibility-first** | discipline | Updates on a single noisy sample |
-| **root-cause-by-layer** | discipline | Symptom patches (try/except, shims, xfail, …) |
-| **loss-backprop-lens** | pattern | Local-minimum traps, overfitting, wrong step size |
-| **e2e-driven-iteration** | discipline | "I'll run the E2E at the end" — lost gradient |
-| **dialectical-reasoning** | discipline | One-sided recommendations that skip the counter-case |
-| **iterative-refinement** | pattern | Re-running from scratch when refinement is cheaper |
-| **method-evolution** | pattern | Patching individual tasks when the method itself is the bug |
-| **drift-detection** | pattern | Cumulative drift that no single commit introduced |
-| **docs-as-definition-of-done** | discipline | "I'll update docs in a follow-up PR" |
-| **architect-mode** *(opt-in, not default)* | discipline (5-phase) | Free-form "design doc" without constraint table, without non-goals, without 3-candidate comparison, without scoring, without failing-test scaffold. Greenfield design under discipline — **largest Δloss in the bundle (+10/10)**. Activate via `LDD[mode=architect]:` or `/ldd-architect` |
+Each skill belongs to one of the four gradients LDD optimizes across, plus a handful of cross-cutting disciplines that apply everywhere. First hop to the home doc for each axis: [`docs/theory.md`](./docs/theory.md) §2.
+
+### Inner loop — `∂L/∂code`
+
+The code axis. Fires on every bug / failing test / refactor with behavior change.
+
+| Skill | What it catches |
+|---|---|
+| [**reproducibility-first**](./skills/reproducibility-first/SKILL.md) | Updates on a single noisy sample |
+| [**root-cause-by-layer**](./skills/root-cause-by-layer/SKILL.md) | Symptom patches (try/except, shims, xfail, …) |
+| [**loss-backprop-lens**](./skills/loss-backprop-lens/SKILL.md) | Local-minimum traps, overfitting, wrong step size |
+| [**e2e-driven-iteration**](./skills/e2e-driven-iteration/SKILL.md) | "I'll run the E2E at the end" — lost gradient |
+| [**loop-driven-engineering**](./skills/loop-driven-engineering/SKILL.md) | "Just start coding" without a plan or a budget — the coordinator that dispatches the specialists above and hands off to the refinement / outer loops when the code axis is done |
+
+### Refinement loop — `∂L/∂output`
+
+The deliverable (y-axis). Fires when a document / diff / design / report is complete but "good enough, not great."
+
+| Skill | What it catches |
+|---|---|
+| [**iterative-refinement**](./skills/iterative-refinement/SKILL.md) | Re-running from scratch when targeted refinement is cheaper |
+
+### Outer loop — `∂L/∂method`
+
+The method axis (skills, prompts, rubrics). Fires when the same rubric violation appears across 3+ distinct tasks.
+
+| Skill | What it catches |
+|---|---|
+| [**method-evolution**](./skills/method-evolution/SKILL.md) | Patching individual tasks when the method itself is the bug |
+| [**drift-detection**](./skills/drift-detection/SKILL.md) | Cumulative drift that no single commit introduced |
+
+### CoT loop — `∂L/∂thought` *(v0.8.0, fourth axis)*
+
+The reasoning-chain axis. Fires on verifiable multi-step reasoning tasks (math, code, logic, proofs).
+
+| Skill | What it catches |
+|---|---|
+| [**dialectical-cot**](./skills/dialectical-cot/SKILL.md) | Greedy Chain-of-Thought — no per-step gradient check, no calibration loop, confirmation bias at every branch |
+
+### Cross-cutting disciplines
+
+Apply on every loop, at every step.
+
+| Skill | Role |
+|---|---|
+| [**using-ldd**](./skills/using-ldd/SKILL.md) | Entry-point. Bootstraps the bundle and dispatches the others via trigger-phrase table; fires on `LDD:` prefix or any trigger match |
+| [**dialectical-reasoning**](./skills/dialectical-reasoning/SKILL.md) | One-sided recommendations that skip the counter-case |
+| [**docs-as-definition-of-done**](./skills/docs-as-definition-of-done/SKILL.md) | "I'll update docs in a follow-up PR" — closes every loop |
+| [**define-metric**](./skills/define-metric/SKILL.md) *(v0.9.0)* | Ad-hoc arithmetic on observations; agent-defined metrics used as load-bearing gates before calibration has passed |
+| [**architect-mode**](./skills/architect-mode/SKILL.md) *(opt-in, not default)* | Free-form "design doc" without constraint table, without non-goals, without 3-candidate comparison, without scoring, without failing-test scaffold. Greenfield design under discipline — **largest Δloss in the bundle (+10/10)**. Activate via `LDD[mode=architect]:` or `/ldd-architect`, or via the thinking-levels auto-dispatch at L3/L4 |
 
 ## The philosophy in 60 seconds
 
-Engineering is **gradient descent on code**:
+Engineering with an AI agent is **gradient descent on four parameter spaces**:
 
-- A test / CI / E2E is a **forward pass**.
+- A test / CI / E2E / rubric / eval is a **forward pass**.
 - The delta between expected and actual is the **loss**.
-- Every edit is an **SGD step** — most are noise if you don't check them.
+- Every edit — on code, on output, on method, or on a reasoning step — is an **SGD step** on one of the four axes. Most are noise if you don't check them.
 - A symptom patch is **overfitting**: low training loss, high generalization loss. Rejected even when CI is green.
 - Docs are the **regularizer** — keep them in sync or generalization loss rises silently.
-- Budget (`K_MAX=5`) prevents descending past local minima into drift.
+- Budget (`K_MAX=5` inner-loop, halved-per-iter refinement, N-epoch outer, per-chain CoT backtrack cap) prevents descending past local minima into drift.
+- Step size is picked **per task** by the [thinking-levels](./docs/ldd/thinking-levels.md) scorer (L0…L4), not globally.
 
 Full mental model in [`docs/ldd/convergence.md`](./docs/ldd/convergence.md). The convergence conditions, the five divergence patterns, the drift taxonomy — all formally stated.
 
-## Three loops, not one
+## Four loops, not three
 
-Most "iterate on code" advice treats all edits the same. LDD separates three orthogonal optimization axes:
+Most "iterate on code" advice treats all edits the same. LDD separates **four orthogonal optimization axes**, each with its own parameter, loss, gradient, and budget:
 
-| Loop | You edit | When |
-|---|---|---|
-| **Inner** | The code | Every ordinary bug / feature / refactor |
-| **Refinement** (y-axis) | The deliverable (doc, diff, design) | "Good enough, not great" — polish with a real gradient |
-| **Outer** (θ-axis) | The skills / rubrics themselves | Same rubric violation across 3+ tasks |
+| Loop | You edit | Gradient | When |
+|---|---|---|---|
+| **Inner** | `θ` = the code | `∂L/∂code` via failing-test signal | Every ordinary bug / feature / refactor |
+| **Refinement** (y-axis) | `y` = the deliverable (doc, diff, design) | `∂L/∂output` via rubric + critique | "Good enough, not great" — polish with a real gradient |
+| **Outer** (m-axis) | `m` = the skills / rubrics themselves | `∂L/∂method` via N-task mean loss | Same rubric violation across 3+ tasks |
+| **CoT** (t-axis) *(v0.8.0)* | `t` = the reasoning chain itself | `∂L/∂thought` via per-step verification | Verifiable multi-step reasoning (math / code / logic / proofs) |
 
-Mixing them is the single biggest reason "iterate on the problem" never converges. LDD forces the question *which parameter am I changing*. Pictures in [`diagrams/`](./diagrams/).
+Mixing them is the single biggest reason "iterate on the problem" never converges. LDD forces the question *which parameter am I changing*. Pictures in [`diagrams/`](./diagrams/) — start with [`four-axes-gradient-descent.svg`](./diagrams/four-axes-gradient-descent.svg) for the top-level picture, then [`three-loops.svg`](./diagrams/three-loops.svg) for the code-axis detail and [`dialectical-cot.svg`](./diagrams/dialectical-cot.svg) for the CoT per-step protocol.
 
 ## Installation
 
@@ -207,6 +247,29 @@ gemini extensions install ./loss-driven-development
 
 Read ambient instruction files (`.cursorrules`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, project system prompts). Either reference the skills directory from your agent's instruction file, or copy the SKILL.md bodies inline. See [`AGENTS.md`](./AGENTS.md) for per-platform recipes.
 
+## Platform compatibility — where the skills load
+
+Skill content is portable markdown; only the distribution format differs. The honest state per platform:
+
+| Platform | On-the-fly install | Global install | Notes |
+|---|---|---|---|
+| **Claude Code** (CLI + IDE + Desktop) | `/plugin install loss-driven-development@loss-driven-development-dev` | Yes, plugin survives sessions | Full support — primary target. Auto-trigger via skill `description`, explicit via `/loss-driven-development:<skill>`. |
+| **OpenAI Codex** | Copy [`AGENTS.md`](./AGENTS.md) to project root, or symlink `skills/` into `~/.agents/skills/` if your Codex build supports it | Yes, per-project (AGENTS.md) or per-user (`~/.agents/skills/`) | Ambient loader. Every `skills/*/SKILL.md` body is discoverable once AGENTS.md is in scope. |
+| **Gemini CLI** | `gemini extensions install /path/to/loss-driven-development` | Yes, via extension | [`gemini-extension.json`](./gemini-extension.json) points at [`GEMINI.md`](./GEMINI.md) which `@`-imports every skill body. |
+| **Cursor / Aider / Copilot CLI / Continue.dev** | Reference `skills/*/SKILL.md` from the agent's instruction file (`.cursorrules`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, project system prompt) | Per-project | Works via ambient instruction files. Either reference the directory or copy skill bodies inline. |
+| **ChatGPT** (chat.openai.com web) | Paste the raw content of [`AGENTS.md`](./AGENTS.md) into **Custom GPT Instructions**, or reference a raw-GitHub URL from within a chat and ask the model to fetch it | Custom GPT only; no plugin-repo install | See "ChatGPT global install" below. |
+| **Claude.ai** (claude.ai web) | Paste into a **Project's Custom Instructions**, or reference raw-GitHub URLs from within a chat | Project-level only | Same shape as ChatGPT — no plugin mechanism; Project instructions is the closest analogue. |
+| **Any generic LLM app with a system prompt** | Paste the relevant `SKILL.md` bodies into the system prompt | Depends on host | Content is portable markdown — the distribution format is the only thing that varies. |
+
+### Can you tell ChatGPT "install me this skill globally, here's the repo link"?
+
+**No, not out-of-box.** ChatGPT does not have a plugin-repo install mechanism equivalent to Claude Code's `/plugin install`. The two closest equivalents are:
+
+1. **Custom GPT whose Instructions contain the `AGENTS.md` body.** This gives you a persistent, per-GPT skill loadout — every conversation started from that Custom GPT has LDD in its system prompt. This is the closest thing to a "global install" on the ChatGPT side. Trade-off: it is scoped **per Custom GPT** — if you switch to a different Custom GPT or the default ChatGPT, LDD is gone.
+2. **A chat where you paste the raw GitHub URL and tell the model to fetch it.** This works for a single conversation only — no persistence across sessions, no auto-trigger on future messages. It is the quickest way to demo LDD in ChatGPT but not a real install.
+
+**Recommendation:** if you want ChatGPT-style persistence, go the Custom GPT route. Copy the `AGENTS.md` body into the Custom GPT's Instructions field, add a line like *"Apply these LDD skills on every coding task"* at the top, and that Custom GPT becomes your LDD-aware ChatGPT until you edit it. The Claude.ai analogue is identical — paste into a Project's Custom Instructions instead.
+
 ## Methodology docs — `docs/ldd/`
 
 LDD's methodology text lives in one canonical place: [`docs/ldd/`](./docs/ldd/). Each task type has its own ~1-page compressed reference; the agent loads only what the current task needs, not the whole methodology.
@@ -222,8 +285,8 @@ LDD's methodology text lives in one canonical place: [`docs/ldd/`](./docs/ldd/).
 | [`docs/ldd/release.md`](./docs/ldd/release.md) | Pre-commit / pre-release / pre-merge |
 | [`docs/ldd/incident.md`](./docs/ldd/incident.md) | Production fire, fast-path |
 | [`docs/ldd/method-maintenance.md`](./docs/ldd/method-maintenance.md) | Outer-loop: the skill itself isn't working |
-| [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) | Heavy reference — three loops, divergence patterns, drift taxonomy |
-| [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md) | How the agent picks rigor per task (L0 reflex → L4 method) |
+| [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) | Heavy reference — four loops, divergence patterns, drift taxonomy |
+| [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md) | Step-size controller — how the agent picks rigor per task (L0 reflex → L4 method) before any gradient descends |
 | [`docs/ldd/in-awp.md`](./docs/ldd/in-awp.md) | Case study — LDD in AWP |
 
 This structure enforces single-source-of-truth for methodology text (no drift between skill bodies, README, and user docs). User-project `CLAUDE.md` / `AGENTS.md` should reference [`docs/ldd/task-types.md`](./docs/ldd/task-types.md) rather than copying methodology inline. See [`docs/ldd/README.md`](./docs/ldd/README.md) for integration notes.
@@ -565,13 +628,13 @@ Silvio Jurk — `silvio.jurk@googlemail.com` · [github.com/veegee82](https://gi
 
 ## The bigger picture — AWP
 
-LDD is the portable, platform-agnostic **discipline**. [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) is the full **runtime** this discipline came from — an open standard for multi-agent orchestration with two execution engines (DAG + delegation-loop), 36 normative rules, and **all three LDD loops implemented as live SGD code**:
+LDD is the portable, platform-agnostic **discipline**. [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) is the full **runtime** this discipline came from — an open standard for multi-agent orchestration with two execution engines (DAG + delegation-loop), 36 normative rules, and **three of the four LDD gradients implemented as live SGD code**:
 
 - **Inner loop** → AWP's budget-bounded work loop (`K_MAX = 5`, test pyramid, escalation)
 - **Refinement loop** → AWP's `awp refine <seed_run_dir>` — y-axis SGD on deliverables with critique-derived gradients
-- **Outer loop** → AWP's `awp optimize --with-textgrad` — θ-axis SGD on prompt artifacts with TextGrad as LLM-as-optimizer, rollback on regression
+- **Outer loop** → AWP's `awp optimize --with-textgrad` — m-axis SGD on prompt artifacts with TextGrad as LLM-as-optimizer, rollback on regression
 
-If LDD as discipline makes sense to you, AWP is what it looks like when the whole framework is built around it. Read [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one concept mapping, a concrete debugging case study, and install instructions.
+The fourth gradient (CoT, v0.8.0) is in LDD itself via [`dialectical-cot`](./skills/dialectical-cot/SKILL.md); AWP does not yet ship it as a runtime feature. If LDD as discipline makes sense to you, AWP is what it looks like when the whole framework is built around it. Read [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one concept mapping, a concrete debugging case study, and install instructions.
 
 ```bash
 pip install awp-agents && python -m awp studio

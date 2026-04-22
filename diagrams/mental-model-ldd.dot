@@ -3,21 +3,22 @@ digraph mental_model_ldd {
   node [fontname="Helvetica", shape=box, style="rounded,filled"];
   edge [fontname="Helvetica", fontsize=10];
   labelloc="t";
-  label=<<b>LDD mental model — gradient descent on code</b><br/><font point-size="10">One page: what is θ, what is the loss, what regularizes, what budgets.</font>>;
+  label=<<b>LDD mental model — Gradient Descent for Agents</b><br/><font point-size="10">One page: four parameter spaces, what is the loss, what regularizes, what budgets.</font>>;
   fontname="Helvetica";
 
   subgraph cluster_core {
-    label="core equation";
+    label="core equation (applied per axis)";
     style="rounded,filled"; fillcolor="#f5f5f5"; color="#333333";
-    eq [label="θ_{k+1} = θ_k  −  η · ∇L(θ_k)  +  regularizer(θ_k)", fillcolor="#ffffff", shape=box, fontname="Courier"];
+    eq [label="x_{k+1} = x_k  −  η · ∇L(x_k)  +  regularizer(x_k)\nwith x ∈ { θ code, y deliverable, m method, t thought }", fillcolor="#ffffff", shape=box, fontname="Courier"];
   }
 
   subgraph cluster_theta {
-    label=<<b>θ (what changes)</b>>;
+    label=<<b>parameter (what changes)</b>>;
     style="rounded,filled"; fillcolor="#e8f4fd"; color="#1f77b4";
-    theta_code [label="Inner:\ncode of current task"];
-    theta_deliv [label="Refinement:\ndeliverable of a run"];
-    theta_skill [label="Outer:\nskills / prompts / rubrics"];
+    theta_code [label="Inner (θ):\ncode of current task"];
+    theta_deliv [label="Refinement (y):\ndeliverable of a run"];
+    theta_skill [label="Outer (m):\nskills / prompts / rubrics"];
+    theta_thought [label="CoT (t, v0.8.0):\nreasoning chain"];
   }
 
   subgraph cluster_loss {
@@ -26,6 +27,7 @@ digraph mental_model_ldd {
     loss_inner [label="failing test,\ngate rejection,\nrubric violation"];
     loss_refine [label="critique defects\n+ gate rejections\n+ eval deltas"];
     loss_outer [label="mean_loss across\na task suite"];
+    loss_cot [label="per-step dialectic\n+ ground-truth\nverification"];
   }
 
   subgraph cluster_grad {
@@ -57,6 +59,8 @@ digraph mental_model_ldd {
     b_inner [label="Inner: K_MAX = 5"];
     b_refine [label="Refinement:\nhalve per iter,\nstop on regression/plateau"];
     b_outer [label="Outer: N epochs,\nrollback on regression"];
+    b_cot [label="CoT: per-chain\nmax_steps,\nbacktracks ≤ 3"];
+    b_ladder [label="thinking-levels L0..L4\n(step-size controller,\npicked before any loop)", fillcolor="#ffeecc"];
   }
 
   eq -> theta_code [style=invis];

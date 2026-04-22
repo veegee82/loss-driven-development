@@ -1,6 +1,6 @@
 # Task Types — the dispatch table
 
-This is the **single source of truth for "which MDs and which skills for which task"**. The skill `using-ldd` references this file; user-project `CLAUDE.md` / `AGENTS.md` should reference it too.
+This is the **single source of truth for "which MDs and which skills for which task"**. The skill [`using-ldd`](../../skills/using-ldd/SKILL.md) references this file; user-project `CLAUDE.md` / `AGENTS.md` should reference it too. Each task type maps to one of the [four gradients](../theory.md) LDD optimizes across — code (inner), deliverable (refinement), method (outer), or reasoning chain (CoT).
 
 ## The table
 

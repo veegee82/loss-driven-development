@@ -3,7 +3,7 @@ name: reproducibility-first
 description: Use when you have observed a failing test, a flaky run, a surprising log line, or any single-sample signal you are about to treat as a gradient. Forbids code edits based on one observation unless the log itself is unambiguous signal. Applies before invoking root-cause-by-layer or proposing any fix.
 ---
 
-# Reproducibility-First
+# Reproducibility-First — inner loop (`∂L/∂code`)
 
 ## The Metaphor
 
@@ -11,7 +11,7 @@ description: Use when you have observed a failing test, a flaky run, a surprisin
 
 ## Overview
 
-**One observation is not a gradient.** An LLM call is one sample of a distribution. A CI run is one sample of an intermittent fault. A failing test on your machine is one sample of your environment. Acting on a single sample is not SGD — it's noise injection.
+**One observation is not a gradient.** This skill is the first gate on the inner loop of [Gradient Descent for Agents](../../docs/theory.md) — it enforces the noise-suppression invariant before any downstream gradient-consuming skill ([`root-cause-by-layer`](../root-cause-by-layer/SKILL.md), [`loss-backprop-lens`](../loss-backprop-lens/SKILL.md), [`e2e-driven-iteration`](../e2e-driven-iteration/SKILL.md)) gets a turn. An LLM call is one sample of a distribution. A CI run is one sample of an intermittent fault. A failing test on your machine is one sample of your environment. Acting on a single sample is not SGD — it's noise injection.
 
 **Core principle:** before you use a failure as the basis for a code edit, you must either **(a)** reproduce it at least once more, or **(b)** prove the log is unambiguous signal that does not require repetition.
 

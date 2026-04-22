@@ -4,7 +4,7 @@ Load this when the user says: "the skill isn't catching this", "this pattern kee
 
 ## Skill
 
-Primary: `method-evolution` (outer-loop SGD on θ = skills / rubrics / prompts). Secondary: `drift-detection` (upstream check for whether the method itself has drifted).
+Primary: [`method-evolution`](../../skills/method-evolution/SKILL.md) — the **outer loop** (`∂L/∂method`), SGD on `m = skills / rubrics / prompts`. One of the [four gradients](../theory.md) LDD optimizes across; this one is triggered when the same rubric violation recurs across 3+ distinct tasks (inner loops won't help — the bug is in the method, not in any single task). Secondary: [`drift-detection`](../../skills/drift-detection/SKILL.md) (upstream check for whether the method itself has drifted). The outer loop is also the channel that handles violations of the reasoning-chain axis — if [`dialectical-cot`](../../skills/dialectical-cot/SKILL.md)'s chain-level calibration emits `drift_warning: true`, `method-evolution` is the corrective channel (adjust thresholds, regenerate primers, retune the step-evaluator skill).
 
 ## When it's the right loop — all of
 

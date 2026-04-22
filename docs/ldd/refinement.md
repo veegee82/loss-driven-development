@@ -4,7 +4,7 @@ Load this when the user says: "polish this", "this doc is okay but not great", "
 
 ## Skill
 
-Primary: `iterative-refinement`. This is the **y-axis loop** — you edit the deliverable, not the code and not the method.
+Primary: [`iterative-refinement`](../../skills/iterative-refinement/SKILL.md). This is the **refinement loop** on the `y`-axis — one of the [four gradients](../theory.md) LDD optimizes across. You edit the deliverable (`y`), not the code (inner, `θ`), not the method (outer, `m`), not the reasoning chain (CoT, `t`).
 
 ## When it's the right loop (all must hold)
 

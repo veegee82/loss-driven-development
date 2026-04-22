@@ -1,23 +1,25 @@
 ---
 name: loop-driven-engineering
-description: Use at the start of any non-trivial engineering task (feature, bugfix touching more than one file, refactor with observable behavior change, incident response). Orchestrates the three LDD loops — inner (code), refinement (deliverable), outer (method) — with hard iteration budgets, dispatches the specialist skills at the right moments, and forbids declaring "done" without a synced doc-level mental model.
+description: Use at the start of any non-trivial engineering task (feature, bugfix touching more than one file, refactor with observable behavior change, incident response). Orchestrates LDD's four loops — inner (code), refinement (deliverable), outer (method), CoT (reasoning chain, v0.8.0) — with hard iteration budgets, dispatches the specialist skills at the right moments, and forbids declaring "done" without a synced doc-level mental model.
 ---
 
 # Loop-Driven-Engineering
 
 ## The Metaphor
 
-**The flight controller guiding three nested loops.** The *inner loop* is the aircraft correcting pitch per second — direct edits to the code. The *refinement loop* is the approach pattern — polishing the landing without changing the aircraft. The *outer loop* is the training program that adjusts how pilots are taught — changing the skill itself. Each loop has its own budget, its own instruments, its own failure mode. The controller's first duty: *name which loop is active.* Confusion about which loop you're in is the canonical engineering error.
+**The flight controller guiding four nested loops.** LDD is [Gradient Descent for Agents](../../docs/theory.md) and this skill is the coordinator. The *inner loop* is the aircraft correcting pitch per second — direct edits to the code (`∂L/∂code`). The *refinement loop* is the approach pattern — polishing the landing without changing the aircraft (`∂L/∂output`). The *outer loop* is the training program that adjusts how pilots are taught — changing the skill itself (`∂L/∂method`). The *CoT loop* (v0.8.0) is the pilot's own step-by-step reasoning during the descent — each thought gated before it commits (`∂L/∂thought`). Each loop has its own budget, its own instruments, its own failure mode. The controller's first duty: *name which loop is active.* Confusion about which loop you're in is the canonical engineering error.
 
 ## Overview
 
-Engineering is **three loops**, not one. You plan, you try, you measure, you diagnose, you try again — on the **code axis** (inner loop), the **deliverable axis** (refinement), and the **method axis** (outer loop). The thing that separates good engineering from flailing is choosing the right loop for the current loss, respecting each loop's budget, and not smuggling one loop's edits into another's.
+Engineering with an AI agent is **gradient descent across four parameter spaces**, not one. You plan, you try, you measure, you diagnose, you try again — on the **code axis** (inner loop, `θ`), the **deliverable axis** (refinement, `y`), the **method axis** (outer loop, `m`), and the **reasoning-chain axis** (CoT loop, `t`, v0.8.0). This skill is the entry-point and coordinator: it picks which loop is active for the current task, dispatches the specialists, enforces the budget, and closes the loop only when regularizers hold.
+
+The [thinking-levels auto-dispatch](../../docs/ldd/thinking-levels.md) (v0.10.1) runs *before* this skill and picks the rigor level (L0…L4) — that is the step-size scheduler for the whole optimizer. This skill runs *inside* the chosen level and orchestrates the actual descent.
 
 **Core principle:** the loop closes when applicable gates are green **and** the doc-level mental model is current. Not when one test passes. Not when "it looks right." Not when the LLM sounds confident.
 
 This skill is a **flexible pattern**, not a rigid procedure. Use judgment; adapt the structure to the task. But the budget, the escalation rule, and the loop-separation rule are hard.
 
-See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) for the three-loop model in full, and [`../../diagrams/three-loops.svg`](../../diagrams/three-loops.svg) for the picture.
+See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) for the four-loop model in full, [`../../diagrams/four-axes-gradient-descent.svg`](../../diagrams/four-axes-gradient-descent.svg) for the top-level picture, and [`../../diagrams/three-loops.svg`](../../diagrams/three-loops.svg) for the code-axis detail.
 
 ## When to Use
 
@@ -35,9 +37,9 @@ Do **not** use for:
 - Pure lookups or explanations
 - Tasks already framed by a written plan you're executing verbatim
 
-## The Three Loops
+## The Four Loops
 
-LDD has three loops, each on a different parameter axis. Pick **one** at the start; running multiple simultaneously produces unstable gradients.
+LDD has four loops, each on a different parameter axis. Pick **one** at the start; running multiple simultaneously produces unstable gradients. See [`../dialectical-cot/SKILL.md`](../dialectical-cot/SKILL.md) for the CoT loop (reasoning-chain axis, v0.8.0), which fires on verifiable multi-step reasoning tasks and is orthogonal to the three code-side loops below.
 
 ### Inner Loop (θ = code, the default)
 

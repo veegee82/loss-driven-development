@@ -2,9 +2,11 @@
 
 Load this when the user says: "refactor", "redesign", "rewrite", "extract", "split into modules", "merge modules", "clean up this", "this module is tangled".
 
+This is the **inner loop** (`∂L/∂code`) under pressure — the one axis where step-size miscalibration shows up the fastest. See [`../theory.md`](../theory.md) for the optimization frame.
+
 ## Skill
 
-Primary: `loss-backprop-lens` — calibrate step size honestly. Secondary: `root-cause-by-layer` — scope the change. Tertiary: `method-evolution` — if the refactor is itself a recurring pattern across the codebase, the problem may be methodological.
+Primary: [`loss-backprop-lens`](../../skills/loss-backprop-lens/SKILL.md) — calibrate step size honestly. Secondary: [`root-cause-by-layer`](../../skills/root-cause-by-layer/SKILL.md) — scope the change. Tertiary: [`method-evolution`](../../skills/method-evolution/SKILL.md) — if the refactor is itself a recurring pattern across the codebase, the problem is on the **method axis** (outer loop), not the code axis, and you should stop and invoke `method-evolution` properly with a suite.
 
 ## The core question — what is the loss pattern?
 

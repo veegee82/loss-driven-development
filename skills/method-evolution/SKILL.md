@@ -3,7 +3,7 @@ name: method-evolution
 description: Use when the same rubric violation, the same kind of symptom-patch, or the same escalation happens across 3+ distinct tasks — meaning the problem is in the method (skill, prompt, rubric), not in the tasks. Forces a disciplined outer-loop step: name the pattern, propose a skill/rubric change, measure Δloss before and after, roll back on regression.
 ---
 
-# Method-Evolution
+# Method-Evolution — the outer loop (`∂L/∂method`)
 
 ## The Metaphor
 
@@ -11,13 +11,15 @@ description: Use when the same rubric violation, the same kind of symptom-patch,
 
 ## Overview
 
+**This skill is the third gradient of [Gradient Descent for Agents](../../docs/theory.md).** Siblings: inner-loop skills move `θ = code`, [`iterative-refinement`](../iterative-refinement/SKILL.md) moves `y = deliverable`, [`dialectical-cot`](../dialectical-cot/SKILL.md) moves `t = reasoning chain`. This skill moves `m = method` — the skills, prompts, rubrics themselves. It is the rarest and most load-bearing of the four loops — the only one that can actually improve the bundle over time, and the corrective channel when any of the other three loops systematically drifts (including the thinking-levels scorer, see automatic trigger below).
+
 If your agent keeps making the same kind of mistake across completely different tasks, the mistake is not in the tasks — it's in the **method** that's instructing the agent. That means a skill is too vague, a rubric is too permissive, a prompt lets a rationalization slip through.
 
 Updating the task fixes *this* bug. Updating the method fixes the bug *and* prevents the next 10.
 
-**Core principle:** method-evolution is SGD on the **θ-axis** (the skills, prompts, rubrics themselves), not the inner-loop code axis or the refinement y-axis. It is the rarest and most load-bearing of the three loops — and the only one that can actually improve the bundle over time.
+**Core principle:** method-evolution is SGD on the **m-axis** (the skills, prompts, rubrics themselves), not the inner-loop code axis, the refinement y-axis, or the CoT t-axis. It is the rarest and most load-bearing of the four loops — and the only one that can actually improve the bundle over time.
 
-See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §1 for the three-loop model and §3.4 for the "moving-target loss" anti-pattern that this skill prevents.
+See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §1 for the four-loop model and §3.4 for the "moving-target loss" anti-pattern that this skill prevents.
 
 ## When to Use
 

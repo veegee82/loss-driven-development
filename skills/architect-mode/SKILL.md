@@ -3,13 +3,15 @@ name: architect-mode
 description: Use when the user wants an architecture, design, or structure invented from requirements — greenfield service, new module, system decomposition, or the conceptual/structural layer "between X and Y" where X is the problem and Y is the delivered system. NOT the default mode. Opt-in via four paths — inline `LDD[mode=architect]:` prefix, the `/ldd-architect` command, trigger phrases like "design" / "architect" / "from scratch" / "greenfield", or the thinking-levels auto-dispatch landing at L3 or L4 (9-signal scorer; see `../using-ldd/SKILL.md` § Auto-dispatch: thinking-levels). Supports three creativity levels (`conservative` | `standard` | `inventive`) that change the loss function, not the amount of structure.
 ---
 
-# Architect Mode
+# Architect Mode — opt-in discipline, orthogonal to the four loops
 
 ## The Metaphor
 
 **The city planner before the first brick.** The mason lays walls well — straight, plumb, mortar set. But the mason does not decide where the streets go, where the market belongs, which districts connect to the harbour. That is the city planner's work: constraints survey → exclusions map (non-goals) → three alternative plans on a load-bearing axis → scoring → chosen plan → initial scaffold that proves the plan can be built. Build without a plan and the city is a maze. LDD's reactive stack is the mason; architect-mode is the city planner — opt-in, five rigid phases, creativity as a choice of loss function not an amount of permissiveness.
 
 ## Overview
+
+In [Gradient Descent for Agents](../../docs/theory.md), architect-mode is **not a fifth loop** — it is a separate invocation path that computes loss over the **space of possible designs** rather than over an existing artifact. The four-axis structure (code / output / method / thought) still applies *after* architect-mode closes: Phase 5 hands the failing tests to the inner loop (`θ = code`), the architecture doc becomes a candidate for refinement (`y = output`) later, and if three greenfield runs repeat the same rubric violation pattern, `method-evolution` evolves architect-mode itself (`m = method`).
 
 LDD's default stack is **reactive**: it measures loss on existing code and drives a gradient-descent fix-loop. Architect mode **inverts** this — the loss is computed over the **space of possible designs** for a stated problem, not over an existing artifact. The agent's role shifts from pathologist to constructor.
 

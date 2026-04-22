@@ -1,12 +1,21 @@
-# Theory of Loss-Driven Development
+# Theory of Loss-Driven Development — **Gradient Descent for Agents**
 
-**A discipline for AI-era software engineering, framed as stochastic gradient descent on code.**
+**A discipline for AI-era software engineering, framed as stochastic gradient descent across four parameter spaces.**
 
 ---
 
 ## Abstract
 
-Loss-Driven Development (LDD) treats every engineering task as optimization: a **loss function** defined by rubric violations, a **parameter space** defined by the code, and a set of **operators** (skills) that take gradient-descent-like steps against the loss. The discipline enforces that every step is *measured* (reproducible), *directional* (informed by a gradient estimate), and *bounded* (budget-limited). v0.7.0 extends the framework with **quantitative dialectic**: the synthesis step of dialectical reasoning now produces an expected-loss number that can be validated post-hoc, closing the calibration loop between the agent's internal priors and the observed world.
+**Loss-Driven Development is gradient descent for coding agents.** Coding agents are stochastic, and the code they produce is an optimization target. LDD installs the four missing pieces of a working optimizer: a **loss function** (rubric violations + test outcomes + critique defects + eval deltas), a **gradient estimate** (structured diagnosis from symptom to structural origin), a **step-size rule** (edit aggressiveness matched to the loss pattern), and a **regularizer** (contracts, layer boundaries, docs). Every engineering task becomes an optimization problem; every code change becomes an SGD step that is either signal or noise.
+
+LDD separates **four nested optimization loops**, each acting on a different parameter space:
+
+- **Inner loop** — optimizes `θ = code` against failing tests (`∂L/∂code`).
+- **Refinement loop** — optimizes `y = deliverable` against rubric + critique (`∂L/∂output`).
+- **Outer loop** — optimizes `m = skills / prompts / rubrics` against N-task loss (`∂L/∂method`).
+- **CoT loop** *(v0.8.0)* — optimizes `t = reasoning chain` against per-step verification (`∂L/∂thought`).
+
+A fifth mechanism, the **thinking-levels auto-dispatch** (v0.10.1), decides HOW MUCH rigor to apply *before* any loop starts — it is the step-size controller of the gradient descent, not a fifth loop. v0.7.0 made the discipline self-calibrating via **quantitative dialectic**: synthesis now produces an expected-loss number that is validated post-hoc, closing the loop between the agent's internal priors and the observed world.
 
 LDD is a **skill** — a reasoning protocol, not a framework. The discipline lives in the skill text. The accompanying Python tool (`ldd_trace`) exists only to make compliance ergonomic.
 
@@ -31,18 +40,20 @@ LDD encodes these four behaviors. Every other specialist skill (`root-cause-by-l
 
 ---
 
-## 2. High-Level Structure
+## 2. High-Level Structure — Four Gradients, Four Loops
 
-LDD is organized as **four nested optimization loops**, each with its own parameter space:
+LDD is organized as **four nested optimization loops**, each operating on a distinct parameter space, each with its own loss function, gradient source, and budget. The word "gradient" is meant literally: each loop produces a directional signal that reduces loss against its rubric.
 
-| Loop | What is optimized | Gradient source | Budget |
-|---|---|---|---|
-| **Inner** (`θ` = code) | A code change makes a failing signal pass | Rubric / test outcomes | K_MAX = 5 iterations |
-| **Refinement** (`y` = deliverable) | A "good enough" artifact becomes "great" | Review rubric on the deliverable itself | Halved per iteration, stops on plateau |
-| **Outer** (`θ` = skill definition) | A recurring rubric violation across N tasks becomes a skill/rubric change | Cross-task statistics (`project_memory.json`) | Triggers at N ≥ 3 tasks |
-| **Thought** (`θ` = reasoning chain) *(v0.8.0)* | Each step of a chain-of-thought reaches the correct answer | Per-step dialectical synthesis with ground-truth calibration | Per-chain `max_steps`; backtracks capped at 3 |
+| Loop | Parameter | Gradient (`∂L/∂·`) | Loss source | Budget | Home skill(s) |
+|---|---|---|---|---|---|
+| **Inner** | `θ` = code | `∂L/∂code` | Rubric / failing test / E2E | K_MAX = 5 iterations | [`reproducibility-first`](../skills/reproducibility-first/SKILL.md), [`root-cause-by-layer`](../skills/root-cause-by-layer/SKILL.md), [`loss-backprop-lens`](../skills/loss-backprop-lens/SKILL.md), [`e2e-driven-iteration`](../skills/e2e-driven-iteration/SKILL.md), [`loop-driven-engineering`](../skills/loop-driven-engineering/SKILL.md) |
+| **Refinement** | `y` = deliverable output | `∂L/∂output` | Critique defects + gate rejections + eval deltas | Halved per iteration, stops on plateau | [`iterative-refinement`](../skills/iterative-refinement/SKILL.md) |
+| **Outer** | `m` = skill / prompt / rubric | `∂L/∂method` | `mean_loss` across an N-task suite | N epochs; rollback on regression | [`method-evolution`](../skills/method-evolution/SKILL.md), [`drift-detection`](../skills/drift-detection/SKILL.md) |
+| **CoT** *(v0.8.0)* | `t` = reasoning chain | `∂L/∂thought` | Per-step dialectic + ground-truth verification | Per-chain `max_steps`; backtracks ≤ 3 | [`dialectical-cot`](../skills/dialectical-cot/SKILL.md) |
 
-Orthogonal to the three loops, LDD provides **navigational instruments** that refine the gradient estimate without biasing the loss function:
+**Step-size controller** — an independent mechanism decides **how much of the apparatus to spin up** before any loop begins. The [`thinking-levels`](./ldd/thinking-levels.md) auto-dispatch (v0.10.1) scores the task on 9 signals and picks a rigor level L0…L4; L0 runs a minimal reflex loop, L4 activates `method-evolution`, `dialectical-cot`, and `define-metric` on top of everything else. The thinking-levels mechanism is not a fifth loop — it is the **learning-rate scheduler for the gradient descent**, deciding depth-of-deliberation ahead of the first forward pass.
+
+Orthogonal to all four loops, LDD provides **navigational instruments** that refine the gradient estimate without biasing the loss function:
 
 | Instrument | SGD analog | Role |
 |---|---|---|
@@ -54,7 +65,7 @@ Orthogonal to the three loops, LDD provides **navigational instruments** that re
 
 **Bias invariant** (load-bearing): none of these instruments may modify the loss function `L(θ)`. They inform the search for the gradient; they do not redefine progress.
 
-See `diagrams/three-loops.svg` for the loop-nesting diagram.
+See `../diagrams/three-loops.svg` for the loop-nesting diagram across inner / refinement / outer (the three code-axis loops), `../diagrams/dialectical-cot.svg` for the CoT-loop's per-step protocol, and `../diagrams/four-axes-gradient-descent.svg` for the full four-axis parameter-space picture.
 
 ---
 
@@ -404,4 +415,4 @@ The theory is the specification; the code is an ergonomic shim that makes the sp
 
 ---
 
-*See `diagrams/gradient-via-dialectic.svg`, `diagrams/memory-dialectical-coupling.svg`, `diagrams/calibration-feedback-loop.svg`, `diagrams/three-loops.svg` for visual intuition.*
+*See `diagrams/four-axes-gradient-descent.svg` (top-level picture), `diagrams/three-loops.svg` (code-axis detail), `diagrams/dialectical-cot.svg` (CoT per-step protocol), `diagrams/gradient-via-dialectic.svg`, `diagrams/memory-dialectical-coupling.svg`, and `diagrams/calibration-feedback-loop.svg` for visual intuition.*

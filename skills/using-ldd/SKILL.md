@@ -3,17 +3,24 @@ name: using-ldd
 description: Use whenever the user prefixes a message with "LDD:" or mentions LDD, loss-driven development, loss, gradient, SGD on code, drift, refinement loop, outer loop, inner loop, method evolution, or "apply LDD". Bootstrap / entry-point skill that explains how to dispatch the other LDD skills and the trigger-phrase table they respond to.
 ---
 
-# Using LDD — the bundle entry-point
+# Using LDD — the bundle entry-point for **Gradient Descent for Agents**
 
 ## The Metaphor
 
-**The conductor before the orchestra.** Twelve instruments sit ready — violins (`reproducibility-first`), brass (`root-cause-by-layer`), percussion (`loss-backprop-lens`), a vocalist who sings counter-arguments (`dialectical-reasoning`). The conductor plays none of them. She picks *which* and *when* each enters, watches the composition (the loss curve), and cues the next instrument from the score (the trace). `using-ldd` is the conductor. Every other skill is an instrument.
+**The conductor before the orchestra.** Twelve instruments sit ready — violins ([`reproducibility-first`](../reproducibility-first/SKILL.md)), brass ([`root-cause-by-layer`](../root-cause-by-layer/SKILL.md)), percussion ([`loss-backprop-lens`](../loss-backprop-lens/SKILL.md)), a vocalist who sings counter-arguments ([`dialectical-reasoning`](../dialectical-reasoning/SKILL.md)), a second vocalist who sings the per-step dialectic for reasoning chains ([`dialectical-cot`](../dialectical-cot/SKILL.md)). The conductor plays none of them. She picks *which* and *when* each enters, watches the composition (the loss curve), and cues the next instrument from the score (the trace). `using-ldd` is the conductor. Every other skill is an instrument on one of the four axes of the gradient descent.
 
 ## Overview
 
-Loss-Driven Development (LDD) is a ten-skill bundle that treats code changes as SGD steps and forbids overfitting to the current test. This entry-skill exists so you (the agent) know **when to reach for which LDD skill** without the user having to name each one by hand.
+Loss-Driven Development (LDD) is **[Gradient Descent for Agents](../../docs/theory.md)** — a twelve-skill bundle that treats code changes, output revisions, skill edits, and reasoning steps as SGD steps on four distinct parameter spaces, and forbids overfitting to the current test. This entry-skill exists so you (the agent) know **when to reach for which LDD skill** without the user having to name each one by hand. It also owns the [thinking-levels auto-dispatch](../../docs/ldd/thinking-levels.md) (v0.10.1), the step-size controller that picks rigor (L0…L4) per task before any gradient descends.
 
-**Core principle:** if the user prefixes their message with `LDD:` or mentions any of the trigger phrases below, LDD discipline is explicitly requested. Match their intent to the right sub-skill and announce which one you are applying.
+**Core principle:** if the user prefixes their message with `LDD:` or mentions any of the trigger phrases below, LDD discipline is explicitly requested. Match their intent to the right sub-skill and announce which one you are applying. The four-loop structure is:
+
+- **Inner** (`θ` = code, `∂L/∂code`) — [`reproducibility-first`](../reproducibility-first/SKILL.md), [`root-cause-by-layer`](../root-cause-by-layer/SKILL.md), [`loss-backprop-lens`](../loss-backprop-lens/SKILL.md), [`e2e-driven-iteration`](../e2e-driven-iteration/SKILL.md), [`loop-driven-engineering`](../loop-driven-engineering/SKILL.md)
+- **Refinement** (`y` = deliverable, `∂L/∂output`) — [`iterative-refinement`](../iterative-refinement/SKILL.md)
+- **Outer** (`m` = method, `∂L/∂method`) — [`method-evolution`](../method-evolution/SKILL.md), [`drift-detection`](../drift-detection/SKILL.md)
+- **CoT** (`t` = reasoning chain, `∂L/∂thought`, v0.8.0) — [`dialectical-cot`](../dialectical-cot/SKILL.md)
+- **Cross-cutting** — [`dialectical-reasoning`](../dialectical-reasoning/SKILL.md), [`docs-as-definition-of-done`](../docs-as-definition-of-done/SKILL.md), [`define-metric`](../define-metric/SKILL.md) (v0.9.0)
+- **Opt-in** — [`architect-mode`](../architect-mode/SKILL.md) (5-phase greenfield discipline; reached via L3/L4 preset or explicit flag)
 
 ## Trigger phrases (user → skill mapping)
 
@@ -548,15 +555,16 @@ Format: `*Invoking <skill-name>*: <one-line reason>.`
 
 Example: `*Invoking root-cause-by-layer*: the symptom is a contract-violation `TypeError`; walking the 5-layer ladder before proposing a fix.`
 
-## The three loops — which one is active
+## The four loops — which one is active
 
-LDD distinguishes three optimization loops. Name which one you're in before iterating:
+LDD distinguishes **four optimization loops** across four parameter spaces (see [Gradient Descent for Agents](../../docs/theory.md)). Name which one you're in before iterating:
 
-| Loop | You edit | When |
-|---|---|---|
-| **Inner** | Code | Ordinary bug / feature / refactor |
-| **Refinement** (y-axis) | A deliverable (doc, diff, design) | "Good enough, not great" — polish |
-| **Outer** (θ-axis) | A skill / rubric | Same rubric violation across ≥3 tasks |
+| Loop | Parameter | You edit | When |
+|---|---|---|---|
+| **Inner** | `θ` = code | Code | Ordinary bug / feature / refactor |
+| **Refinement** | `y` = deliverable | A deliverable (doc, diff, design) | "Good enough, not great" — polish |
+| **Outer** | `m` = method | A skill / rubric | Same rubric violation across ≥3 tasks |
+| **CoT** *(v0.8.0)* | `t` = reasoning chain | Reasoning steps themselves | Verifiable multi-step reasoning (math / code / logic / proofs) |
 
 If you cannot name which loop is active, stop and ask. Running the wrong loop wastes budget and can regress the artifact.
 

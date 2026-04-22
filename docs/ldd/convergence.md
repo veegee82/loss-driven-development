@@ -1,34 +1,40 @@
-# Convergence — the mental model behind LDD
+# Convergence — the mental model behind **Gradient Descent for Agents**
 
-Why does iterative coding sometimes converge on a clean solution and sometimes drift into a swamp? This document gives the formal answer and the operational consequences.
+Why does iterative coding sometimes converge on a clean solution and sometimes drift into a swamp? This document gives the formal answer and the operational consequences. The optimization frame is spelled out in full in [`../theory.md`](../theory.md); this file is the practitioner-facing cut focused on convergence conditions and failure modes.
 
-> **If you only read one sentence:** iterative coding converges when the loss is defined, the gradient is honest, the step size matches the loss pattern, and regularizers (contracts, docs, layer boundaries) outweigh the pull of local optima. Remove any one of those and you diverge.
+> **If you only read one sentence:** iterative coding converges when the loss is defined, the gradient is honest, the step size matches the loss pattern, and regularizers (contracts, docs, layer boundaries) outweigh the pull of local optima. Remove any one of those and you diverge — on any of the four axes.
 
 See also:
 - [`../evaluation.md`](../evaluation.md) — the formal loss function per skill
-- [`../diagrams/three-loops.svg`](../diagrams/three-loops.svg) — Inner / Refinement / Outer at a glance
+- [`../diagrams/four-axes-gradient-descent.svg`](../diagrams/four-axes-gradient-descent.svg) — the four-axis picture: code (θ), deliverable (y), method (m), thought (t)
+- [`../diagrams/three-loops.svg`](../diagrams/three-loops.svg) — Inner / Refinement / Outer (the three code-side loops) at a glance
+- [`../diagrams/dialectical-cot.svg`](../diagrams/dialectical-cot.svg) — the CoT loop's per-step protocol
 - [`../diagrams/convergence-vs-divergence.svg`](../diagrams/convergence-vs-divergence.svg) — the same task ending two different ways
 - [`../diagrams/code-drift-mechanism.svg`](../diagrams/code-drift-mechanism.svg) — how local-optimal commits compose into global incoherence
 
-## 1. Three loops, three parameter spaces
+## 1. Four loops, four parameter spaces
 
-Working on a system under LDD is gradient descent on **three orthogonal axes**. Each has its own parameters θ, its own loss, its own budget, and its own stopping criteria. Mixing them produces unstable gradients.
+Working on a system under LDD is gradient descent on **four orthogonal axes**. Each has its own parameters, its own loss, its own budget, and its own stopping criteria. Mixing them produces unstable gradients.
 
-| Loop | θ (what changes per iteration) | Loss | Budget | When to enter |
-|---|---|---|---|---|
-| **Inner Loop** | The **code** of the current task | Rubric of the concrete failing test / E2E run | `K_MAX = 5` iterations per task | Any non-trivial engineering task |
-| **Refinement (y-axis)** | The **deliverable** (output) of an already-completed run | Critique defects + gate rejections + evaluation deltas on that deliverable | Halve per iteration; stop on regression × 2, plateau × 2, wall-time × 2 | When a deliverable is "good enough but not great" and a re-run from scratch would be wasteful |
-| **Outer Loop (θ-axis)** | The **skills / prompts / rubrics** themselves | `mean_loss` across a suite of tasks | N epochs, rollback on regression, learning-rate halved on rollback | When the same rubric violation recurs in 3+ distinct tasks |
+| Loop | Parameter | `∂L/∂·` | Loss | Budget | When to enter |
+|---|---|---|---|---|---|
+| **Inner Loop** | `θ` = **code** of the current task | `∂L/∂code` | Rubric of the concrete failing test / E2E run | `K_MAX = 5` iterations per task | Any non-trivial engineering task |
+| **Refinement (y-axis)** | `y` = **deliverable** (output) of an already-completed run | `∂L/∂output` | Critique defects + gate rejections + evaluation deltas on that deliverable | Halve per iteration; stop on regression × 2, plateau × 2, wall-time × 2 | When a deliverable is "good enough but not great" and a re-run from scratch would be wasteful |
+| **Outer Loop (m-axis)** | `m` = the **skills / prompts / rubrics** themselves | `∂L/∂method` | `mean_loss` across a suite of tasks | N epochs, rollback on regression, learning-rate halved on rollback | When the same rubric violation recurs in 3+ distinct tasks |
+| **CoT Loop (t-axis)** *(v0.8.0)* | `t` = **reasoning chain** (thought trajectory) | `∂L/∂thought` | Per-step dialectic + ground-truth verification | Per-chain `max_steps`; backtracks ≤ 3 | Verifiable multi-step reasoning (math / code / logic / proofs) |
 
-### Why three loops, not one
+**Step-size controller (not a fifth loop):** [`thinking-levels`](./thinking-levels.md) picks L0…L4 per task before any of the four loops begins. It sets `k_max`, `reproduce_runs`, `max_refinement_iterations`, `mode`, and the skill floor. Think of it as the learning-rate scheduler for the whole optimizer.
 
-A bug in your code is not the same as a weak deliverable, and neither is the same as a weak method. Treating them with the same optimizer is the single biggest cause of "iterative work that never converges":
+### Why four loops, not one
+
+A bug in your code is not the same as a weak deliverable, is not the same as a weak method, is not the same as a weak reasoning step. Treating them with the same optimizer is the single biggest cause of "iterative work that never converges":
 
 - **Inner loop applied to a good deliverable** → over-editing, introducing regressions to chase a phantom bug.
 - **Refinement applied to buggy code** → polishing output that will break next release.
 - **Outer loop applied without a suite** → anecdotal skill changes that make this task better and others worse.
+- **Greedy CoT applied to a verifiable multi-step task** → groupthink at every branch; error surfaces only at the final answer, without a per-step gradient to guide the next chain. See [`../../skills/dialectical-cot/SKILL.md`](../../skills/dialectical-cot/SKILL.md).
 
-The three-loop model forces the question: *which parameter am I actually changing?* If you can't answer that, stop before you edit.
+The four-loop model forces the question: *which parameter am I actually changing?* If you can't answer that, stop before you edit.
 
 ## 2. Convergence conditions
 
@@ -150,17 +156,18 @@ Full per-type spec in [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd
 
 ## 6. Practical reading order for a new contributor
 
-1. `README.md` — what LDD is for.
-2. This document — why it's shaped the way it is.
-3. `diagrams/three-loops.svg` — the mental picture.
-4. `skills/loop-driven-engineering/SKILL.md` — the inner loop, the entry point.
-5. `skills/root-cause-by-layer/SKILL.md` + `skills/loss-backprop-lens/SKILL.md` — the gradient mechanics.
-6. The remaining skills as the work requires them.
-7. `evaluation.md` + `tests/` — when you're ready to measure.
+1. `README.md` — what LDD is for ("Gradient Descent for Agents").
+2. [`../theory.md`](../theory.md) — the long-form optimization frame.
+3. This document — why the four-loop model is shaped the way it is.
+4. `diagrams/four-axes-gradient-descent.svg` — the top-level picture; then `three-loops.svg` (code-axis detail) and `dialectical-cot.svg` (CoT per-step protocol).
+5. `skills/loop-driven-engineering/SKILL.md` — the inner loop, the entry point.
+6. `skills/root-cause-by-layer/SKILL.md` + `skills/loss-backprop-lens/SKILL.md` — the gradient mechanics.
+7. The remaining skills as the work requires them.
+8. `evaluation.md` + `tests/` — when you're ready to measure.
 
-## 7. Architect mode — a fourth invocation path with per-task loss-function selection
+## 7. Architect mode — a separate invocation path with per-task loss-function selection
 
-The three loops above all minimize `L = rubric_violations` (with layer-specific rubric items). [`architect-mode`](../../skills/architect-mode/SKILL.md) adds a fourth invocation path where the loss function itself is **task-configurable** via the `creativity` sub-parameter:
+The four loops above all minimize `L = rubric_violations` on their respective parameter spaces (with layer-specific rubric items per axis). [`architect-mode`](../../skills/architect-mode/SKILL.md) adds a separate invocation path — orthogonal to the axis structure, not a fifth loop — where the loss function itself is **task-configurable** via the `creativity` sub-parameter:
 
 ```
 creativity=conservative  →  L = rubric_violations + λ · novelty_penalty
@@ -181,7 +188,7 @@ The ML-lens framing holds: every work session is still gradient descent on code.
 
 ## 8. Navigational instruments — memory, dialectic, calibration (v0.5.2 – v0.7.0)
 
-The three loops and architect-mode's creativity levels describe *what* is optimized. A separate layer of the framework describes *how the agent navigates* the θ-space — refining the gradient estimate without modifying `L(θ)`. Three instruments, each orthogonal to the loop structure.
+The four loops and architect-mode's creativity levels describe *what* is optimized. A separate layer of the framework describes *how the agent navigates* each parameter space — refining the gradient estimate without modifying `L(·)`. Three instruments, each orthogonal to the loop structure.
 
 ### 8.1 Metaphor — back to the climber
 

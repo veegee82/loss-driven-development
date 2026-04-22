@@ -1,6 +1,6 @@
 # LDD in AWP — where this came from, and what it looks like at scale
 
-> **TL;DR.** Loss-Driven Development is distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol), an open standard for multi-agent orchestration. AWP *runs* these principles on a 200k-line codebase with a delegation-loop engine, a refinement mode that is literal SGD on outputs, and an outer-loop optimizer that is literal SGD on prompts. If LDD makes sense to you at the skill level, AWP shows what it looks like when the whole system is built around it.
+> **TL;DR.** Loss-Driven Development is distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol), an open standard for multi-agent orchestration. AWP *runs* the LDD discipline on a 200k-line codebase: three of the [four gradients](../theory.md) — inner, refinement, outer — are implemented as live SGD code (delegation loop + `awp refine` + `awp optimize --with-textgrad`). The fourth gradient (CoT, v0.8.0) is in LDD itself via `dialectical-cot`; AWP does not yet ship it as a runtime feature. If LDD's Gradient-Descent-for-Agents framing makes sense to you at the skill level, AWP shows what it looks like when the whole system is built around it.
 
 - **GitHub:** [`veegee82/agent-workflow-protocol`](https://github.com/veegee82/agent-workflow-protocol)
 - **PyPI:** [`awp-agents`](https://pypi.org/project/awp-agents/) — `pip install awp-agents && python -m awp studio`
@@ -65,13 +65,15 @@ Workflows sit on an axis from A0 (fully prescribed DAG) through A4 (self-organiz
 
 Why it matters: the autonomy-spectrum idea is more general than AWP. If you build multi-agent systems, this is the clearest formalism I know.
 
-### 3.3 Three real SGD loops in code
+### 3.3 Three of the four SGD loops in code
 
-The three-loop model in [`docs/ldd/convergence.md`](./convergence.md) is **not theoretical** in AWP. All three are implemented:
+The four-loop model in [`docs/ldd/convergence.md`](./convergence.md) is **not theoretical** in AWP — three of the four gradients are implemented as running code:
 
-- **Inner loop** — the DAG engine and the delegation-loop engine in `packages/awp-runtime/src/awp/runtime/`
-- **Refinement loop** — `awp refine`, authoritative at [`docs/refinement.md`](https://github.com/veegee82/agent-workflow-protocol/blob/main/docs/refinement.md)
-- **Outer loop** — `awp optimize --with-textgrad`, code at [`packages/awp-runtime/src/awp/outer_loop/`](https://github.com/veegee82/agent-workflow-protocol/tree/main/packages/awp-runtime/src/awp/outer_loop)
+- **Inner loop** (`∂L/∂code`) — the DAG engine and the delegation-loop engine in `packages/awp-runtime/src/awp/runtime/`
+- **Refinement loop** (`∂L/∂output`) — `awp refine`, authoritative at [`docs/refinement.md`](https://github.com/veegee82/agent-workflow-protocol/blob/main/docs/refinement.md)
+- **Outer loop** (`∂L/∂method`) — `awp optimize --with-textgrad`, code at [`packages/awp-runtime/src/awp/outer_loop/`](https://github.com/veegee82/agent-workflow-protocol/tree/main/packages/awp-runtime/src/awp/outer_loop)
+
+The fourth gradient (**CoT loop**, `∂L/∂thought`, v0.8.0) is in LDD itself via [`skills/dialectical-cot/SKILL.md`](../../skills/dialectical-cot/SKILL.md); AWP does not yet ship it as a runtime feature — an open item for a future AWP version.
 
 If you want to see an LLM-based SGD-on-prompts run live, clone AWP, run `awp optimize` on one of the example suites, and watch epoch-by-epoch `mean_loss` change.
 

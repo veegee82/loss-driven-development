@@ -3,7 +3,7 @@ name: e2e-driven-iteration
 description: Use at the start of every inner-loop iteration where the goal is to fix a bug / close a failing test / reach a green E2E. Forbids editing code without first running the E2E to capture a fresh loss signal, and forbids declaring "done" without the E2E passing. Makes the cycle "E2E → loss → 5-why-by-layer → fix → E2E" the only admissible rhythm.
 ---
 
-# E2E-Driven-Iteration
+# E2E-Driven-Iteration — inner loop (`∂L/∂code`), the forward-pass cadence
 
 ## The Metaphor
 
@@ -11,7 +11,7 @@ description: Use at the start of every inner-loop iteration where the goal is to
 
 ## Overview
 
-The existing dach-skill `loop-driven-engineering` says "run E2E when warranted." That's too soft. Under time pressure, "warranted" silently becomes "never" and the iteration degrades into blind-patching based on stale assumptions.
+In [Gradient Descent for Agents](../../docs/theory.md), the E2E run **is the forward pass**. Every iteration of the inner loop has one: it produces the loss number this iteration descends against. This skill enforces the rhythm *measure → diagnose → fix → measure* inside [`loop-driven-engineering`](../loop-driven-engineering/SKILL.md). The existing dach-skill says "run E2E when warranted." That's too soft. Under time pressure, "warranted" silently becomes "never" and the iteration degrades into blind-patching based on stale assumptions.
 
 **Core principle:** when you are in a fix-loop (trying to close a failing signal), **every iteration begins and ends with an E2E run of the failing case**. The E2E is the forward pass; its output is the loss; the delta between iterations is the gradient signal that tells you whether the last edit helped or regressed.
 

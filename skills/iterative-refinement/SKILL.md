@@ -3,13 +3,15 @@ name: iterative-refinement
 description: Use when a deliverable (document, diff, design, report, code module) is complete but "good enough, not great" and you want to improve it with a targeted re-iteration instead of starting over. Forbids re-running the task from scratch when refinement is more efficient. Operates on the y-axis (output) not the θ-axis (code or method).
 ---
 
-# Iterative-Refinement
+# Iterative-Refinement — the refinement loop (`∂L/∂output`)
 
 ## The Metaphor
 
 **The stone carver polishing the sculpture.** Three weeks of rough work produced the form. Now the surface needs smoothing, the corners tightening, the subtle curve emphasized. A stone carver who *starts over from the block* because "it's still not perfect" has failed to understand the work. So has the engineer who *reruns the whole task* when the deliverable is already 90% right. Polish, don't rebuild. Small tool, small stroke, one facet at a time, until the plateau appears.
 
 ## Overview
+
+**This skill is the second gradient of [Gradient Descent for Agents](../../docs/theory.md).** The parameter is `y` = the deliverable (doc / diff / design / report / module). The loss is `critique defects + gate rejections + eval deltas`. The gradient is derived deterministically from the previous output — not imagined. Siblings: inner-loop skills move `θ = code`, [`method-evolution`](../method-evolution/SKILL.md) moves `m = skills`, [`dialectical-cot`](../dialectical-cot/SKILL.md) moves `t = reasoning chain`.
 
 Most agents, when told "this is okay but can be better," do one of two wrong things:
 
@@ -18,7 +20,7 @@ Most agents, when told "this is okay but can be better," do one of two wrong thi
 
 **Core principle:** refinement is a *second* gradient-descent pass, on the **y-axis** (the deliverable itself), using a **specific gradient** derived from the previous output's defects. The inputs, the task, the code, the skills — all held fixed. Only the deliverable changes.
 
-This is the skill-level equivalent of `awp refine` (AWP's normative refinement mode). See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §1 for the three-loop model.
+This is the skill-level equivalent of `awp refine` (AWP's normative refinement mode). See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) §1 for the four-loop model.
 
 ## When to Use
 
@@ -92,10 +94,11 @@ Refinement runs **under a budget** — unlike code fix-loops, refinement is asym
 
 | Situation | Right loop | Why |
 |---|---|---|
-| Code is buggy, test fails | Inner loop (`loop-driven-engineering`) | θ = code. Fix it. |
-| Code is fine, doc output is weak | **Refinement** | θ = the doc. Revise it. |
-| Same rubric violation across 5 projects | Outer loop (`method-evolution`) | θ = the skill. Evolve it. |
-| Agent produced a plan that's almost right | **Refinement** | θ = the plan. Sharpen it. |
+| Code is buggy, test fails | Inner loop (`loop-driven-engineering`) | `θ` = code. Fix it. |
+| Code is fine, doc output is weak | **Refinement** | `y` = the doc. Revise it. |
+| Same rubric violation across 5 projects | Outer loop (`method-evolution`) | `m` = the skill. Evolve it. |
+| Multi-step reasoning with verifiable answer | CoT loop ([`dialectical-cot`](../dialectical-cot/SKILL.md)) | `t` = the reasoning chain. Gate each step. |
+| Agent produced a plan that's almost right | **Refinement** | `y` = the plan. Sharpen it. |
 | Agent produced a plan for the wrong problem | Re-plan via `dialectical-reasoning` | Problem framing is wrong; don't refine. |
 | README says X but code does Y | `docs-as-definition-of-done` | Contract violation, not a refinement target. |
 

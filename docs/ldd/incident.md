@@ -2,6 +2,8 @@
 
 Load this when the user says: "production is down", "incident", "outage", "customers seeing errors", "on-call page", "hot-fix", "fire drill", or anything implying real users affected right now.
 
+Incidents are the **inner loop** under hard time pressure, with a mandatory outer-loop kickoff after close. Customer impact is the loss; the [Gradient Descent for Agents](../theory.md) discipline does not relax under pressure — what changes is the mitigation-before-diagnosis rule below.
+
 ## Skill cascade (incident-compressed)
 
 Same skills as [`debugging.md`](./debugging.md), but the budgets are tighter and one rule changes:

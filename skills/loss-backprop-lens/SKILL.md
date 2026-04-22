@@ -3,7 +3,7 @@ name: loss-backprop-lens
 description: Use when deciding whether to edit code at all, how large the edit should be, or whether a "working" fix actually generalizes. Applies when iterating on a failing test/run, chasing a flake, committing a sequence of small patches, or tempted to ship on one data point. Frames code changes as gradient steps and forbids overfitting to a single sample or a single test.
 ---
 
-# Loss-Backprop-Lens
+# Loss-Backprop-Lens — inner loop (`∂L/∂code`), the step-size calibrator
 
 ## The Metaphor
 
@@ -11,7 +11,7 @@ description: Use when deciding whether to edit code at all, how large the edit s
 
 ## Overview
 
-Working on a codebase is **gradient descent on code**. A test / CI run / E2E is a **forward pass**. The difference between expected and actual is the **loss**. Every edit is a **step** toward lower loss. This is not a metaphor — it dictates which edits are admissible and which are noise injected into your parameters.
+This skill is the **ML lens of the ML lens** — it is the skill that names [LDD's optimization frame](../../docs/theory.md) out loud and enforces it at the step-size decision. Working on a codebase is **gradient descent on code** (the first of LDD's [four gradients](../../docs/ldd/convergence.md)). A test / CI run / E2E is a **forward pass**. The difference between expected and actual is the **loss**. Every edit is a **step** toward lower loss. This is not a metaphor — it dictates which edits are admissible and which are noise injected into your parameters.
 
 **Core principle:** A fix that reduces training loss (the current failing test) but raises generalization loss (future unseen inputs or sibling tests) is **overfitting** and is rejected, regardless of whether CI turns green.
 

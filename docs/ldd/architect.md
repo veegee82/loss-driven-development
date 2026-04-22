@@ -2,6 +2,8 @@
 
 Load this when the user wants **structure / design / architecture invented** for a problem that has no existing code, or when they explicitly scope out existing code and ask "what should this be?". This is LDD's **opt-in constructive mode** — reactive LDD stays the default.
 
+In the [Gradient Descent for Agents](../theory.md) frame, architect-mode is not a fifth gradient — it is a separate invocation path that computes loss over the **space of possible designs** rather than over an existing artifact. The four-axis loop structure still applies after Phase 5 hands off: the failing tests in the scaffold become `loss_0` for the inner loop; the doc is a y-axis deliverable that can be refined later; if three greenfield runs show the same rubric-violation pattern, `method-evolution` evolves architect-mode itself on the m-axis.
+
 ## When to use
 
 - Greenfield system / new module / new service — no existing scaffold

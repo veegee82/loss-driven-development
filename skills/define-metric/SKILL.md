@@ -3,7 +3,7 @@ name: define-metric
 description: Use when the agent or the user wants to introduce a new measurable quantity as a first-class loss component — e.g., tracking cyclomatic complexity alongside test_pass_rate, or adding a domain-specific rubric to a reasoning chain. Forbids ad-hoc arithmetic on observations and forbids using a new metric as a load-bearing decision gate until calibration has passed. Extends LDD's loss framework to agent-defined objectives without touching LDD core.
 ---
 
-# Define-Metric
+# Define-Metric — cross-cutting, extends [Gradient Descent for Agents](../../docs/theory.md) to agent-defined objectives
 
 ## The Metaphor
 
@@ -12,6 +12,8 @@ description: Use when the agent or the user wants to introduce a new measurable 
 An uncalibrated instrument looks exactly like a calibrated one — until you use it to make a real decision. That's the failure mode this skill prevents.
 
 ## Overview
+
+**This skill extends LDD's loss framework to new parameter spaces without touching LDD core.** The [four standard gradients](../../docs/ldd/convergence.md) — code / output / method / thought — each come with their own default loss (failing tests, rubric violations, `mean_loss` across a suite, per-step verification). This skill lets an agent add new first-class loss components (complexity, latency, vuln count, accessibility score) via the Metric Algebra, calibrate them over N observations, and only then let them decide anything load-bearing. The same bias-invariance and calibration discipline that keeps the four standard gradients honest applies to agent-authored ones.
 
 v0.9.0 introduces **Metric Algebra** — five primitives (`Metric`, `Loss`, `Signal`, `Estimator`, `Calibrator`) that generalize every specific loss mechanism from v0.5.1 through v0.8.0. With this skill, an agent can:
 

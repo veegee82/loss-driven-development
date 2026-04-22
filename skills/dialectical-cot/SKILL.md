@@ -3,7 +3,7 @@ name: dialectical-cot
 description: Use when a reasoning task requires a multi-step Chain-of-Thought (CoT) AND the task is verifiable (grounded answer, testable code, derivable proof). Forbids greedy step-by-step commitment — every step in the chain goes through thesis/antithesis/synthesis BEFORE entering the chain, using memory-primed antitheses to attack the proposed step. Produces a calibrated predicted-correctness per step and per chain. Applies SGD-on-thoughts in the same way `dialectical-reasoning` applies SGD-on-actions.
 ---
 
-# Dialectical-CoT
+# Dialectical-CoT — the fourth axis of [Gradient Descent for Agents](../../docs/theory.md)
 
 ## The Metaphor
 
@@ -13,7 +13,9 @@ A climber without the probe-listen-commit rhythm is not faster than one with it.
 
 ## Overview
 
-A Chain-of-Thought (CoT) is a trajectory in reasoning-space: `θ_0 → θ_1 → ... → θ_N` where each `θ_k` is the partial reasoning state after step `k`. Standard CoT is greedy-SGD on this trajectory — each step maximizes local plausibility, no gradient-check.
+**This skill is the fourth gradient.** Inner-loop skills (`reproducibility-first`, `root-cause-by-layer`, `loss-backprop-lens`, `e2e-driven-iteration`) compute `∂L/∂code`. [`iterative-refinement`](../iterative-refinement/SKILL.md) computes `∂L/∂output`. [`method-evolution`](../method-evolution/SKILL.md) computes `∂L/∂method`. This skill — `dialectical-cot` — computes **`∂L/∂thought`**: the parameter is the reasoning chain itself, and the loss is per-step dialectical-synthesis error measured against ground truth. Same discipline (thesis / antithesis / synthesis / calibration) as every other LDD gradient, applied to a different parameter space.
+
+A Chain-of-Thought (CoT) is a trajectory in reasoning-space: `t_0 → t_1 → ... → t_N` where each `t_k` is the partial reasoning state after step `k`. Standard CoT is greedy-SGD on this trajectory — each step maximizes local plausibility, no gradient-check.
 
 Dialectical-CoT applies the LDD quantitative-dialectic protocol (v0.7.0) at *every step* in the chain. Each step:
 

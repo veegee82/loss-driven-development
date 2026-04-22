@@ -54,9 +54,9 @@ You are in a project that has LDD available. On every non-trivial task:
 
 ## The shortest possible summary
 
-**LDD = SGD on code. If your edit is not a real gradient step (reproducible signal + honest diagnosis + right step size + regularizers intact), it's noise injected into the codebase.**
+**LDD = Gradient Descent for Agents.** SGD across four parameter spaces — code (inner), deliverable (refinement), method (outer), reasoning chain (CoT). If your edit is not a real gradient step on a named axis (reproducible signal + honest diagnosis + right step size + regularizers intact), it's noise injected into that parameter space.
 
-That sentence is the whole bundle. Everything else is scaffolding to keep the sentence honest under pressure.
+That sentence is the whole bundle. Everything else — the four loops, the twelve skills, the thinking-levels auto-dispatch, the trace-block format — is scaffolding to keep the sentence honest under pressure. Long-form theory: [`../theory.md`](../theory.md).
 
 ## Five-minute installed-and-working checklist
 

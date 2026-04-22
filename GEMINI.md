@@ -1,10 +1,11 @@
-# Loss-Driven Development — Skills for Gemini CLI
+# Loss-Driven Development — Skills for Gemini CLI · **Gradient Descent for Agents**
 
-Twelve skills: ten reactive disciplines across three optimization loops (inner / refinement / outer), one opt-in `architect-mode` for greenfield design, and the `using-ldd` entry-point which is loaded first and explains how to dispatch the others (including the `LDD:` buzzword and the `mode=architect` hyperparameter).
+Twelve skills organized as **gradient descent across four parameter spaces**: inner-loop specialists (code-axis), `iterative-refinement` (deliverable-axis), `method-evolution` + `drift-detection` (method-axis), `dialectical-cot` (reasoning-chain-axis, v0.8.0), cross-cutting disciplines (`dialectical-reasoning`, `docs-as-definition-of-done`, `define-metric`), plus the opt-in `architect-mode` and the `using-ldd` entry-point that dispatches the rest via the `LDD:` buzzword and the thinking-levels auto-dispatch (v0.10.1, the step-size controller).
 
-**Metaphor**: the climber on a cloud-shrouded mountain has four navigational instruments — altimeter (measured loss), compass (gradient direction), log book (project memory), and a hostile fellow climber (dialectical reasoning). A fifth practice — calibration — compares predicted to observed altitude change after every step. Full theory: [`docs/theory.md`](./docs/theory.md).
+**Metaphor**: the climber on a cloud-shrouded mountain has four navigational instruments — altimeter (measured loss), compass (gradient direction), log book (project memory), and a hostile fellow climber (dialectical reasoning). A fifth practice — calibration — compares predicted to observed altitude change after every step. LDD generalizes that discipline across four distinct parameter spaces at once. Full theory: [`docs/theory.md`](./docs/theory.md).
 
 @./skills/using-ldd/SKILL.md
+@./skills/bootstrap-userspace/SKILL.md
 @./skills/loop-driven-engineering/SKILL.md
 @./skills/reproducibility-first/SKILL.md
 @./skills/root-cause-by-layer/SKILL.md

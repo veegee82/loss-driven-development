@@ -19,18 +19,18 @@ loss-driven-development
 
 ### One-line description (for the `/plugin > Discover` listing)
 ```
-LDD — the AI-era counterpart of TDD. Twelve portable skills — ten reactive disciplines (inner / refinement / outer loops) + one opt-in architect-mode for greenfield design + the using-ldd entry-point — that force an agent through a measured gradient-descent work loop, blocking symptom patches, local-minimum traps, and silent code drift.
+LDD — Gradient Descent for Agents. Twelve portable skills across four parameter spaces (code / deliverable / method / reasoning chain) that force an agent through a measured gradient-descent work loop, blocking symptom patches, local-minimum traps, and silent code drift.
 ```
 
 ### Longer description (for the plugin page)
 ```
-Loss-Driven Development treats every code change as an SGD step and forbids overfitting to the currently-visible test. The bundle installs a loss function, a gradient (5-Why-by-Layer), a step-size rule (local vs. architectural edit), and regularizers (contracts, layer boundaries, docs-as-DoD) so your agent's iteration converges instead of drifts.
+Loss-Driven Development is Gradient Descent for Agents. Every code change, every output revision, every skill edit, every reasoning step is an SGD step on one of four parameter spaces. The bundle installs a loss function, a gradient (5-Why-by-Layer), a step-size rule (local vs. architectural edit, picked per task by the thinking-levels auto-dispatch), and regularizers (contracts, layer boundaries, docs-as-DoD) so your agent's iteration converges instead of drifts.
 
-Ten reactive-discipline skills across three orthogonal optimization loops: inner (code), refinement (deliverable), outer (methodology). Plus one opt-in `architect-mode` for greenfield design and the `using-ldd` entry-point with a trigger-phrase table that dispatches the right skill for the task. Users prefix any message with "LDD:" to guarantee activation; the agent announces every skill invocation.
+Twelve skills organized across four orthogonal optimization loops: inner (code, ∂L/∂code), refinement (deliverable, ∂L/∂output), outer (methodology, ∂L/∂method), CoT (reasoning chain, ∂L/∂thought, v0.8.0). Plus cross-cutting disciplines (dialectical-reasoning, docs-as-definition-of-done, define-metric v0.9.0), the opt-in architect-mode for greenfield design, and the using-ldd entry-point with a trigger-phrase table that dispatches the right skill for the task. Users prefix any message with "LDD:" to guarantee activation; the agent announces every skill invocation.
 
 Measured Δloss_bundle = 0.561 normalized (mean fraction of rubric violations each skill removes) across all 11 discipline skills; target ≥ 0.30 met with margin. Per-skill normalized Δloss ranges 0.250 → 1.000. All RED/GREEN rubric artifacts on disk in `tests/fixtures/`; inter-reviewer sampling, tier-3.9 E2E capture, and `capture-clean-baseline.py` + `capture-red-green.py` tooling included.
 
-Distilled from AWP (Agent Workflow Protocol), a multi-agent orchestration framework where the same three loops run as live SGD code.
+Distilled from AWP (Agent Workflow Protocol), a multi-agent orchestration framework where three of the four gradients (inner, refinement, outer) run as live SGD code.
 ```
 
 ### Category

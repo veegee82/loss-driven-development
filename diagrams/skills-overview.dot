@@ -4,7 +4,7 @@ digraph skills_overview {
   node [fontname="Helvetica", shape=box, style="rounded,filled", fontsize=11];
   edge [fontname="Helvetica", fontsize=10, color="#888888"];
   labelloc="t";
-  label=<<b>LDD — ten skills across three optimization loops</b>>;
+  label=<<b>LDD — twelve skills on four gradients</b><br/><font point-size="10">Inner (code) · Refinement (deliverable) · Outer (method) · CoT (reasoning chain, v0.8.0)<br/>Cross-cutting: dialectical-reasoning, docs-as-definition-of-done, define-metric (v0.9.0)</font>>;
   fontname="Helvetica";
   fontsize=14;
 
@@ -49,7 +49,7 @@ digraph skills_overview {
 
   // Outer loop cluster
   subgraph cluster_outer {
-    label=<<b>OUTER LOOP</b> — θ = skills / rubrics (θ-axis)<br/><font point-size="9">rollback on regression</font>>;
+    label=<<b>OUTER LOOP</b> — m = skills / rubrics (∂L/∂method)<br/><font point-size="9">rollback on regression</font>>;
     style="rounded,filled"; fillcolor="#f5ebfd"; color="#9467bd"; fontsize=12;
 
     me [
@@ -63,13 +63,28 @@ digraph skills_overview {
     dd -> me [label="pattern found?"];
   }
 
+  // CoT loop cluster (v0.8.0, fourth axis)
+  subgraph cluster_cot {
+    label=<<b>CoT LOOP</b> — t = reasoning chain (∂L/∂thought, v0.8.0)<br/><font point-size="9">per-step dialectic + ground-truth verification</font>>;
+    style="rounded,filled"; fillcolor="#e0f5f0"; color="#17a68c"; fontsize=12;
+
+    dcot [
+      label=<<b>dialectical-cot</b><br/><font point-size="9">thesis / antithesis / synthesis<br/>per step; commit / revise / backtrack</font>>,
+      fillcolor="#ffffff"
+    ];
+  }
+
   // Cross-cutting
   subgraph cluster_cross {
-    label=<<b>CROSS-CUTTING</b><br/><font point-size="9">used by every loop</font>>;
+    label=<<b>CROSS-CUTTING</b><br/><font point-size="9">apply on all four loops</font>>;
     style="rounded,filled"; fillcolor="#fff9e6"; color="#d4a017"; fontsize=12;
 
     dr [
       label=<<b>dialectical-reasoning</b><br/><font point-size="9">thesis → antithesis → synthesis<br/>before any non-trivial recommendation</font>>,
+      fillcolor="#ffffff"
+    ];
+    dm [
+      label=<<b>define-metric (v0.9.0)</b><br/><font point-size="9">agent-defined metrics<br/>with calibration gate</font>>,
       fillcolor="#ffffff"
     ];
   }
@@ -78,10 +93,12 @@ digraph skills_overview {
   lde -> rf [lhead=cluster_inner, label="fix a bug /\nclose a test"];
   lde -> ir [lhead=cluster_refine, label="polish a\ndeliverable"];
   lde -> dd [lhead=cluster_outer, label="periodic /\npattern in 3+ tasks"];
+  lde -> dcot [lhead=cluster_cot, label="verifiable\nmulti-step reasoning"];
   lde -> dr [lhead=cluster_cross, label="plan / review"];
 
   // Close — every loop ends in ddod
   rcbl -> ddod [style=dashed, label="close", ltail=cluster_inner];
   ir -> ddod [style=dashed, label="close", ltail=cluster_refine];
   me -> ddod [style=dashed, label="close", ltail=cluster_outer];
+  dcot -> ddod [style=dashed, label="close", ltail=cluster_cot];
 }

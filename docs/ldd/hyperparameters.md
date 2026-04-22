@@ -1,6 +1,6 @@
 # LDD hyperparameters
 
-LDD exposes a **deliberately small** set of hyperparameters. Every knob we add is one more thing a user can misconfigure and one more dimension along which the loss function can drift. The bias is "no knob unless the measured value of exposing it outweighs the method-evolution risk."
+LDD exposes a **deliberately small** set of hyperparameters. In the [Gradient Descent for Agents](../theory.md) frame, every knob we add is one more dimension along which the loss function itself can drift (moving-target loss). The bias is "no knob unless the measured value of exposing it outweighs the method-evolution risk." Note that per-task **rigor** (how much of the apparatus to spin up) is *not* a knob — it is picked by the [thinking-levels](./thinking-levels.md) scorer, which derives the level deterministically from the task text. The knobs below tune individual axes' budgets, not the decision of which axes to activate.
 
 > **Warning — anti-pattern:** the easiest way to make LDD look good on your current task is to tune hyperparameters until the rubric passes. That is **moving-target loss** (`skills/method-evolution/SKILL.md` §"Red Flags"). Changing a knob to fit the current run is drift, not optimization. If you find yourself repeatedly tweaking `K_MAX` upward because "this task is complex," the problem is the task decomposition, not the budget.
 

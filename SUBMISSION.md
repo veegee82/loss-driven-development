@@ -69,10 +69,10 @@ skills, tdd, ldd, loss-driven-development, debugging, root-cause, discipline, wo
 
 ### Install command (if the form asks)
 ```
-/plugin install loss-driven-development@loss-driven-development-dev
+/plugin install loss-driven-development@loss-driven-development
 ```
 
-Note: the `-dev` suffix is from the local-marketplace name (`loss-driven-development-dev`). After Anthropic approves and vendors the plugin into `claude-plugins-official`, the actual install will be `/plugin install loss-driven-development@claude-plugins-official`.
+Note: the `loss-driven-development` after the `@` is the local-marketplace name (from `.claude-plugin/marketplace.json`). After Anthropic approves and vendors the plugin into `claude-plugins-official`, the actual install will be `/plugin install loss-driven-development@claude-plugins-official`.
 
 ## Suggested marketplace.json entry (for the reviewer)
 

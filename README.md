@@ -17,7 +17,7 @@ Imagine a climber on a cloud-shrouded mountain. The summit is `L = 0` (no rubric
 
 ```bash
 /plugin marketplace add https://github.com/veegee82/loss-driven-development.git
-/plugin install loss-driven-development@loss-driven-development-dev
+/plugin install loss-driven-development@loss-driven-development
 ```
 
 Then prefix any message with `LDD:` — the agent announces which skill it's invoking:
@@ -203,7 +203,7 @@ Two install paths depending on your Claude Code version:
 /plugin marketplace add https://github.com/veegee82/loss-driven-development.git
 
 # Then install from the newly-registered marketplace:
-/plugin install loss-driven-development@loss-driven-development-dev
+/plugin install loss-driven-development@loss-driven-development
 ```
 
 Skills appear as `loss-driven-development:<name>` and trigger automatically when their `description` matches the current task. Explicit invocation: `/loss-driven-development:<skill-name>`.
@@ -263,7 +263,7 @@ Skill content is portable markdown; only the distribution format differs. The ho
 
 | Platform | On-the-fly install | Global install | Notes |
 |---|---|---|---|
-| **Claude Code** (CLI + IDE + Desktop) | `/plugin install loss-driven-development@loss-driven-development-dev` | Yes, plugin survives sessions | Full support — primary target. Auto-trigger via skill `description`, explicit via `/loss-driven-development:<skill>`. |
+| **Claude Code** (CLI + IDE + Desktop) | `/plugin install loss-driven-development@loss-driven-development` | Yes, plugin survives sessions | Full support — primary target. Auto-trigger via skill `description`, explicit via `/loss-driven-development:<skill>`. |
 | **OpenAI Codex** | Copy [`AGENTS.md`](./AGENTS.md) to project root, or symlink `skills/` into `~/.agents/skills/` if your Codex build supports it | Yes, per-project (AGENTS.md) or per-user (`~/.agents/skills/`) | Ambient loader. Every `skills/*/SKILL.md` body is discoverable once AGENTS.md is in scope. |
 | **Gemini CLI** | `gemini extensions install /path/to/loss-driven-development` | Yes, via extension | [`gemini-extension.json`](./gemini-extension.json) points at [`GEMINI.md`](./GEMINI.md) which `@`-imports every skill body. |
 | **Cursor / Aider / Copilot CLI / Continue.dev** | Reference `skills/*/SKILL.md` from the agent's instruction file (`.cursorrules`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, project system prompt) | Per-project | Works via ambient instruction files. Either reference the directory or copy skill bodies inline. |

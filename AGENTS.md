@@ -23,7 +23,7 @@ Because the content is markdown, any agent that can load instructions from files
 /plugin marketplace add /path/to/loss-driven-development
 
 # Install
-/plugin install loss-driven-development@loss-driven-development-dev
+/plugin install loss-driven-development@loss-driven-development
 ```
 
 Skills appear as `loss-driven-development:<name>` and can be invoked via the `Skill` tool or triggered automatically when their `description` matches the task.

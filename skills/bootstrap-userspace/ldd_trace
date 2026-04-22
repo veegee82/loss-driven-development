@@ -9,7 +9,7 @@
 #
 # Search order for the plugin root:
 #   1. $LDD_PLUGIN_ROOT   (explicit override)
-#   2. Highest-semver dir under $HOME/.claude/plugins/cache/loss-driven-development-dev/loss-driven-development/
+#   2. Highest-semver dir under $HOME/.claude/plugins/cache/loss-driven-development/loss-driven-development/
 #   3. Local dev checkout at $HOME/projects/loss-driven-development/
 #
 # Dropped in by bootstrap-userspace on Tier-0 init; safe to edit if you
@@ -23,7 +23,7 @@ resolve_plugin_root() {
         [[ -d "$LDD_PLUGIN_ROOT/scripts/ldd_trace" ]] && { echo "$LDD_PLUGIN_ROOT"; return; }
     fi
 
-    local cache_base="$HOME/.claude/plugins/cache/loss-driven-development-dev/loss-driven-development"
+    local cache_base="$HOME/.claude/plugins/cache/loss-driven-development/loss-driven-development"
     if [[ -d "$cache_base" ]]; then
         local latest
         latest=$(ls -1 "$cache_base" 2>/dev/null | sort -V | tac | while read -r v; do
@@ -54,7 +54,7 @@ if [[ -z "$PLUGIN_ROOT" ]]; then
 .ldd/ldd_trace: cannot locate the LDD plugin root.
 Tried:
   \$LDD_PLUGIN_ROOT (unset or invalid)
-  \$HOME/.claude/plugins/cache/loss-driven-development-dev/loss-driven-development/<version>/scripts/ldd_trace
+  \$HOME/.claude/plugins/cache/loss-driven-development/loss-driven-development/<version>/scripts/ldd_trace
   \$HOME/projects/loss-driven-development/scripts/ldd_trace
 
 Install the LDD plugin or set LDD_PLUGIN_ROOT explicitly.

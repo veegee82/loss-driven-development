@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "loss-driven-development-dev",
+  "name": "loss-driven-development",
   "description": "Local marketplace for the loss-driven-development skills plugin.",
   "owner": {
     "name": "Silvio Jurk",

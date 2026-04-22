@@ -35,6 +35,24 @@ Do **not** use when:
 - You don't have a suite to measure against — changing the method without measurement is drift, not evolution.
 - The problem is that the method is verbose or ugly — refactoring style is not evolution. Evolution requires a behavior change backed by measurement.
 
+### Automatic trigger: thinking-levels scorer weight adjustment
+
+The thinking-levels scorer in `scripts/level_scorer.py` is a **parameter of the method** (see `docs/ldd/thinking-levels.md`). When the scorer systematically picks levels that are too low — shipping silent symptom-patches where a higher-level pass would have caught the structural origin — method-evolution is the correction channel.
+
+**Trigger condition (all must hold):**
+
+- Across the last **20 tasks** persisted in `.ldd/trace.log`:
+- There are **≥ 3 tasks** with `dispatch_source == auto-level` AND `level_chosen ∈ {L0, L1}` AND a later task closing in the same code area with `loss_final > median(loss)` AND `regression_followed = true` set on the original task.
+- The signal pattern across those 3+ tasks is consistent — e.g. all three tasks contained a `contract-rule-hit` cue that the scorer under-weighted, or all three contained an `ambiguous` phrase the detector missed.
+
+**Proposed change:** a single weight adjustment to the signal most correlated with the missed tasks — typically `+1` to one of `ambiguous` / `contract-rule-hit` / `layer-crossings`. Boundary changes (widening a bucket) are allowed only when ≥ 3 of the 3+ tasks score exactly on the boundary.
+
+**Measurement:** run the 9-scenario fixture suite under `tests/fixtures/thinking-levels/` against the proposed weights. If mean loss across the suite regresses, apply the standard rollback protocol below (halve the adjustment, re-measure; if still regressing, revert entirely).
+
+**Asymmetric-loss note:** when choosing WHICH signal to adjust, prefer changes that bias the scorer UPWARD on ambiguous boundary cases. A tuning that catches one new low-side miss at the cost of two new high-side misses (too-high levels on simple tasks) is still a net improvement per the `lieber schlau als zu dumm` rule — but mean-loss regression on the fixture suite is still disqualifying.
+
+The trigger is **auto-detected**: any agent with access to `.ldd/trace.log` can read the last 20 entries, compute the condition, and propose the adjustment. No human needs to spot the pattern for method-evolution to fire.
+
 ## The Evolution Step
 
 A single method-evolution step has a rigid structure. Treat it as an experiment, not a refactor.

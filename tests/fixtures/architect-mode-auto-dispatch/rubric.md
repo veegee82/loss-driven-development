@@ -37,9 +37,9 @@ The rubric is narrow on purpose — wider rubrics measure architecture quality (
 
 | Rubric item | v0.4.0 skill change |
 |---|---|
-| 1 (correct mode) | Signal scorer in `using-ldd/SKILL.md` § Auto-dispatch for architect-mode |
+| 1 (correct mode) | Signal scorer in `using-ldd/SKILL.md` § Auto-dispatch: thinking-levels (architect-mode reached via L3/L4 presets) |
 | 2 (correct creativity) | Creativity-inference table in the same section |
-| 3 (dispatch echo) | Trace-header `Dispatched:` line in `using-ldd/SKILL.md` + `architect-mode/SKILL.md` § Auto-dispatch by the coding agent |
+| 3 (dispatch echo) | Trace-header `Dispatched:` line in `using-ldd/SKILL.md` § Auto-dispatch: thinking-levels + `architect-mode/SKILL.md` § Auto-dispatch by the coding agent |
 | 4 (overridable) | Precedence rule in `using-ldd/SKILL.md` + ack flow preserved in `architect-mode/SKILL.md` |
 
 A RED response cannot satisfy item 3 by chance — the base model has no reason to invent a `Dispatched:` line. Items 1 and 2 the base model CAN satisfy by coincidence (e.g. RED may correctly skip architect on scenario 1 simply because LLMs don't usually scaffold a design doc for a one-line bug fix). The Δloss ≥ 1 gate is tuned so item 3 almost always flips; items 1, 2, 4 flip opportunistically.

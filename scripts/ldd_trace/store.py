@@ -26,6 +26,14 @@ from ldd_trace.renderer import Iteration, Task
 TRACE_DIR_NAME = ".ldd"
 TRACE_FILE_NAME = "trace.log"
 
+# Magic prefix for Tier-2 (conversation-history) persistence — see
+# skills/bootstrap-userspace/SKILL.md. Any line starting with this exact
+# 12-char sequence is a machine-readable LDD trace entry that can be
+# ingested back into .ldd/trace.log by parse_magic_lines / `ldd_trace
+# ingest`. Do not change without a version bump to v2 — existing pasted
+# chat transcripts rely on the literal.
+MAGIC_PREFIX = "⟪LDD-TRACE-v1⟫"
+
 
 def _utcnow_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -137,20 +145,37 @@ class TraceStore:
     def ensure_dir(self) -> None:
         self.trace_dir.mkdir(parents=True, exist_ok=True)
 
-    def init(self, task_title: str, loops: List[str]) -> TraceEntry:
+    def init(
+        self,
+        task_title: str,
+        loops: List[str],
+        level_chosen: Optional[str] = None,
+        dispatch_source: Optional[str] = None,
+    ) -> TraceEntry:
         """Create trace.log with a meta header. Idempotent per-task — if a
         meta entry already exists with the same title, reuse it.
+
+        Thinking-levels integration (v0.10.1+): `level_chosen` records the
+        L0..L4 bucket selected by scripts/level_scorer.py at task start;
+        `dispatch_source` records how it was selected (auto-level /
+        user-explicit / user-bump / user-override-down). Both are optional
+        for backward compat with pre-thinking-levels trace logs.
         """
         self.ensure_dir()
         if self.exists():
             for entry in self.read_all():
                 if entry.kind == "meta" and entry.fields.get("task") == task_title:
                     return entry
+        fields: Dict[str, str] = {"task": task_title, "loops": ",".join(loops)}
+        if level_chosen is not None:
+            fields["level_chosen"] = level_chosen
+        if dispatch_source is not None:
+            fields["dispatch_source"] = dispatch_source
         entry = TraceEntry(
             timestamp=_utcnow_iso(),
             loop="meta",
             kind="meta",
-            fields={"task": task_title, "loops": ",".join(loops)},
+            fields=fields,
         )
         self._append(entry)
         return entry
@@ -252,7 +277,18 @@ class TraceStore:
         layer: str = "",
         docs: str = "",
         notes: Optional[str] = None,
+        loss_final: Optional[float] = None,
+        regression_followed: Optional[bool] = None,
     ) -> TraceEntry:
+        """Close a loop with terminal status.
+
+        Thinking-levels integration (v0.10.1+): `loss_final` persists the
+        task's final normalized loss so method-evolution can detect
+        low-side level misses across tasks. `regression_followed` is set
+        retroactively (by a later task closing in the same area with a
+        higher loss) and marks this task as a candidate for
+        scorer-weight re-tuning.
+        """
         fields: Dict[str, str] = {"terminal": terminal}
         if layer:
             fields["layer"] = layer
@@ -260,6 +296,10 @@ class TraceStore:
             fields["docs"] = docs
         if notes:
             fields["notes"] = notes
+        if loss_final is not None:
+            fields["loss_final"] = f"{loss_final:.3f}"
+        if regression_followed is not None:
+            fields["regression_followed"] = "true" if regression_followed else "false"
         entry = TraceEntry(
             timestamp=_utcnow_iso(),
             loop=loop,
@@ -375,6 +415,75 @@ class TraceStore:
             docs_synced=docs,
             terminal=terminal,
         )
+
+
+def emit_magic_line(entry: TraceEntry) -> str:
+    """Render `entry` as a single conversation-history-safe line.
+
+    Prefixes the canonical serialization with `MAGIC_PREFIX` so the line
+    is greppable inside arbitrary chat transcripts. Used by Tier-2
+    (conversation-history) persistence from `bootstrap-userspace`:
+    the agent emits these lines in its visible reply, the platform
+    retains the conversation, and a later session (possibly in a
+    different host) can scan the transcript for the magic prefix to
+    reconstruct the trace.
+    """
+    return f"{MAGIC_PREFIX} {_serialize_entry(entry)}"
+
+
+def parse_magic_lines(text: str) -> List[TraceEntry]:
+    """Extract all `MAGIC_PREFIX`-marked trace entries from arbitrary text.
+
+    Ignores non-magic lines and lines that fail to parse. The magic
+    prefix may appear anywhere on the line — leading whitespace and
+    embedding inside quoted blocks are tolerated, so pasted chat text
+    with surrounding prose still yields the entries.
+    """
+    entries: List[TraceEntry] = []
+    for raw_line in text.splitlines():
+        idx = raw_line.find(MAGIC_PREFIX)
+        if idx < 0:
+            continue
+        rest = raw_line[idx + len(MAGIC_PREFIX):].strip()
+        if not rest:
+            continue
+        parsed = _parse_line(rest)
+        if parsed is not None:
+            entries.append(parsed)
+    return entries
+
+
+def _entry_key(entry: TraceEntry) -> tuple:
+    """Identity tuple for deduplication during ingest.
+
+    Two entries are considered duplicates when they share timestamp,
+    loop, kind, AND the `k` / `terminal` disambiguator (so a meta and
+    a k=0 baseline at the same second don't collide).
+    """
+    disambig = entry.fields.get("k") or entry.fields.get("terminal") or entry.fields.get("task") or ""
+    return (entry.timestamp, entry.loop, entry.kind, disambig)
+
+
+def ingest_magic_lines(store: "TraceStore", text: str) -> int:
+    """Append magic-prefixed entries from `text` to `store`, skipping duplicates.
+
+    Returns the number of entries actually appended. A magic line whose
+    identity tuple already exists in the store is silently skipped —
+    this makes the ingest operation idempotent, so re-pasting the same
+    chat transcript twice never double-counts.
+    """
+    new_entries = parse_magic_lines(text)
+    if not new_entries:
+        return 0
+    existing_keys = {_entry_key(e) for e in store.read_all()}
+    appended = 0
+    for entry in new_entries:
+        if _entry_key(entry) in existing_keys:
+            continue
+        store._append(entry)
+        existing_keys.add(_entry_key(entry))
+        appended += 1
+    return appended
 
 
 def _raw_num(raw: str) -> float:

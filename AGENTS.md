@@ -10,6 +10,8 @@ The skills in `skills/*/SKILL.md` follow the portable agent-skill format (YAML f
 
 Because the content is markdown, any agent that can load instructions from files in the repo can use them. The distribution format (plugin manifest, context file, ambient loader) differs per platform; the skills themselves do not.
 
+**Thinking-levels auto-dispatch (v0.10.1+):** every non-trivial task is auto-scored onto a 5-step rigor ladder (L0 reflex → L4 method). The scorer is deterministic (no LLM call), reads the task text, and announces `Dispatched: auto-level L<n> (signals: …)` in the trace header. Zero-config by default; overridable with a single inline token (`LDD+`, `LDD++`, `LDD=max`, `LDD[level=Lx]`) or natural-language bump phrases (`"take your time"`, `"denk gründlich"`). Upward-biased on ties. Full reference: [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md). Implementation: [`scripts/level_scorer.py`](./scripts/level_scorer.py).
+
 ## Loading per platform
 
 ### Claude Code
@@ -55,6 +57,7 @@ Twelve skills (see [`docs/ldd/convergence.md`](./docs/ldd/convergence.md)).
 | Skill | Loop | Type | Fires when |
 |---|---|---|---|
 | `using-ldd` | entry | bootstrap | Start of conversation; trigger-phrase table for all others |
+| `bootstrap-userspace` | entry | discipline | First LDD task in a session when `.ldd/trace.log` is not writable. Silently picks the most durable persistence tier (filesystem / artifact / conversation-history / memory-pointer / inline) and announces it via `│ Store : <scope>` in the trace-block header. Makes LDD portable to Claude Desktop, ChatGPT, and other sandboxed hosts without user configuration |
 | `loop-driven-engineering` | (dach) | pattern | Start of any non-trivial engineering task |
 | `reproducibility-first` | inner | discipline | Failing test / flaky run / surprising log before treating as gradient |
 | `root-cause-by-layer` | inner | discipline | Any bug / failing test / unexpected behavior |
@@ -65,7 +68,7 @@ Twelve skills (see [`docs/ldd/convergence.md`](./docs/ldd/convergence.md)).
 | `method-evolution` | outer | pattern | Same rubric violation in 3+ distinct tasks |
 | `drift-detection` | outer | pattern | Periodic full-repo scan for cumulative drift |
 | `docs-as-definition-of-done` | closes every loop | discipline | Before committing any behavior / API / CLI / config change |
-| `architect-mode` | **opt-in** | discipline (5-phase protocol) | Greenfield design / architecture / structural-decomposition tasks; activated via four paths (precedence: inline `LDD[mode=architect]:` flag > `/ldd-architect` command > trigger phrases "design" / "architect" / "from scratch" / "greenfield" > auto-dispatch when the 6-signal scorer sums to ≥ 4). Agent echoes the dispatch source in the trace header |
+| `architect-mode` | **opt-in** | discipline (5-phase protocol) | Greenfield design / architecture / structural-decomposition tasks; reached through the L3 / L4 presets of the thinking-levels auto-dispatch (see [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md)), or explicitly via inline `LDD[mode=architect]:` flag / `/ldd-architect` command / trigger phrases. Agent echoes the dispatch source and level in the trace header |
 | `dialectical-cot` | **thought** (4th loop, v0.8.0) | discipline | Verifiable multi-step reasoning tasks (math, code, logic, proofs). Applies the v0.7.0 quantitative dialectic at every step of a chain-of-thought. Uses per-task-type memory (`.ldd/cot_memory.json`) for primer generation. Requires ground-truth verification to close the calibration loop |
 | `define-metric` | **extensible foundation** (v0.9.0) | discipline | Introduce a new agent-defined metric (complexity, latency, custom rubric) as a first-class loss component. Registration → advisory-only → calibration (n≥5, MAE≤0.15) → load-bearing. Enforces gaming-guard (self-referential descriptions rejected) and bias-invariance (metric observations never modified by registry/calibrator activity) |
 

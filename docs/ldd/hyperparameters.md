@@ -47,7 +47,7 @@ The bundle deliberately exposes **four core knobs** that apply to every LDD run 
 - **When to change:**
   - Switch to `architect` when starting a greenfield system, proposing a new module, or when the user explicitly asks for "architecture" / "design" / "structure for X"
   - Stay on `reactive` for bug fixes, feature additions, refactors, incident response — the default 95 % of the time
-  - Architect mode is strictly opt-in; an auto-trigger on phrases like "design" / "architect" / "greenfield" / "from scratch" flips it temporarily for that one task, then reverts. As of v0.4.0, the coding agent can also enter architect-mode via a task-shape auto-dispatch scorer (greenfield `+3`, ≥ 3 new components `+2`, cross-layer `+2`, ambiguous `+2`, bugfix `−5`, single-file `−3`; score ≥ 4 trips architect). The agent reports the mode AND the dispatch source (`inline-flag` / `command` / `trigger-phrase` / `auto (signals: …)`) in the trace header so you always see what's active and can override with one reply. Full scorer: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch for architect-mode.
+  - Architect mode is strictly opt-in; an auto-trigger on phrases like "design" / "architect" / "greenfield" / "from scratch" flips it temporarily for that one task, then reverts. As of the thinking-levels design, the coding agent auto-dispatches a **thinking level (L0..L4)** via a 9-signal scorer (the 6 original architect-dispatch signals plus `layer-crossings +2`, `contract-rule-hit +2`, `unknown-file-territory +1`). Architect-mode is reached through the **L3 / L4 presets** — there is no separate architect-only threshold anymore. The agent echoes `Dispatched: auto-level L<n> (signals: …)` in the trace header so you always see what's active and can override with one reply. Full scorer + CLI + buckets: [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch: thinking-levels (and [`../../scripts/level_scorer.py`](../../scripts/level_scorer.py) for the deterministic implementation).
 
 ### 5. `creativity` — architect-mode loss-function selection
 
@@ -81,6 +81,7 @@ Full per-level spec (what changes in Phase 2 non-goals / Phase 3 candidates / Ph
 | **Drift-scan indicator subset** | All 7 indicators are the scan. Subsetting would encourage "only check what's currently clean" theater |
 | **Temperature / top-p / sampling params** | Host-agent concerns, not LDD concerns. The bundle is behavior-shaping markdown; sampling is orthogonal |
 | **Skill enable/disable flags** | Unused skills have no cost; disabling them hides capability without measurable benefit. Better path: don't invoke them (they won't fire without matching triggers) |
+| **`level` (thinking-level L0..L4)** | **Derived, not configured.** The level is the scorer's output (see [`thinking-levels.md`](./thinking-levels.md)), overridable per-task via `LDD[level=Lx]:` but never persisted as a project default or session override. Exposing it as a `/ldd-set` key would invite "set level=L4 because this feels hard today" — the exact moving-target-loss pattern the scorer exists to prevent. The override channel is per-task only, inline in the user message. |
 
 ## Three ways to set hyperparameters
 

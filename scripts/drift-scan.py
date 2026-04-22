@@ -282,6 +282,94 @@ def check_test_spec_drift(report: Report, root: Path) -> None:
 DEFAULT_RE = re.compile(r"(?:DEFAULT|default)[_\s]?([A-Z_]+)\s*[:=]\s*(\d+|\"[^\"]+\"|'[^']+')", re.MULTILINE)
 
 
+def check_thinking_levels_drift(report: Report, root: Path) -> None:
+    """Verify the 5-level bucket boundaries agree across code + docs.
+
+    The scorer in `scripts/level_scorer.py`, the SKILL.md table in
+    `skills/using-ldd/SKILL.md`, and the authoritative doc at
+    `docs/ldd/thinking-levels.md` must all agree on the 4 boundaries
+    (between L0/L1, L1/L2, L2/L3, L3/L4). Any disagreement is a doc-sync
+    failure that would let the scorer and the user's mental model drift
+    apart.
+    """
+    scorer_path = root / "scripts" / "level_scorer.py"
+    doc_path = root / "docs" / "ldd" / "thinking-levels.md"
+    skill_path = root / "skills" / "using-ldd" / "SKILL.md"
+
+    if not scorer_path.exists():
+        return  # thinking-levels not installed in this repo
+
+    scorer_text = scorer_path.read_text(errors="replace")
+    # The score_to_level function uses plain integer literals in if-branches.
+    # Extract the four boundaries by order of appearance in the function.
+    func_match = re.search(
+        r"def score_to_level.*?return Level\.L4",
+        scorer_text,
+        re.DOTALL,
+    )
+    if not func_match:
+        report.add(
+            "Test/spec drift",
+            "thinking-levels: could not locate `score_to_level` in "
+            "`scripts/level_scorer.py` — the drift check needs the function to "
+            "be importable for the check to run.",
+        )
+        return
+    func_body = func_match.group(0)
+    boundaries_in_code = [
+        int(m) for m in re.findall(r"score\s*<=\s*(-?\d+)", func_body)
+    ]
+    if len(boundaries_in_code) != 4:
+        report.add(
+            "Test/spec drift",
+            f"thinking-levels: expected 4 `score <= N` branches in "
+            f"`score_to_level`, found {len(boundaries_in_code)}. Probably a "
+            f"refactor that moved the boundaries out of this pattern.",
+        )
+        return
+
+    # Normalize: the scorer uses ≤ against each boundary; docs use Unicode
+    # ≤ / ≥. We extract the 4 numbers from doc tables that look like
+    # "score ≤ N" or "score ≥ N" or "A ≤ score ≤ B" rows.
+    def extract_doc_boundaries(text: str) -> list[int]:
+        # Unicode minus U+2212 is used in the doc tables; normalize to ASCII "-"
+        norm = text.replace("−", "-")
+        found: list[int] = []
+        for m in re.finditer(
+            r"score\s*(?:≤|<=)\s*(-?\d+)|(-?\d+)\s*(?:≤|<=)\s*score\s*(?:≤|<=)\s*(-?\d+)|score\s*(?:≥|>=)\s*(-?\d+)",
+            norm,
+        ):
+            for g in m.groups():
+                if g is not None:
+                    found.append(int(g))
+        return found
+
+    for doc_file, doc_label in ((doc_path, "thinking-levels.md"), (skill_path, "using-ldd SKILL.md")):
+        if not doc_file.exists():
+            continue
+        doc_text = doc_file.read_text(errors="replace")
+        doc_bounds = extract_doc_boundaries(doc_text)
+        # The doc table carries: ≤ −7 | −6 ≤ … ≤ −2 | −1 ≤ … ≤ 3 | 4 ≤ … ≤ 7 | ≥ 8
+        # That gives us the set {−7, −6, −2, −1, 3, 4, 7, 8}.
+        expected_set = set()
+        for b in boundaries_in_code:
+            expected_set.add(b)        # upper bound of the bucket
+            expected_set.add(b + 1)    # lower bound of the next bucket
+        # The L4 bucket has no "score <= N" branch in code, but its lower bound
+        # is (last_boundary + 1). That's already in expected_set.
+        doc_set = set(doc_bounds)
+        missing = expected_set - doc_set
+        if missing:
+            report.add(
+                "Doc-model drift",
+                f"thinking-levels: {doc_label} missing boundary number(s) "
+                f"{sorted(missing)} — code boundaries in `score_to_level` "
+                f"are {boundaries_in_code}, doc must cover the full "
+                f"complementary set {sorted(expected_set)}. Sync the bucket "
+                f"table in the doc to match the scorer.",
+            )
+
+
 def check_defaults_drift(report: Report, root: Path) -> None:
     declared: dict[str, set[tuple[str, str]]] = defaultdict(set)
     for path in iter_code_files(root):
@@ -328,6 +416,7 @@ def main() -> int:
     check_rubric_drift(report, root)
     check_test_spec_drift(report, root)
     check_defaults_drift(report, root)
+    check_thinking_levels_drift(report, root)
 
     out = report.render()
     if args.out:

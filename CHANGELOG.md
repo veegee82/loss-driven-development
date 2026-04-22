@@ -2,6 +2,49 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.10.1] — 2026-04-22
+
+### Added — Thinking-levels auto-dispatch
+
+Every non-trivial task is now auto-scored onto a 5-step rigor ladder (L0 reflex → L1 diagnostic → L2 deliberate → L3 structural → L4 method) before any work begins. The scorer is deterministic (no LLM call), zero-config, upward-biased on boundaries, and trivially overridable per-task. Architect-mode is reached through the L3 / L4 presets — the separate "auto-dispatch for architect-mode" threshold is retired (its 6 signals are retained as a subset of the new 9-signal scorer; all prior dispatch behavior is preserved).
+
+**New artifacts:**
+
+- `scripts/level_scorer.py` — 9-signal deterministic scorer + 5-level bucketing + creativity-clamp + override parser + dispatch-header renderer. Pure function, CLI + library API.
+- `scripts/test_level_scorer.py` — 55 unit + end-to-end tests covering per-signal detection, bucketing, creativity inference, override precedence, clamp rule, and all 9 fixture scenarios.
+- `scripts/demo-thinking-levels-e2e.py` — integration walkthrough over 12 scenarios (5 level + 4 override + 3 stress); verifies scorer output matches documented contract.
+- `tests/fixtures/thinking-levels/` — 9 fixture scenarios with verbatim prompts + expected-level contracts + asymmetric-loss-weighted rubric.
+- `docs/ldd/thinking-levels.md` — authoritative reference for the 5 levels, 9 signals, override syntax, ack liberalization.
+- `docs/superpowers/specs/2026-04-22-ldd-thinking-levels-design.md` — architect-mode 5-phase design spec.
+
+**Integration:**
+
+- `skills/using-ldd/SKILL.md` — § Auto-dispatch completely rewritten from binary "architect on/off" to the 5-level scorer; inline overrides extended with `LDD[level=Lx]:`; relative bumps `LDD+` / `LDD++` / `LDD=max`; natural-language bumps (bilingual, semantic dedup); precedence split into level-selection (5 categories) and other-hyperparameters blocks.
+- `skills/using-ldd/SKILL.md` — new § Inventive ack documenting three paths (explicit flag / liberalized natural-language token / implicit ack from ≥2 inventive cues in prompt). The agent never selects inventive unilaterally; moving-target-loss protection preserved.
+- `skills/method-evolution/SKILL.md` — new automatic trigger: 3 low-side auto-level regressions in 20 tasks → propose scorer-weight adjustment with rollback-on-regression.
+- `skills/architect-mode/SKILL.md` — description updated to reference thinking-levels; auto-dispatch summary points at the 9-signal scorer and notes L3/L4 as the architect-mode path.
+- `scripts/ldd_trace/store.py` — `TraceStore.init()` accepts `level_chosen` + `dispatch_source`; `append_close()` accepts `loss_final` + `regression_followed`. These persist the dispatch decision into `.ldd/trace.log` for method-evolution consumption.
+- `scripts/drift-scan.py` — new `check_thinking_levels_drift` verifies bucket boundaries in `level_scorer.py` match `thinking-levels.md` and `using-ldd/SKILL.md` tables.
+- `docs/ldd/hyperparameters.md` — one row added to §"What is NOT exposed": `level` is derived, never persisted.
+
+**Design principle encoded throughout:**
+
+> "lieber ein klein wenig schlau als zu dumm"
+
+Asymmetric loss — low-side failures (level too low → silent symptom-patch) count ×2 more than high-side failures (level too high → wasted tokens). Encoded in: baseline L2 (not L0), tie-break on boundaries picks higher, natural-language bumps recognized liberally, fixture rubric suite-level weighting.
+
+### Backward compatibility
+
+- All prior architect-mode auto-dispatch behavior (`score ≥ 4 → architect`) is preserved through the L3 bucket (4 ≤ score ≤ 7) with `mode=architect`.
+- The pre-existing `tests/fixtures/architect-mode-auto-dispatch/` fixture remains exercised as a regression baseline; its scenarios all still pass under the new scorer.
+- No existing user-facing flag (`LDD[mode=...]`, `LDD[k=...]`, `LDD[creativity=...]`) changed semantics.
+
+### Measurements
+
+- Unit tests: 55 passing (scorer, override parsing, bucketing, clamp rule, fixture end-to-end)
+- E2E walkthrough: 12/12 scenarios green (5 level + 4 override + 3 stress) — persisted under `tests/fixtures/thinking-levels/runs/`.
+- Drift-scan: no new findings on thinking-levels artifacts.
+
 ## [0.9.1] — 2026-04-22
 
 ### Added — self-consistency release (14/15 audit findings resolved)

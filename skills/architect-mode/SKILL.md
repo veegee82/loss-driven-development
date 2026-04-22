@@ -1,6 +1,6 @@
 ---
 name: architect-mode
-description: Use when the user wants an architecture, design, or structure invented from requirements — greenfield service, new module, system decomposition, or the conceptual/structural layer "between X and Y" where X is the problem and Y is the delivered system. NOT the default mode. Opt-in via four paths — inline `LDD[mode=architect]:` prefix, the `/ldd-architect` command, trigger phrases like "design" / "architect" / "from scratch" / "greenfield", or auto-dispatch when the task's 6-signal scorer sums to ≥ 4. Supports three creativity levels (`conservative` | `standard` | `inventive`) that change the loss function, not the amount of structure.
+description: Use when the user wants an architecture, design, or structure invented from requirements — greenfield service, new module, system decomposition, or the conceptual/structural layer "between X and Y" where X is the problem and Y is the delivered system. NOT the default mode. Opt-in via four paths — inline `LDD[mode=architect]:` prefix, the `/ldd-architect` command, trigger phrases like "design" / "architect" / "from scratch" / "greenfield", or the thinking-levels auto-dispatch landing at L3 or L4 (9-signal scorer; see `../using-ldd/SKILL.md` § Auto-dispatch: thinking-levels). Supports three creativity levels (`conservative` | `standard` | `inventive`) that change the loss function, not the amount of structure.
 ---
 
 # Architect Mode
@@ -124,9 +124,9 @@ Signals that trigger this mode:
 
 The agent MAY enter architect-mode on its own — without an explicit `LDD[mode=architect]:` flag, `/ldd-architect` command, or trigger-phrase match — when the task description carries enough structural signals. This covers the case where a user describes a greenfield design without using the dispatch vocabulary (`"design"`, `"architect"`, `"greenfield"`); the signals in the task shape itself are enough to warrant the 5-phase discipline.
 
-**Full scorer + creativity-inference table + precedence rule live in [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch for architect-mode.** Summary here:
+**Full scorer + creativity-inference table + precedence rule live in [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd/SKILL.md) § Auto-dispatch: thinking-levels** (and the deterministic implementation at [`../../scripts/level_scorer.py`](../../scripts/level_scorer.py)). Summary here:
 
-- **Score ≥ 4 (weighted sum of 6 signals) → architect-mode.** Dominant positive signals are greenfield (+3), ≥ 3 new components (+2), cross-layer scope (+2), ambiguous requirements (+2). Negatives: explicit bug-fix (−5), single-file known-solution (−3).
+- **Score ≥ 4 → L3, score ≥ 8 → L4** (weighted sum of 9 signals). L3 and L4 presets both set `mode=architect`, so architect-mode is reached through the level bucket, not via a separate threshold. Dominant positive signals are greenfield (+3), ≥ 3 new components (+2), cross-layer scope (+2), ambiguous requirements (+2), layer-crossings (+2), contract/R-rule hit (+2). Negatives: explicit bug-fix (−5), single-file known-solution (−3). One small positive: unknown-file-territory (+1).
 - **Creativity is inferred from the same task signals:** regulatory / no-new-tech / tight-team-deadline cues → `conservative`; research / novelty / experiment cues → `inventive`; neither → `standard`.
 - **Explicit user triggers always win** (inline flag > command > trigger phrase > auto-dispatch > bundle default). If the user wrote `LDD[mode=reactive]:` on a task with auto-score 6, the agent stays reactive.
 - **The `inventive` acknowledgment flow is unchanged.** Auto-dispatch can *propose* `inventive`, but without the literal `acknowledged` reply the run silently downgrades to `standard`. The scorer is allowed to nominate; the ack gate is not.

@@ -26,6 +26,17 @@ Then prefix any message with `LDD:` — the agent announces which skill it's inv
 
 Full install for other agents (Codex · Gemini CLI · Aider · Cursor · …) below.
 
+### Zero-config thinking-levels (v0.10.1+)
+
+Every non-trivial task is now auto-scored onto a **5-step rigor ladder**: L0 reflex (typo fix) → L1 diagnostic (failing test) → L2 deliberate (default baseline) → L3 structural (cross-layer / architect) → L4 method (greenfield / inventive). You don't configure anything — the scorer reads the task text, picks a level, announces it:
+
+```
+Dispatched: auto-level L3 (signals: greenfield=+3, components>=3=+2)
+mode: architect, creativity: standard
+```
+
+Override with one token when you disagree: `LDD+:` (one level up), `LDD++:` (two), `LDD=max:` (to L4), `LDD[level=L1]:` (explicit). Natural-language works too: `"take your time"`, `"denk gründlich"`, `"volle Kanne"`. The scorer is upward-biased on boundaries — better a hair too careful than silently too shallow. Full spec: [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md).
+
 > 📦 **Where this came from:** distilled from [**AWP — Agent Workflow Protocol**](https://github.com/veegee82/agent-workflow-protocol) ([`pip install awp-agents`](https://pypi.org/project/awp-agents/)), an open standard for multi-agent orchestration where all three LDD loops — inner, refinement, outer — are implemented as live SGD code, not metaphor. See [**LDD in AWP**](./docs/ldd/in-awp.md) for the one-to-one mapping, a concrete debugging case study, and how to try the framework itself.
 
 ## Here's what an LDD session looks like
@@ -212,6 +223,7 @@ LDD's methodology text lives in one canonical place: [`docs/ldd/`](./docs/ldd/).
 | [`docs/ldd/incident.md`](./docs/ldd/incident.md) | Production fire, fast-path |
 | [`docs/ldd/method-maintenance.md`](./docs/ldd/method-maintenance.md) | Outer-loop: the skill itself isn't working |
 | [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) | Heavy reference — three loops, divergence patterns, drift taxonomy |
+| [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md) | How the agent picks rigor per task (L0 reflex → L4 method) |
 | [`docs/ldd/in-awp.md`](./docs/ldd/in-awp.md) | Case study — LDD in AWP |
 
 This structure enforces single-source-of-truth for methodology text (no drift between skill bodies, README, and user docs). User-project `CLAUDE.md` / `AGENTS.md` should reference [`docs/ldd/task-types.md`](./docs/ldd/task-types.md) rather than copying methodology inline. See [`docs/ldd/README.md`](./docs/ldd/README.md) for integration notes.

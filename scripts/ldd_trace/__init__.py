@@ -15,7 +15,7 @@ Public API:
 """
 from __future__ import annotations
 
-__version__ = "0.9.1"
+__version__ = "0.10.1"
 
 from ldd_trace.renderer import (
     Iteration,
@@ -25,7 +25,14 @@ from ldd_trace.renderer import (
     sparkline,
     trend_arrow,
 )
-from ldd_trace.store import TraceStore, TraceEntry
+from ldd_trace.store import (
+    MAGIC_PREFIX,
+    TraceEntry,
+    TraceStore,
+    emit_magic_line,
+    ingest_magic_lines,
+    parse_magic_lines,
+)
 from ldd_trace.dialectical_prime import (
     AntithesisMaterial,
     Primer,
@@ -43,6 +50,10 @@ __all__ = [
     "render_trace",
     "TraceStore",
     "TraceEntry",
+    "MAGIC_PREFIX",
+    "emit_magic_line",
+    "parse_magic_lines",
+    "ingest_magic_lines",
     "AntithesisMaterial",
     "Primer",
     "format_antithesis_material",

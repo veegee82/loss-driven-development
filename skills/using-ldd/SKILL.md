@@ -34,101 +34,117 @@ When the user's message contains any of these patterns, invoke the paired skill.
 | "about to commit", "ready to merge", "declaring this done" | `docs-as-definition-of-done` |
 | "design X", "architect Y", "greenfield", "from scratch", "how should I structure", "propose an architecture", "decompose this problem", "what's the right shape for X" | `architect-mode` (opt-in — four paths: inline `LDD[mode=architect]:` flag / `/ldd-architect` command / these trigger phrases / the auto-dispatch scorer below; see skill for the 5-phase protocol and the hand-off back to reactive) |
 
-## Auto-dispatch for architect-mode
+## Auto-dispatch: thinking-levels
 
-When the user hasn't explicitly asked for architect-mode (no `LDD[mode=architect]:` flag, no `/ldd-architect` command, no trigger phrase in the dispatch table above), the agent MAY still enter architect-mode if the task description itself carries enough structural signals. This auto-dispatch exists so greenfield design tasks don't silently degrade into reactive "just start coding" just because the user didn't know the magic phrase.
+Every non-trivial task enters the LDD bundle through a **level scorer** that picks one of five thinking levels (L0..L4) and emits a mandatory dispatch-header line. The user does not need to configure anything; the scorer runs on the task text. The user also does not need to know the scorer exists — an override is a single inline token away (see §Override syntax below).
 
-**Auto-dispatch is the fourth and lowest-priority path.** Explicit user triggers always beat it (see "Precedence" below). The agent is making a judgment call on the user's behalf; the user must be able to see it and override it trivially.
+**Default is L2, not L0.** Zero-config users get a deliberate baseline — one rank above reflexive pattern-matching — because **"lieber ein klein wenig schlau als zu dumm"** (asymmetric loss: a low-side miss ships a silent symptom-patch; a high-side miss wastes tokens). The scorer is designed to bias upward on boundaries.
 
-### Mode signal scorer
+### The 5 levels
 
-Score the incoming task against the 6 signals. Sum the weights. **Score ≥ 4 → architect-mode.** Otherwise stay reactive.
-
-| Signal | Weight | Direction | Detect via |
+| Level | Name | Preset — `k_max` / `reproduce_runs` / `mode` | Skill floor (minimum set invoked) |
 |---|---|---|---|
-| Greenfield (no existing code to modify; "from scratch", "new service", "new module", "no existing codebase") | **+3** | architect | User ask explicitly names absence of prior code, or uses one of the literal phrases |
-| ≥ 3 new components / services / subsystems to build | **+2** | architect | Task ask lists three or more concrete nouns that each need design (service, store, worker, CLI, UI, scheduler, …) |
-| Cross-layer or cross-package scope (≥ 2 layers or packages touched) | **+2** | architect | Ask spans data + control layers, or names ≥ 2 packages / tiers (e.g. ingestion + storage + delivery; API + DB + background worker) |
-| Ambiguous requirements — no clear constraints stated; needs invention | **+2** | architect | Ask lacks concrete constraints (latency, throughput, stack, timeline); user is implicitly delegating the shape of the answer |
-| Explicit bug-fix / typo / rename / one-line change | **−5** | skip | Ask literally names `"fix"`, `"typo"`, `"rename"`, `"off-by-one"`, `"one-line"`, or points at a file:line |
-| Single file, no layer boundary, known-solution domain | **−3** | skip | Ask mentions one file / one function / one known pattern to apply |
+| **L0** | reflex | 2 / 1 / reactive | `e2e-driven-iteration` |
+| **L1** | diagnostic | 3 / 2 / reactive | + `reproducibility-first`, `root-cause-by-layer` |
+| **L2** | deliberate *(default baseline)* | 5 / 2 / reactive | + `dialectical-reasoning`, `loss-backprop-lens`, `docs-as-definition-of-done` |
+| **L3** | structural | 5 / 2 / **architect**/standard | + `architect-mode` (standard), `drift-detection`, `iterative-refinement` |
+| **L4** | method | 8 / 3 / **architect**/inventive (ack-gated) | + `method-evolution`, `dialectical-cot`, `define-metric` |
 
-Tie-break at exactly 4: go architect. The threshold is the gate, not the average.
+**Skill floor is a floor, not a ceiling.** A task at L2 that benefits from `drift-detection` may still invoke it; a task at L3 is **not allowed to skip** `architect-mode`.
 
-### Creativity inference (applied only if mode = architect)
+Architect-mode is reached through L3 / L4 — there is no longer a separate "auto-dispatch for architect-mode" threshold. Score the task; if it lands at L3 or L4, architect-mode is active by preset.
 
-Once architect-mode is chosen, pick the creativity level from the same task signals:
+### The 9-signal scorer
 
-| Level | Triggering signals in the task | Notes |
+Deterministic, pure function of the task text plus (optional) history of recently-touched files. No LLM call. Reference implementation: [`../../scripts/level_scorer.py`](../../scripts/level_scorer.py).
+
+| Signal | Weight | Detect via |
 |---|---|---|
-| `conservative` | `"regulated"`, `"compliance"`, `"HIPAA"`, `"PCI"`, `"SOC2"`, `"migration of production"`, `"existing stack only"`, `"no new tech"`, `"on-call context"`, `"tight deadline on small team"`, `"6-week deadline"` + `"team of 2"` | Any one hit → `conservative` |
-| `standard` (default) | none of the other levels' signals dominate | Picked when architect-mode fires but no conservative/inventive cue is present |
-| `inventive` | `"research"`, `"novel paradigm"`, `"experiment"`, `"prototype a new"`, `"invent"`, `"no known solution fits"`, `"from scratch"` + domain without known patterns | Auto-dispatch **proposes** `inventive` but the existing per-task acknowledgment flow from `architect-mode` SKILL.md § Creativity levels still runs — without literal `acknowledged`, silently downgrade to `standard` |
+| Greenfield (`"from scratch"`, `"new service"`, `"new module"`, `"no existing code"`, `"design a new"`) | **+3** | literal phrase match |
+| ≥ 3 new components (≥ 2 matches of the components pattern, or ≥ 3 distinct `"new <noun>"` phrases) | **+2** | pattern / noun count |
+| Cross-layer (`"across"`, `"between … and"`, `"integrate"`, `"wire"`, `"bridge"`, `"hook into"`) | **+2** | literal phrase match |
+| Ambiguous requirements (`"somehow"`, `"after my last change"`, `"I'm not sure"`, `"when … doesn't"`) | **+2** | literal phrase match |
+| Explicit bug-fix (`"fix"`, `"failing"`, `"broken"`, `"off-by-one"`, `"typo"`) | **−5** | literal phrase match |
+| Single-file known-solution (exactly one file path AND (line ref OR fix verb OR `rename`/`move`/`delete`/`remove`)) | **−3** | path + bounded-work signal |
+| **Layer-crossings** (≥ 2 named layer / subsystem terms from the LDD/AWP vocabulary — validator, critique, delegation loop, runner, manager, orchestration, etc.) | **+2** | vocabulary count |
+| **Contract / R-rule hit** (`R\d+`, `"schema"`, `"contract"`, `"API surface"`, `"invariant"`, `"confidence (field\|threshold)"`, `"critique gate"`, `"deliverable_presence"`) | **+2** | literal phrase match |
+| **Unknown-file-territory** (paths not seen in `.ldd/trace.log` history of the last 20 runs; when log is empty or absent, contributes 0) | **+1** | trace-log lookup |
 
-Conservative beats inventive on a tie (risk-averse default).
+The three bolded signals are new in the thinking-levels design; the other six are inherited from the pre-thinking-levels architect-mode scorer.
 
-### Precedence — highest wins
+### Score-to-level buckets (Phase-1-tuned, upward-biased)
+
+| Summed score | Level |
+|---|---|
+| `score ≤ −7` (explicit-bugfix AND single-file both fire, nothing else) | **L0** |
+| `−6 ≤ score ≤ −2` | **L1** |
+| `−1 ≤ score ≤ 3` | **L2** *(zero-signal baseline lands here)* |
+| `4 ≤ score ≤ 7` | **L3** |
+| `score ≥ 8` | **L4** |
+
+**Creativity-clamp rule (L4 ↔ L3 interaction).** When the score buckets L4 BUT the creativity inferrer returns `standard`, the level clamps to L3. Reason: L4's preset mandates `creativity=inventive (ack-gated)`; running L4 with `standard` would mix two loss functions into one gradient (violates `../architect-mode/SKILL.md` §"Cannot switch mid-task"). The dispatch header MUST show `[clamped from L4 (creativity=standard)]` when this fires. The clamp is one-directional: it cannot promote L3 → L4 when creativity would be inventive.
+
+### Creativity inference (applied at L3 / L4)
+
+The creativity inferrer is unchanged from the pre-thinking-levels design; it now runs at L3 and L4 only.
+
+| Level | Triggering signals | Notes |
+|---|---|---|
+| `conservative` | `"regulated"`, `"compliance"`, `"HIPAA"`, `"PCI"`, `"SOC2"`, `"migration of production"`, `"existing stack only"`, `"no new tech"`, `"on-call"`, `"tight deadline"`, `"team of N"` | Any one hit → `conservative` |
+| `standard` (default) | none of the other levels' signals dominate | Picked when L3/L4 fires but no conservative/inventive cue is present |
+| `inventive` | `"novel"`, `"research"`, `"prototype"`, `"no known pattern"`, `"invent"`, `"experimental"`, `"paradigm"` | Scorer **proposes** `inventive`; ack-gate must pass before the inventive loss function activates (see §Inventive ack below) |
+
+Conservative beats inventive on a tie.
+
+### Mandatory trace-header echo
+
+On every non-trivial task, the agent MUST emit one of these lines in the trace header before doing any work:
 
 ```
-inline LDD[mode=…] / LDD[creativity=…] flags     ← highest
-    ↓
-/ldd-architect [creativity] command arg
-    ↓
-trigger-phrase match in the dispatch table above
-    ↓
-auto-dispatch score ≥ 4                          ← lowest
-    ↓
-bundle default (mode=reactive, creativity=standard)
+Dispatched: auto-level L<n> (signals: <signal1>=<±N>, <signal2>=<±N>)
+Dispatched: auto-level L<n> (signals: ...) [clamped from L4 (creativity=standard)]
+Dispatched: user-explicit L<n> (scorer proposed L<m>)
+Dispatched: user-bump L<n> (scorer proposed L<m>, bump: <fragment>)
+Dispatched: user-override-down L<n> (scorer proposed L<m>). User accepts loss risk.
 ```
 
-If the user wrote `LDD[mode=reactive]:` on a task whose auto-score would be 6, the agent stays reactive. If the user wrote `LDD[mode=architect, creativity=conservative]:` the agent does NOT recompute — it uses exactly what was asked for.
+Signal pairs are the top-2 by absolute weight, stable tie-break by signal name. The agent can invoke the scorer via `python scripts/level_scorer.py "<task>"` (CLI) or `from level_scorer import score_task` (library).
 
-### Mandatory echo
-
-When auto-dispatch fires (mode = architect was chosen without an explicit trigger), the agent MUST echo the decision in the trace header. The user needs to see it and be able to override with one follow-up message. Format:
+When the scorer output lands at L3 or L4, the creativity is additionally echoed on a second line:
 
 ```
-dispatched: auto (signals: greenfield=+3, cross-layer=+2)
+mode: architect, creativity: <standard|conservative|inventive>
 ```
-
-Use the top-2 signals by absolute weight. When the score is below 4 and the agent consciously **did not** enter architect-mode, emit:
-
-```
-dispatched: auto (skip: explicit-bugfix=-5)
-```
-
-…only if the user could reasonably have expected architect-mode to fire (greenfield-sounding ask, or prior turn in session mentioned design). Otherwise the reactive default is silent.
 
 ### Worked example
 
 > User: *"design a webhook replay service that stores every inbound webhook and lets partners replay arbitrary subsets; ~500/min, 6-8 week timeline, team of 2"*
 
-Scorer run:
+Scorer run (deterministic):
 
-- Greenfield (`"design … service"`, no existing code referenced): **+3**
-- ≥ 3 components (intake + store + replay + CLI): **+2**
-- Cross-layer (ingestion + persistence + delivery): **+2**
-- Ambiguous (no stack chosen, no retention named): **+2**
-- Bug-fix / rename: **0**
-- Single file: **0**
-- **Total: +9 → architect.**
+- greenfield (`"design … service"`): **+3**
+- components≥3 (intake + store + replay + CLI): **+2**
+- cross-layer (`"… and …"` spans ingestion + persistence + delivery): **+2**
+- ambiguous (no stack chosen, no retention named): **+2**
+- layer-crossings (no LDD/AWP vocabulary hit): 0
+- contract-rule-hit (no R-rule / schema named): 0
+- others: 0
+- **sum: +9 → L4 bucket.**
 
-Creativity inference:
+Creativity inference: no inventive cues, no conservative cues → `standard`.
 
-- Conservative signals (`"regulated"` / `"compliance"` / …): none
-- Inventive signals (`"research"` / `"novel"` / …): none
-- → `standard`
+Creativity-clamp rule fires: L4 + standard → **clamp to L3**.
 
-Trace header echoes:
+Trace header:
 
 ```
-dispatched: auto (signals: greenfield=+3, components≥3=+2)
+Dispatched: auto-level L3 (signals: greenfield=+3, components>=3=+2) [clamped from L4 (creativity=standard)]
 mode: architect, creativity: standard
 ```
 
-### Relation to trigger phrases
+### Relation to the trigger-phrase table above
 
-The dispatch table above (with phrases like "design X" / "greenfield") already fires architect-mode when a literal phrase matches — that path stays. Auto-dispatch is for the case where **no** literal phrase matched but the task shape still warrants architect-mode. In practice the two paths overlap heavily on classic greenfield asks; auto-dispatch catches the less-verbal users and the cross-layer asks that don't use design vocabulary.
+The trigger-phrase table (§Trigger phrases) still fires specific skills when literal phrases match (e.g. `"failing test"` → `reproducibility-first`). Auto-dispatch is parallel to that, not in competition: the trigger-phrase table picks **which skills to invoke inside the level's skill floor**. The scorer picks **the level**. Both run; they refine each other.
 
 ## The "LDD:" buzzword
 
@@ -153,6 +169,7 @@ LDD[k=3]: quick exploratory fix
 LDD[k=10, reproduce=4]: deep dive on this flaky test
 LDD[max-refinement=1]: one polish pass on this doc, then ship
 LDD[no-reproduce]: I've already confirmed reproducibility — go straight to root-cause
+LDD[level=L3]: explicit level L3, overrides the auto-level scorer
 ```
 
 Accepted flags (full reference in [`../../docs/ldd/hyperparameters.md`](../../docs/ldd/hyperparameters.md)):
@@ -161,19 +178,91 @@ Accepted flags (full reference in [`../../docs/ldd/hyperparameters.md`](../../do
 - `reproduce=<N>` — `reproducibility-first` Branch A rerun count (0–10; 0 is allowed but warned)
 - `no-reproduce` — shortcut for `reproduce=0`
 - `max-refinement=<N>` — refinement-loop hard cap (1–10)
-- `mode=architect` — switch to architect mode for this task (invokes the 5-phase architect protocol from `../../skills/architect-mode/SKILL.md`)
-- `mode=reactive` — force reactive mode, override any auto-trigger from architect-phrases in the task description
-- `creativity=<conservative|standard|inventive>` — architect-mode sub-parameter selecting the **loss function** for this task (three discrete objectives, not a continuous freedom dial). Ignored if `mode≠architect`. `inventive` triggers a one-line user-acknowledgment flow before architect work begins. Cannot be set project-level (per-task only).
+- `level=<L0..L4>` — explicit thinking-level, overrides the auto-level scorer. When the explicit level is below the scorer's proposal, the dispatch header emits `user-override-down` with the "User accepts loss risk" warning. `level` is **not** a persisted hyperparameter (cannot be set in `.ldd/config.yaml` or via `/ldd-set`); it is per-task only, parsed from the inline flag.
+- `mode=architect` — switch to architect mode for this task (invokes the 5-phase architect protocol from `../../skills/architect-mode/SKILL.md`). Implied by `level=L3` and `level=L4`.
+- `mode=reactive` — force reactive mode. When combined with `level=L3` or `level=L4`, the combination is rejected (the level preset is architect-mandated). Error echoed in the trace.
+- `creativity=<conservative|standard|inventive>` — architect-mode sub-parameter selecting the **loss function** for this task (three discrete objectives, not a continuous freedom dial). Ignored if `mode≠architect`. `inventive` triggers the one-line acknowledgment flow (see §Inventive ack below). Cannot be set project-level (per-task only).
 
-Multiple flags are comma-separated. Inline flags **beat everything else** (session `/ldd-set`, `.ldd/config.yaml`, bundle defaults). When an override applies, echo it in the trace block header so the user sees what budget is actually active:
+Multiple flags are comma-separated. Inline flags **beat everything else** (session `/ldd-set`, `.ldd/config.yaml`, bundle defaults).
+
+### Relative bumps — when the user knows they want "more"
+
+Shortcuts for "bump one or two levels above auto-dispatch". These are category 3 in the §Precedence below — lower than `LDD[level=Lx]`, higher than natural language.
 
 ```
-│ Budget : k=3/K_MAX=3 (override: inline)
+LDD+:  <task>      → auto-level + 1
+LDD++: <task>      → auto-level + 2
+LDD=max: <task>    → L4 directly (equivalent to LDD[level=L4])
+```
+
+Clamp rule: the bumped level is capped at L4. Bumping beyond L4 is a no-op. A bump of `LDD+` on a task that already auto-dispatches to L4 emits a trace note `(bump ignored — already at L4)`.
+
+### Natural-language bumps — for users who don't know the syntax
+
+The user does not need to know any LDD syntax. These phrases in the task text are recognized as "be more careful than the scorer said":
+
+| Phrase fragments (case-insensitive) | Effect |
+|---|---|
+| `"take your time"`, `"think hard"`, `"think carefully"`, `"careful"`, `"denk gründlich"`, `"denke gründlich"`, `"sorgfältig"`, `"durchdacht"` | **+1 level** |
+| `"really think"`, `"think really hard"`, `"very careful"`, `"ultra-careful"`, `"maximum rigor"`, `"think thoroughly"`, `"sehr sorgfältig"` | **+2 levels** |
+| `"full LDD"`, `"use everything"`, `"maximum deliberation"`, `"volle Kanne"` | **clamp to L4** |
+
+All `+1` phrases **dedup semantically** — `"take your time and think hard"` contributes +1 total, not +2. Both express the same "be careful" intent. A +2 bump requires an explicit strong phrase from the second row.
+
+The natural-language path is the lowest-priority override (category 4); any explicit LDD-syntax flag above beats it.
+
+### Dispatch-header echo for overrides
+
+When ANY override fires (explicit flag, relative bump, or natural-language bump), the dispatch header surfaces it so the user can see what actually ran:
+
+```
+Dispatched: user-explicit L3 (scorer proposed L2)
+Dispatched: user-bump L2 (scorer proposed L0, bump: LDD++)
+Dispatched: user-bump L2 (scorer proposed L0, bump: "take your time")
+Dispatched: user-bump L4 (scorer proposed L0, bump: LDD=max)
+Dispatched: user-override-down L0 (scorer proposed L3). User accepts loss risk.
 ```
 
 If the user expresses a budget in prose ("budget of 3 iterations", "give me only one refinement pass"), parse the intent and apply — echo in the trace as `(parsed from prose)`. When ambiguous, ask one clarifying question rather than guessing.
 
-### Precedence
+### Inventive ack — user consent to switch the loss function
+
+`creativity=inventive` uses a **different loss function** than `standard` or `conservative` (see `../architect-mode/SKILL.md` §"The neural-code-network framing"). The agent is **never** allowed to activate inventive on its own — it can only propose, and the user consents.
+
+Three paths to consent, in order of precedence:
+
+1. **Explicit inline flag.** `LDD[creativity=inventive]:` or the `/ldd-architect inventive` command. Consent is carried in the flag; no further ack needed.
+2. **Literal ack token.** When the scorer proposes inventive (via cues like `"novel"`, `"prototype"`, `"research"`), the agent asks the user for explicit consent. The canonical ack is the word `acknowledged`. But any of these natural-language affirmatives also count (bilingual):
+
+   | Positive (→ inventive activates) | Negative (→ silent downgrade to `standard`) |
+   |---|---|
+   | `"acknowledged"`, `"ack"`, `"yes"`, `"ja"`, `"go"`, `"go ahead"`, `"proceed"`, `"los"`, `"okay mach"`, `"okay machen"`, `"passt"`, `"mach"` | `"no"`, `"nein"`, `"stop"`, `"cancel"`, `"abbruch"`, `"halt"`, or silence |
+
+   Ambiguous replies (`"hmm"`, `"maybe"`, `"let me think"`) do NOT activate inventive — they require the literal `acknowledged` or a positive token.
+
+3. **Implicit ack from the original task prompt.** When the user's initial message already contains **≥ 2 inventive cues** (`"novel"`, `"research"`, `"prototype"`, `"no known pattern"`, `"invent"`, `"experimental"`, `"paradigm"`) AND is **≥ 100 characters long**, the agent treats the prompt itself as consent — the user has already verbalized inventive intent in a substantive task description. The dispatch header MUST surface this explicitly:
+
+   ```
+   mode: architect, creativity: inventive (implicit ack from ≥2 inventive cues in prompt)
+   ```
+
+   If the prompt is shorter than 100 characters or contains only 1 inventive cue, fall back to path 2 (explicit ack).
+
+Neither path 2 nor path 3 allows the AGENT to select inventive on its own. Both still require user-originated consent — path 2 via a reply, path 3 via the task text itself. The moving-target-loss protection (the user is the only authority that can set the loss function) is preserved.
+
+### Precedence — level selection (highest wins)
+
+```
+1. LDD[level=Lx]:               explicit level              ← highest
+2. LDD=max: / "volle Kanne"     literal max (→ L4)
+3. LDD++: / LDD+:               relative bump
+4. Natural-language phrases     "take your time" etc.
+5. Auto-scorer output           9-signal scorer bucket       ← lowest
+```
+
+`LDD[level=L0]:` on a task the scorer would bucket L3 is an explicit downward override — honored, but `user-override-down` warning is emitted. No silent demotions.
+
+### Precedence — other hyperparameters (k, reproduce, max-refinement, mode, creativity)
 
 ```
 inline LDD[...] flags         ← highest priority
@@ -185,7 +274,7 @@ inline LDD[...] flags         ← highest priority
 bundle defaults               ← lowest
 ```
 
-Use `/loss-driven-development:ldd-config` to see the full stack with per-key provenance. Only the three knobs above are exposed — requests to tune other parameters (learning rates, loss weights, skill-enable flags) are moving-target-loss risks and are refused per `docs/ldd/hyperparameters.md` §"What is NOT exposed (by design)".
+Use `/loss-driven-development:ldd-config` to see the full stack with per-key provenance. Only the knobs listed in `docs/ldd/hyperparameters.md` are exposed — `level` itself is a DERIVED value (the auto-scorer's output or an explicit override), not a persisted hyperparameter. Requests to tune other parameters (learning rates, loss weights, skill-enable flags) are moving-target-loss risks and are refused per `docs/ldd/hyperparameters.md` §"What is NOT exposed (by design)".
 
 ## The LDD trace — mandatory visible output
 
@@ -203,6 +292,7 @@ Re-emit also at the end of each message if the task spans multiple messages, and
 
 ```
 ╭─ LDD trace ─────────────────────────────────────────╮
+│ Store     : <tier scope — see bootstrap-userspace>
 │ Task      : <one-line description of what the user asked>
 │ Loop      : inner | refinement | outer
 │ Loss-type : <see "Loss-types" below — primary is normalized [0,1]>
@@ -291,6 +381,7 @@ info line       : "  *<skill-name>* → <one-line description of change produced
 **Example — inner (reactive) → refine → outer, 6 iterations:**
 
 ```
+│ Store      : local (.ldd/trace.log)
 │ Trajectory : █▆▃▂··   0.500 → 0.375 → 0.125 → 0.100 → 0.000 → 0.000  ↓
 │
 │ Loss curve (auto-scaled, linear):
@@ -429,7 +520,17 @@ python -m ldd_trace status --project .        # machine-readable last-k per loop
 
 Each `append` / `close` call prints the FULL current trace block to stdout — so running the tool IS the per-iteration emission. The single-file module lives at `scripts/ldd_trace/` in the plugin repo; copy it into `$PROJECT_ROOT/.ldd/ldd_trace/` if the plugin isn't in PYTHONPATH.
 
-**If `.ldd/` cannot be written** (read-only filesystem, no project root), skip the persistence but still emit the inline block.
+**Permanent statusline on Claude Code.** When the host is Claude Code, also dispatch [`host-statusline`](../host-statusline/SKILL.md) once per session, in parallel with `bootstrap-userspace`. That skill auto-installs a bottom-of-screen statusline that reads `.ldd/trace.log` (or ⟪LDD-TRACE-v1⟫ markers from the session JSONL) and renders a one-line LDD monitor — task · loop · iteration · loss · Unicode sparkline · trend. Install is project-local (`.ldd/statusline.sh` + a single `statusLine` key in `.claude/settings.local.json`), idempotent, merge-safe, silent. The user never has to configure it. The `│ Store :` line in the trace block gains a `statusline: installed` suffix so they see it went live.
+
+**If `.ldd/` cannot be written** (read-only filesystem, no project root, sandboxed chat host like Claude Desktop without MCP filesystem or ChatGPT without an Actions server) — delegate to `bootstrap-userspace`. That skill inspects the host's tool inventory and picks the most durable alternative tier silently, without prompting the user:
+
+- **Tier 0 — Filesystem** — this bidirectional path (the default); `bootstrap-userspace` is a no-op.
+- **Tier 1 — Artifact / Canvas** — maintain a persistent document titled `ldd-trace.log` inside the conversation.
+- **Tier 2 — Conversation-History** — emit `⟪LDD-TRACE-v1⟫`-prefixed trace lines in the visible reply; the host's chat retention IS the persistence. A CLI session can later promote these lines to Tier 0 via `python -m ldd_trace ingest < pasted.txt`.
+- **Tier 3 — Memory-pointer** — personal-memory API holds a one-line pointer to where the trace actually lives (Tier 1 or 2). Never trace data directly.
+- **Tier 4 — Inline-only** — degraded fallback; trace is ephemeral, lost at session end.
+
+The chosen tier is always disclosed in the trace block's header via a `│ Store  : <scope>` line (see format below). Full protocol: [`../bootstrap-userspace/SKILL.md`](../bootstrap-userspace/SKILL.md).
 
 ### When NOT to emit the trace block
 

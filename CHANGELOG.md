@@ -6,6 +6,21 @@ All notable changes to this plugin are documented here. Format follows [Keep a C
 
 ## [0.13.0] — 2026-04-22
 
+### Added — `install.auto_update` opt-out in `.ldd/config.yaml`
+
+Security-conscious users can fully disable the SessionStart auto-install:
+
+```yaml
+install:
+  auto_update: false    # default: true
+```
+
+When `false`, the hook exits silently on **every** version transition — N-bumps, I-bumps, and missing-artifact gaps included. The user then controls the update pace entirely via `/ldd-install` (which sets `LDD_FORCE_INSTALL=1` and always installs).
+
+Default remains `true` — upgrades Just Work for users who do not touch the config. The config key lives in the freshly-seeded `config.yaml.default` template and is documented inline.
+
+Parser is bash-native (awk one-liner on the `install:` block), same discipline as `display:` reads in `scripts/ldd_trace/session_gate.py` — no PyYAML dep added.
+
 ### Changed — SemVer-aware auto-update policy in SessionStart install hook
 
 Plugin versions follow `I.N.M` (major.minor.patch). From 0.13.0 onward the SessionStart install hook applies a three-way policy:

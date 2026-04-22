@@ -118,6 +118,34 @@ patch_skip=0          # set when only M differs between marker and plugin
 force_install="${LDD_FORCE_INSTALL:-0}"
 installed_version=""
 
+# --- User opt-out: .ldd/config.yaml `install.auto_update: false` ------------
+# Strict security mode — user wants zero automatic installs, N-bump included.
+# LDD_FORCE_INSTALL=1 still wins (that's the `/ldd-install` manual path).
+#
+# Parse the `install:` block inline — no PyYAML dep, matching the
+# `display:` reader in scripts/ldd_trace/session_gate.py. We accept only
+# the documented shape (one-level nesting, scalar bool values).
+auto_update=1
+user_config="$ldd_dir/config.yaml"
+if [[ -f "$user_config" ]]; then
+    au_value=$(awk '
+        /^[[:space:]]*install:[[:space:]]*$/ { in_blk = 1; next }
+        # Leave the install: block as soon as a non-indented key appears.
+        in_blk && /^[^[:space:]#]/          { in_blk = 0 }
+        in_blk && /^[[:space:]]+auto_update[[:space:]]*:/ {
+            sub(/.*auto_update[[:space:]]*:[[:space:]]*/, "")
+            sub(/[[:space:]]*#.*$/, "")  # strip trailing comment
+            gsub(/["'\'']/, "")          # strip quotes
+            gsub(/[[:space:]]/, "")      # strip whitespace
+            print tolower($0)
+            exit
+        }
+    ' "$user_config" 2>/dev/null)
+    case "$au_value" in
+        false|0|no|off) auto_update=0 ;;
+    esac
+fi
+
 if [[ -f "$marker" ]]; then
     installed_version=$(tr -d '[:space:]' < "$marker" 2>/dev/null || echo "")
     if [[ "$installed_version" != "$plugin_version" ]]; then
@@ -160,12 +188,17 @@ done
 #   up_to_date=1                         → silent no-op (exact match, all bytes same)
 #   patch_skip=1 AND any_missing=0
 #              AND force_install=0       → silent no-op (dev iteration)
+#   auto_update=0 AND force_install=0    → silent no-op (user opt-out)
 #   otherwise                            → fall through to install
 if (( up_to_date )); then
     echo '{}'
     exit 0
 fi
 if (( patch_skip == 1 && any_missing == 0 && force_install == 0 )); then
+    echo '{}'
+    exit 0
+fi
+if (( auto_update == 0 && force_install == 0 )); then
     echo '{}'
     exit 0
 fi

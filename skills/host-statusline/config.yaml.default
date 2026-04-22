@@ -23,3 +23,19 @@ display:
   # Set to `false` to restore the pre-v0.12.0 behavior where the hook
   # rendered on every Stop event as long as `trace.log` existed.
   gate_on_activity: true
+
+install:
+  # When true (default), the SessionStart install hook auto-installs plugin
+  # upgrades that cross the I or N dimension (e.g. 0.13.x → 0.14.0 or
+  # 0.13.x → 1.0.0). M-dimension bumps (dev iterations) are always skipped
+  # per the release-line policy, independent of this flag.
+  #
+  # Set to `false` to disable ALL automatic installs — including N and I
+  # release bumps. The user then has full control and must run
+  # `/ldd-install` manually to pull any plugin update. A broken artifact
+  # (missing statusline / hook / launcher) is NOT auto-repaired in this
+  # mode — the plugin may render as "idle" until `/ldd-install` runs.
+  #
+  # LDD_FORCE_INSTALL=1 always wins over this setting (the `/ldd-install`
+  # slash command sets it, so manual installs succeed regardless).
+  auto_update: true

@@ -10,8 +10,8 @@
   "plugins": [
     {
       "name": "loss-driven-development",
-      "description": "LDD — loss-driven development for the AI-era coding loop. Twelve portable skills across three reactive loops (inner/refinement/outer) plus opt-in architect-mode for greenfield design.",
-      "version": "0.10.1",
+      "description": "LDD — Gradient Descent for Agents. Twelve portable skills across four parameter spaces (code / deliverable / method / reasoning chain) plus opt-in architect-mode for greenfield design.",
+      "version": "0.10.2",
       "source": "./",
       "category": "development",
       "homepage": "https://github.com/veegee82/loss-driven-development",

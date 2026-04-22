@@ -4,7 +4,7 @@ digraph skills_overview {
   node [fontname="Helvetica", shape=box, style="rounded,filled", fontsize=11];
   edge [fontname="Helvetica", fontsize=10, color="#888888"];
   labelloc="t";
-  label=<<b>LDD — twelve skills on four gradients</b><br/><font point-size="10">Inner (code) · Refinement (deliverable) · Outer (method) · CoT (reasoning chain, v0.8.0)<br/>Cross-cutting: dialectical-reasoning, docs-as-definition-of-done, define-metric (v0.9.0)</font>>;
+  label=<<b>LDD — twelve skills on four gradients</b><br/><font point-size="10">Inner (code) · Refinement (deliverable) · Outer (method) · CoT (reasoning chain)<br/>Cross-cutting: dialectical-reasoning, docs-as-definition-of-done, define-metric</font>>;
   fontname="Helvetica";
   fontsize=14;
 
@@ -63,9 +63,9 @@ digraph skills_overview {
     dd -> me [label="pattern found?"];
   }
 
-  // CoT loop cluster (v0.8.0, fourth axis)
+  // CoT loop cluster (fourth axis)
   subgraph cluster_cot {
-    label=<<b>CoT LOOP</b> — t = reasoning chain (∂L/∂thought, v0.8.0)<br/><font point-size="9">per-step dialectic + ground-truth verification</font>>;
+    label=<<b>CoT LOOP</b> — t = reasoning chain (∂L/∂thought)<br/><font point-size="9">per-step dialectic + ground-truth verification</font>>;
     style="rounded,filled"; fillcolor="#e0f5f0"; color="#17a68c"; fontsize=12;
 
     dcot [
@@ -84,7 +84,7 @@ digraph skills_overview {
       fillcolor="#ffffff"
     ];
     dm [
-      label=<<b>define-metric (v0.9.0)</b><br/><font point-size="9">agent-defined metrics<br/>with calibration gate</font>>,
+      label=<<b>define-metric</b><br/><font point-size="9">agent-defined metrics<br/>with calibration gate</font>>,
       fillcolor="#ffffff"
     ];
   }

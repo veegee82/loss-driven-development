@@ -18,7 +18,7 @@ digraph mental_model_ldd {
     theta_code [label="Inner (θ):\ncode of current task"];
     theta_deliv [label="Refinement (y):\ndeliverable of a run"];
     theta_skill [label="Outer (m):\nskills / prompts / rubrics"];
-    theta_thought [label="CoT (t, v0.8.0):\nreasoning chain"];
+    theta_thought [label="CoT (t):\nreasoning chain"];
   }
 
   subgraph cluster_loss {

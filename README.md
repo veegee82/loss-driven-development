@@ -109,7 +109,7 @@ Full format spec in [`skills/using-ldd/SKILL.md`](./skills/using-ldd/SKILL.md) �
 
 ## Twelve skills on four gradients
 
-![LDD skills overview — skills across the three code-axis loops, connected to the loop-driven-engineering entry-point and closed by docs-as-definition-of-done](./diagrams/skills-overview.svg)
+![LDD skills overview — twelve skills grouped across the four loops (inner/refine/outer on the code-axis trunk plus CoT on the thought-axis), cross-cutting disciplines, and the architect-mode opt-in; connected to the using-ldd entry-point and closed by docs-as-definition-of-done](./diagrams/skills-overview.svg)
 
 Each skill belongs to one of the four gradients LDD optimizes across, plus a handful of cross-cutting disciplines that apply everywhere. First hop to the home doc for each axis: [`docs/theory.md`](./docs/theory.md) §2.
 

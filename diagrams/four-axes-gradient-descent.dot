@@ -12,7 +12,7 @@ digraph four_axes_gradient_descent {
     label=<<b>step-size controller</b><br/><font point-size="9">picked per task, before any gradient descends</font>>;
     style="rounded,filled"; fillcolor="#fff9e6"; color="#d4a017"; fontsize=11;
     levels [
-      label=<<b>thinking-levels (v0.10.1)</b><br/><font point-size="9">9-signal scorer → L0 reflex · L1 diagnostic · L2 deliberate · L3 structural · L4 method<br/>sets k_max, reproduce_runs, max_refinement, mode, skill floor</font>>,
+      label=<<b>thinking-levels</b><br/><font point-size="9">9-signal scorer → L0 reflex · L1 diagnostic · L2 deliberate · L3 structural · L4 method<br/>sets k_max, reproduce_runs, max_refinement, mode, skill floor</font>>,
       fillcolor="#ffffff"
     ];
   }
@@ -49,7 +49,7 @@ digraph four_axes_gradient_descent {
   }
 
   subgraph cluster_cot {
-    label=<<b>CoT loop — ∂L/∂thought</b><br/><font point-size="9">t = reasoning chain (v0.8.0)</font>>;
+    label=<<b>CoT loop — ∂L/∂thought</b><br/><font point-size="9">t = reasoning chain</font>>;
     style="rounded,filled"; fillcolor="#e6fbe6"; color="#2ca02c"; fontsize=11;
     cot_param [label=<<b>t</b><br/>thought>, fillcolor="#ffffff"];
     cot_loss [label="L = per-step dialectic\n+ ground-truth\nverification", fillcolor="#ffffff"];
@@ -79,10 +79,4 @@ digraph four_axes_gradient_descent {
   refine_budget -> reg [ltail=cluster_refine, style=dashed, fontsize=9];
   outer_budget -> reg [ltail=cluster_outer, style=dashed, fontsize=9];
   cot_budget -> reg [ltail=cluster_cot, style=dashed, fontsize=9];
-
-  // Rule note
-  note [
-    label=<<b>Rule:</b> four axes are independent. Mixing them (inner-loop editing a weak deliverable,<br/>refinement polishing buggy code, outer-loop editing without a suite, greedy CoT<br/>on a verifiable task) produces unstable gradients. Name the axis before editing.>,
-    shape=note, fillcolor="#fff9e6", color="#d4a017"
-  ];
 }

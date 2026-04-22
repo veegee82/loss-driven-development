@@ -4,6 +4,27 @@ All notable changes to this plugin are documented here. Format follows [Keep a C
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-04-22
+
+### Changed — SemVer-aware auto-update policy in SessionStart install hook
+
+Plugin versions follow `I.N.M` (major.minor.patch). From 0.13.0 onward the SessionStart install hook applies a three-way policy:
+
+| Transition | Auto-install on SessionStart? |
+|---|---|
+| Exact same version | no-op |
+| `M`-only bump (e.g. `0.13.3 → 0.13.4`) | **skip** — treated as dev iteration |
+| `N` or `I` bump (e.g. `0.13.4 → 0.14.0`, `0.14.0 → 1.0.0`) | install |
+| Any missing artifact | install (fills the gap regardless of diff class) |
+
+Rationale: maintainers publish patch-level commits to `main` many times a day. Before 0.13.0, every such commit churned the user's `.ldd/` artifacts on the next session, which made ongoing dev work visible to users who had not opted in to it. The M-dimension is now reserved for the maintainer's own workflow; the N-dimension is the release channel.
+
+Escape hatch: `LDD_FORCE_INSTALL=1` in the hook's environment bypasses the M-skip. The `/ldd-install` slash command sets this automatically — a user running `/ldd-install` is explicitly asking for the latest artifacts and should always get them.
+
+Implementation: the install hook gains a `parse_version` helper (regex-tolerant to `-pre` / `+build` suffixes) and splits the idempotency check into `up_to_date` (exact match + bytes same), `patch_skip` (I.N matches, M differs), and `any_missing` (at least one artifact absent). Decision matrix documented inline in `hooks/ldd_install.sh`.
+
+Backwards compatibility: the `.install_version` marker file format is unchanged — old v0.10.3 / v0.11.0 markers continue to parse as I.N.M (they always were). Users upgrading from any pre-0.13 version see a one-time install as `old_version → 0.13.0` (N-bump = install), after which M-bumps within the 0.13 release line stay local to the maintainer.
+
 ## [0.12.0] — 2026-04-22
 
 ### Added — per-project display config + activity-gated Stop-hook

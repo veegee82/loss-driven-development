@@ -83,15 +83,61 @@ if (( ${#missing[@]} > 0 )); then
     exit 0
 fi
 
-# --- Idempotency check ------------------------------------------------------
+# --- Idempotency + SemVer-aware auto-update policy --------------------------
+#
+# Version scheme (project-specific, differs from stock SemVer):
+#
+#     I.N.M   — I=major (reserved), N=release (public), M=dev-iteration
+#
+#   - Bumping N (or I) is a "release": plugin artifacts auto-update on the
+#     next SessionStart, same as before.
+#   - Bumping ONLY M is a "dev iteration": auto-update is SUPPRESSED so
+#     users are not churned by every mid-release patch commit.
+#   - Missing artifacts still force an install (the hook cannot leave a
+#     project in a half-installed state, ever).
+#   - LDD_FORCE_INSTALL=1 in the hook's environment bypasses the M-skip —
+#     the `/ldd-install` slash command sets it, so users can force an
+#     install on demand.
+#
+# Examples:
+#     0.12.3 → 0.12.4   dev iteration → skip (unless forced / artifact missing)
+#     0.12.9 → 0.13.0   release       → install, bump marker to 0.13.0
+#     0.13.0 → 1.0.0    major         → install, bump marker to 1.0.0
+
+parse_version() {
+    # Usage: parse_version "0.12.4" → prints "0 12 4" on stdout; empty on parse fail.
+    # Accepts optional trailing "-pre" / "+build" suffix (stripped silently).
+    local v="$1"
+    if [[ "$v" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)([-.+][A-Za-z0-9.-]+)?$ ]]; then
+        printf '%s %s %s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
+    fi
+}
+
 up_to_date=1
+patch_skip=0          # set when only M differs between marker and plugin
+force_install="${LDD_FORCE_INSTALL:-0}"
+installed_version=""
+
 if [[ -f "$marker" ]]; then
     installed_version=$(tr -d '[:space:]' < "$marker" 2>/dev/null || echo "")
-    [[ "$installed_version" == "$plugin_version" ]] || up_to_date=0
+    if [[ "$installed_version" != "$plugin_version" ]]; then
+        up_to_date=0
+        # Only treat as "patch-skip" when both versions parse AND I + N agree.
+        read -r p_maj p_min _p_patch <<< "$(parse_version "$plugin_version")"
+        read -r i_maj i_min _i_patch <<< "$(parse_version "$installed_version")"
+        if [[ -n "$p_maj" && -n "$i_maj" \
+              && "$p_maj" == "$i_maj" && "$p_min" == "$i_min" ]]; then
+            patch_skip=1
+        fi
+    fi
 else
     up_to_date=0
 fi
 
+# Check artifact presence + byte-identity. When patch_skip is 1, a byte-diff
+# alone does NOT invalidate the skip (dev iterations change the payload by
+# definition); only MISSING artifacts force the install to fill the gap.
+any_missing=0
 for dest_tpl in \
     "$ldd_dir/ldd_trace|$tpl_launcher" \
     "$ldd_dir/statusline.sh|$tpl_statusline" \
@@ -100,11 +146,26 @@ for dest_tpl in \
 do
     dest="${dest_tpl%%|*}"
     tpl="${dest_tpl##*|}"
-    if [[ ! -x "$dest" ]]; then up_to_date=0; continue; fi
-    if ! cmp -s "$dest" "$tpl"; then up_to_date=0; fi
+    if [[ ! -x "$dest" ]]; then
+        up_to_date=0
+        any_missing=1
+        continue
+    fi
+    if (( patch_skip == 0 )); then
+        if ! cmp -s "$dest" "$tpl"; then up_to_date=0; fi
+    fi
 done
 
+# Decision matrix:
+#   up_to_date=1                         → silent no-op (exact match, all bytes same)
+#   patch_skip=1 AND any_missing=0
+#              AND force_install=0       → silent no-op (dev iteration)
+#   otherwise                            → fall through to install
 if (( up_to_date )); then
+    echo '{}'
+    exit 0
+fi
+if (( patch_skip == 1 && any_missing == 0 && force_install == 0 )); then
     echo '{}'
     exit 0
 fi

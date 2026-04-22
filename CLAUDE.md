@@ -43,9 +43,43 @@ This file is loaded automatically by Claude Code (and compatible agents) when a 
 
 The plugin's honest-accounting story (`GAPS.md`, `evaluation.md`) rests on the bundle number being real, reproducible, and deliberately updated. A plugin whose README cites `0.561` while the fixtures actually produce `0.412` would silently lie to every adopter who reads it. The gate exists so that lie cannot ship.
 
-## General conventions (not Δloss_bundle specific)
+## `dist/` — must be up-to-date on every push to `main` and every release (load-bearing)
+
+Everything under `dist/` is **generated from the skills, docs, and scripts**. It is also what **end users download and install** — `dist/web-bundle/ldd-skill.zip` is the single-file artifact for Claude Web / Claude Desktop, and the GitHub release workflow attaches it verbatim. A `dist/` that is out of sync with source means the release ships stale skill bodies while `git log` shows the newer ones; adopters then run a version the repo cannot reproduce.
+
+### Two hard rules
+
+1. **Every push to `main` must land with `dist/` in sync.** Before `git commit` on any change that touches files `dist/` is derived from — `skills/**/SKILL.md`, `docs/ldd/**`, `scripts/level_scorer.py`, or the build script itself — run:
+
+   ```bash
+   python3 scripts/build_web_bundle.py
+   ```
+
+   and stage the regenerated `dist/web-bundle/` in the same commit. The pre-commit hook at `.githooks/pre-commit` blocks any commit that leaves `dist/web-bundle/` drifted (`test_build_web_bundle.py::test_check_passes_after_fresh_build` runs on every CI PR as a second gate). A `git push origin main` with drift is a protocol failure — never bypass with `--no-verify`.
+
+2. **Every release (tag + GitHub release) must rebuild `dist/` from scratch immediately before the tag commit.** Run the full regeneration sequence as the **last** step of the release prep, after version bumps and CHANGELOG updates:
+
+   ```bash
+   python3 scripts/build_web_bundle.py                # rebuild dist/web-bundle/ + ldd-skill.zip
+   python3 -m pytest scripts/test_build_web_bundle.py # confirm no drift vs. source
+   git diff --stat dist/                              # inspect what changed
+   ```
+
+   Only then create the release commit. If `dist/` changed and the release tag was already cut, the tag is invalid — delete it locally, rebuild, retag. A GitHub release whose attached `ldd-skill.zip` does not byte-match the tagged `dist/web-bundle/ldd-skill.zip` is a silent lie to every user who downloads it.
+
+### Why the rules bite this hard
+
+The web-bundle is the **primary install path for Claude Web and Claude Desktop users** — they cannot use the CLI plugin format. For those users, `dist/web-bundle/ldd-skill.zip` *is* the product. If `dist/` drifts behind `skills/`, those users get a different plugin than the one the CHANGELOG and README describe, and cannot reproduce the `Δloss_bundle = 0.561` number that the plugin's honest-accounting story relies on. The two gates above exist so that drift cannot ship.
+
+### What NOT to do
+
+- **Don't** hand-edit files under `dist/web-bundle/`. The build script is the source of truth; manual edits will be wiped on the next rebuild and a commit that edits `dist/` directly without editing source is a `method-evolution` trigger (the build pipeline has a gap the agent is routing around).
+- **Don't** skip the rebuild "because only one SKILL.md changed." The bundle carries cross-references; a single skill edit can reshape references in others.
+- **Don't** cut a release without running `scripts/build_web_bundle.py` even if CI passed — CI validates the pre-push snapshot, not the release-tag snapshot. The two can diverge if the release workflow bumps `plugin.json` after CI ran.
+- **Don't** assume `git status` being clean implies `dist/` is in sync — a `dist/` rebuild that produces identical bytes shows nothing in `git status`. Run the pytest check explicitly when in doubt.
+
+## General conventions (not `Δloss_bundle` or `dist/` specific)
 
 - Skill bodies under `skills/*/SKILL.md` are the user-visible disciplines; keep them concise (`~500` words guidance; dense skills can exceed it with comment).
 - Methodology text has one canonical home: `docs/ldd/`. Don't duplicate it into skill bodies or README.
-- The web-bundle at `dist/web-bundle/` is generated from the skills; a pre-commit hook already blocks drift there. Run `python3 scripts/build_web_bundle.py` after editing any SKILL.md.
 - Pre-commit hooks live in `.githooks/`. **Auto-activated by the plugin's SessionStart hook** (via `core.hooksPath=.githooks` set during the Signal-B install path for the LDD-plugin's own source repo) — you do not need to run `git config core.hooksPath .githooks` manually. If you have your own `core.hooksPath` already set to something else, the installer respects that choice and surfaces a note; in that case add `.githooks/pre-commit` to your own hooks path or fall back to the manual command. Never bypass hooks via `--no-verify` without an explicit reason in the commit message.

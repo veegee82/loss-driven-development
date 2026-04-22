@@ -59,7 +59,7 @@ k-th iteration:
 - "E2E keeps failing the same way, let me try something else" → `Δloss` is not going down; step size wrong (invoke `loss-backprop-lens`)
 - "I'll run the unit test instead, same signal" → only if the unit test covers the same failure surface; otherwise you're measuring a different loss
 - "Let me batch 3 fixes and run once" → conflates 3 gradient steps; if one regressed, you can't attribute
-- "I'll emit the trace block at the end of the whole task, the user doesn't need it per iteration" → **NO (v0.5.1)**. The user CANNOT see convergence without per-iteration emission; a final-block-only cadence gives them a single data point instead of a trajectory. Per-iteration trace is step 6, not optional.
+- "I'll emit the trace block at the end of the whole task, the user doesn't need it per iteration" → **NO**. The user CANNOT see convergence without per-iteration emission; a final-block-only cadence gives them a single data point instead of a trajectory. Per-iteration trace is step 6, not optional.
 
 ## E2E selection — cheap before expensive
 

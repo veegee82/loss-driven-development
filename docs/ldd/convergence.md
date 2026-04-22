@@ -7,7 +7,7 @@ Why does iterative coding sometimes converge on a clean solution and sometimes d
 See also:
 - [`../evaluation.md`](../evaluation.md) — the formal loss function per skill
 - [`../diagrams/four-axes-gradient-descent.svg`](../diagrams/four-axes-gradient-descent.svg) — the four-axis picture: code (θ), deliverable (y), method (m), thought (t)
-- [`../diagrams/three-loops.svg`](../diagrams/three-loops.svg) — Inner / Refinement / Outer (the three code-side loops) at a glance
+- [`../diagrams/four-loops.svg`](../diagrams/four-loops.svg) — all four loops at a glance: Inner / Refinement / Outer on the code-axis trunk plus CoT on the thought-axis branch
 - [`../diagrams/dialectical-cot.svg`](../diagrams/dialectical-cot.svg) — the CoT loop's per-step protocol
 - [`../diagrams/convergence-vs-divergence.svg`](../diagrams/convergence-vs-divergence.svg) — the same task ending two different ways
 - [`../diagrams/code-drift-mechanism.svg`](../diagrams/code-drift-mechanism.svg) — how local-optimal commits compose into global incoherence
@@ -21,7 +21,7 @@ Working on a system under LDD is gradient descent on **four orthogonal axes**. E
 | **Inner Loop** | `θ` = **code** of the current task | `∂L/∂code` | Rubric of the concrete failing test / E2E run | `K_MAX = 5` iterations per task | Any non-trivial engineering task |
 | **Refinement (y-axis)** | `y` = **deliverable** (output) of an already-completed run | `∂L/∂output` | Critique defects + gate rejections + evaluation deltas on that deliverable | Halve per iteration; stop on regression × 2, plateau × 2, wall-time × 2 | When a deliverable is "good enough but not great" and a re-run from scratch would be wasteful |
 | **Outer Loop (m-axis)** | `m` = the **skills / prompts / rubrics** themselves | `∂L/∂method` | `mean_loss` across a suite of tasks | N epochs, rollback on regression, learning-rate halved on rollback | When the same rubric violation recurs in 3+ distinct tasks |
-| **CoT Loop (t-axis)** *(v0.8.0)* | `t` = **reasoning chain** (thought trajectory) | `∂L/∂thought` | Per-step dialectic + ground-truth verification | Per-chain `max_steps`; backtracks ≤ 3 | Verifiable multi-step reasoning (math / code / logic / proofs) |
+| **CoT Loop (t-axis)** | `t` = **reasoning chain** (thought trajectory) | `∂L/∂thought` | Per-step dialectic + ground-truth verification | Per-chain `max_steps`; backtracks ≤ 3 | Verifiable multi-step reasoning (math / code / logic / proofs) |
 
 **Step-size controller (not a fifth loop):** [`thinking-levels`](./thinking-levels.md) picks L0…L4 per task before any of the four loops begins. It sets `k_max`, `reproduce_runs`, `max_refinement_iterations`, `mode`, and the skill floor. Think of it as the learning-rate scheduler for the whole optimizer.
 
@@ -142,7 +142,7 @@ A converging project shows **monotonic-or-flat** loss at each tier over time —
 
 A diverging project shows **rising test loss despite falling training loss** — the classic overfitting signature. LDD's job is to make this visible early and give the operator the tools (refinement, method-evolution, drift-detection) to correct course without starting over.
 
-### Loss display — normalized [0, 1], primary; raw `(N/max)` secondary (v0.3.2)
+### Loss display — normalized [0, 1], primary; raw `(N/max)` secondary
 
 Every measurable loss in LDD is displayed in one of three forms, named on the trace-block `Loss-type` line:
 
@@ -159,7 +159,7 @@ Full per-type spec in [`../../skills/using-ldd/SKILL.md`](../../skills/using-ldd
 1. `README.md` — what LDD is for ("Gradient Descent for Agents").
 2. [`../theory.md`](../theory.md) — the long-form optimization frame.
 3. This document — why the four-loop model is shaped the way it is.
-4. `diagrams/four-axes-gradient-descent.svg` — the top-level picture; then `three-loops.svg` (code-axis detail) and `dialectical-cot.svg` (CoT per-step protocol).
+4. `diagrams/four-axes-gradient-descent.svg` — the top-level picture; then `four-loops.svg` (loop-nesting view across all four axes) and `dialectical-cot.svg` (CoT per-step protocol).
 5. `skills/loop-driven-engineering/SKILL.md` — the inner loop, the entry point.
 6. `skills/root-cause-by-layer/SKILL.md` + `skills/loss-backprop-lens/SKILL.md` — the gradient mechanics.
 7. The remaining skills as the work requires them.
@@ -186,7 +186,7 @@ Key constraints that keep this from being a moving-target-loss escape hatch:
 
 The ML-lens framing holds: every work session is still gradient descent on code. Architect-mode with creativity levels just exposes the **choice of `L`** as a first-class parameter for one specific case (design from requirements), with the choice being one of three discrete, named alternatives — not a free parameter.
 
-## 8. Navigational instruments — memory, dialectic, calibration (v0.5.2 – v0.7.0)
+## 8. Navigational instruments — memory, dialectic, calibration
 
 The four loops and architect-mode's creativity levels describe *what* is optimized. A separate layer of the framework describes *how the agent navigates* each parameter space — refining the gradient estimate without modifying `L(·)`. Three instruments, each orthogonal to the loop structure.
 
@@ -201,13 +201,13 @@ The climber on the cloudy slope has four navigational aids:
 
 A fifth practice wraps all four: **calibration**. After a committed step, the climber compares "I expected to lose 30m of altitude" against "I actually lost 45m." Systematic error means the compass is biased; the climber corrects, or asks why.
 
-### 8.2 Memory as first moment (v0.5.2)
+### 8.2 Memory as first moment
 
 Persistent per-iteration trace (`.ldd/trace.log`) accumulates into a deterministic, bias-guarded aggregate (`.ldd/project_memory.json`). Per-skill Δloss history, plateau resolution patterns, terminal distribution. The invariant: memory informs the *prior* over skill choice, never the *loss* itself. Four explicit bias guards (survivorship, regression-to-mean, recency-drift, confirmation) are enforced in code (`TestBiasInvariant`) and documented in each emitted memory file.
 
 **SGD analog**: momentum-like prior. Memory says "this direction has historically worked"; dialectic says "does it work *here*"; loss says "did it actually work."
 
-### 8.3 Dialectic as Hessian probe (v0.6.0)
+### 8.3 Dialectic as Hessian probe
 
 When the agent proposes a thesis (`Δθ_t` with expected Δloss), the dialectical skill probes orthogonal directions via primers from memory:
 
@@ -220,7 +220,7 @@ Each primer encodes a candidate perpendicular direction in θ-space where `L` re
 
 **SGD analog**: second-order / Hessian-probing. Combined with memory (first moment), it approaches a Newton-style update: *confidence(action) ∝ memory_likelihood × dialectical_likelihood × prior*. See `diagrams/memory-dialectical-coupling.svg`.
 
-### 8.4 Quantitative dialectic (v0.7.0)
+### 8.4 Quantitative dialectic
 
 The synthesis step is reduced to a number: `E[Δloss | thesis]`. Decision rule: commit if `E[Δloss] < 0` and no alternative dominates by > 0.1; reject otherwise. The commit logs `predicted_Δloss`; after the iteration runs, the aggregator computes `prediction_error = predicted − actual` and surfaces mean absolute error. When `MAE > 0.15` with `n ≥ 5`, a `drift_warning` fires — explicit signal that the agent's priors are miscalibrated, triggering method-evolution.
 

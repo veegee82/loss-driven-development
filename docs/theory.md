@@ -13,9 +13,9 @@ LDD separates **four nested optimization loops**, each acting on a different par
 - **Inner loop** — optimizes `θ = code` against failing tests (`∂L/∂code`).
 - **Refinement loop** — optimizes `y = deliverable` against rubric + critique (`∂L/∂output`).
 - **Outer loop** — optimizes `m = skills / prompts / rubrics` against N-task loss (`∂L/∂method`).
-- **CoT loop** *(v0.8.0)* — optimizes `t = reasoning chain` against per-step verification (`∂L/∂thought`).
+- **CoT loop** — optimizes `t = reasoning chain` against per-step verification (`∂L/∂thought`).
 
-A fifth mechanism, the **thinking-levels auto-dispatch** (v0.10.1), decides HOW MUCH rigor to apply *before* any loop starts — it is the step-size controller of the gradient descent, not a fifth loop. v0.7.0 made the discipline self-calibrating via **quantitative dialectic**: synthesis now produces an expected-loss number that is validated post-hoc, closing the loop between the agent's internal priors and the observed world.
+A fifth mechanism, the **thinking-levels auto-dispatch**, decides HOW MUCH rigor to apply *before* any loop starts — it is the step-size controller of the gradient descent, not a fifth loop. The discipline is self-calibrating via the **quantitative dialectic**: synthesis produces an expected-loss number that is validated post-hoc, closing the loop between the agent's internal priors and the observed world.
 
 LDD is a **skill** — a reasoning protocol, not a framework. The discipline lives in the skill text. The accompanying Python tool (`ldd_trace`) exists only to make compliance ergonomic.
 
@@ -49,9 +49,9 @@ LDD is organized as **four nested optimization loops**, each operating on a dist
 | **Inner** | `θ` = code | `∂L/∂code` | Rubric / failing test / E2E | K_MAX = 5 iterations | [`reproducibility-first`](../skills/reproducibility-first/SKILL.md), [`root-cause-by-layer`](../skills/root-cause-by-layer/SKILL.md), [`loss-backprop-lens`](../skills/loss-backprop-lens/SKILL.md), [`e2e-driven-iteration`](../skills/e2e-driven-iteration/SKILL.md), [`loop-driven-engineering`](../skills/loop-driven-engineering/SKILL.md) |
 | **Refinement** | `y` = deliverable output | `∂L/∂output` | Critique defects + gate rejections + eval deltas | Halved per iteration, stops on plateau | [`iterative-refinement`](../skills/iterative-refinement/SKILL.md) |
 | **Outer** | `m` = skill / prompt / rubric | `∂L/∂method` | `mean_loss` across an N-task suite | N epochs; rollback on regression | [`method-evolution`](../skills/method-evolution/SKILL.md), [`drift-detection`](../skills/drift-detection/SKILL.md) |
-| **CoT** *(v0.8.0)* | `t` = reasoning chain | `∂L/∂thought` | Per-step dialectic + ground-truth verification | Per-chain `max_steps`; backtracks ≤ 3 | [`dialectical-cot`](../skills/dialectical-cot/SKILL.md) |
+| **CoT** | `t` = reasoning chain | `∂L/∂thought` | Per-step dialectic + ground-truth verification | Per-chain `max_steps`; backtracks ≤ 3 | [`dialectical-cot`](../skills/dialectical-cot/SKILL.md) |
 
-**Step-size controller** — an independent mechanism decides **how much of the apparatus to spin up** before any loop begins. The [`thinking-levels`](./ldd/thinking-levels.md) auto-dispatch (v0.10.1) scores the task on 9 signals and picks a rigor level L0…L4; L0 runs a minimal reflex loop, L4 activates `method-evolution`, `dialectical-cot`, and `define-metric` on top of everything else. The thinking-levels mechanism is not a fifth loop — it is the **learning-rate scheduler for the gradient descent**, deciding depth-of-deliberation ahead of the first forward pass.
+**Step-size controller** — an independent mechanism decides **how much of the apparatus to spin up** before any loop begins. The [`thinking-levels`](./ldd/thinking-levels.md) auto-dispatch scores the task on 9 signals and picks a rigor level L0…L4; L0 runs a minimal reflex loop, L4 activates `method-evolution`, `dialectical-cot`, and `define-metric` on top of everything else. The thinking-levels mechanism is not a fifth loop — it is the **learning-rate scheduler for the gradient descent**, deciding depth-of-deliberation ahead of the first forward pass.
 
 Orthogonal to all four loops, LDD provides **navigational instruments** that refine the gradient estimate without biasing the loss function:
 
@@ -65,7 +65,7 @@ Orthogonal to all four loops, LDD provides **navigational instruments** that ref
 
 **Bias invariant** (load-bearing): none of these instruments may modify the loss function `L(θ)`. They inform the search for the gradient; they do not redefine progress.
 
-See `../diagrams/three-loops.svg` for the loop-nesting diagram across inner / refinement / outer (the three code-axis loops), `../diagrams/dialectical-cot.svg` for the CoT-loop's per-step protocol, and `../diagrams/four-axes-gradient-descent.svg` for the full four-axis parameter-space picture.
+See `../diagrams/four-loops.svg` for the loop-nesting diagram showing all four loops — inner / refinement / outer on the code-axis trunk plus CoT as the thought-axis branch — `../diagrams/dialectical-cot.svg` for the CoT-loop's per-step protocol, and `../diagrams/four-axes-gradient-descent.svg` for the full four-axis parameter-space picture.
 
 ---
 
@@ -179,7 +179,7 @@ $$
 
 This is the **Bayesian-expectation** formulation of the synthesis — not a black-box reasoning output, but a number the agent computes and can be checked against observation.
 
-### 3.9 The Quantitative Dialectic (v0.7.0)
+### 3.9 The Quantitative Dialectic
 
 The full protocol:
 
@@ -206,9 +206,9 @@ The aggregator emits `drift_warning: true` when `MAE > 0.15 ∧ N ≥ 5`. This i
 
 Per-skill MAE is also tracked — a skill with good overall calibration but bad MAE on one skill-choice signals that the specific skill's behavior has drifted (e.g., the skill definition was updated).
 
-### 3.11a Thought-Loop — Dialectical CoT (v0.8.0, fourth optimizer layer)
+### 3.11a Thought-Loop — Dialectical CoT (fourth optimizer layer)
 
-The three loops (inner/refine/outer) treat θ as code, deliverable, or skill respectively. The **thought-loop** treats θ as a **reasoning trajectory** (chain of thoughts) and applies the quantitative-dialectic protocol to each step.
+The first three loops (inner/refine/outer) treat θ as code, deliverable, or skill respectively. The **fourth loop — the thought-loop** — treats θ as a **reasoning trajectory** (chain of thoughts) and applies the quantitative-dialectic protocol to each step.
 
 For a chain `[θ_0, θ_1, ..., θ_N]` where each `θ_k` is the partial reasoning state after step `k`:
 
@@ -415,4 +415,4 @@ The theory is the specification; the code is an ergonomic shim that makes the sp
 
 ---
 
-*See `diagrams/four-axes-gradient-descent.svg` (top-level picture), `diagrams/three-loops.svg` (code-axis detail), `diagrams/dialectical-cot.svg` (CoT per-step protocol), `diagrams/gradient-via-dialectic.svg`, `diagrams/memory-dialectical-coupling.svg`, and `diagrams/calibration-feedback-loop.svg` for visual intuition.*
+*See `diagrams/four-axes-gradient-descent.svg` (top-level picture), `diagrams/four-loops.svg` (loop-nesting view across all four axes), `diagrams/dialectical-cot.svg` (CoT per-step protocol), `diagrams/gradient-via-dialectic.svg`, `diagrams/memory-dialectical-coupling.svg`, and `diagrams/calibration-feedback-loop.svg` for visual intuition.*

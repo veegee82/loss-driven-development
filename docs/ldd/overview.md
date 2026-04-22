@@ -23,9 +23,9 @@ Applied **four times** — once per parameter space (see the four-loop table bel
 | **Inner** | `θ` = Code | Failing test / gate | [`loop-driven-engineering`](../../skills/loop-driven-engineering/SKILL.md) + specialists | K_MAX = 5 |
 | **Refinement** | `y` = Deliverable | Critique + gate rejections + eval deltas | [`iterative-refinement`](../../skills/iterative-refinement/SKILL.md) | halve per iter; stop on regression/plateau |
 | **Outer** | `m` = Skill / rubric | Mean-loss across task suite | [`method-evolution`](../../skills/method-evolution/SKILL.md) | N epochs; rollback on regression |
-| **CoT** *(v0.8.0)* | `t` = Reasoning chain | Per-step dialectic + ground-truth verification | [`dialectical-cot`](../../skills/dialectical-cot/SKILL.md) | per-chain `max_steps`; backtracks ≤ 3 |
+| **CoT** | `t` = Reasoning chain | Per-step dialectic + ground-truth verification | [`dialectical-cot`](../../skills/dialectical-cot/SKILL.md) | per-chain `max_steps`; backtracks ≤ 3 |
 
-**Step-size controller:** [`thinking-levels`](./thinking-levels.md) (v0.10.1) picks L0…L4 per task before any of the four loops starts, setting `k_max`, `reproduce_runs`, `max_refinement_iterations`, `mode`, and the skill floor. Not a fifth loop — the learning-rate scheduler.
+**Step-size controller:** [`thinking-levels`](./thinking-levels.md) picks L0…L4 per task before any of the four loops starts, setting `k_max`, `reproduce_runs`, `max_refinement_iterations`, `mode`, and the skill floor. Not a fifth loop — the learning-rate scheduler.
 
 Mixing loops is the single biggest cause of "iteration that never converges." If you cannot name which loop you are in, stop and ask.
 

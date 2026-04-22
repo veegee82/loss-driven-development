@@ -11,7 +11,7 @@ description: Use when making any non-trivial recommendation, analysis, plan, des
 
 ## Overview
 
-**This is a cross-cutting discipline.** LDD has [four gradients](../../docs/theory.md) — code (inner), output (refinement), method (outer), thought (CoT) — and this skill fires on **all of them**. Every non-trivial recommendation, plan, diagnosis, or design trade-off on any axis passes through thesis → antithesis → synthesis before it is admissible output. The quantitative extension of this skill (v0.7.0) produces an `E[ΔL | thesis]` number that can be validated post-hoc — that is what makes [`dialectical-cot`](../dialectical-cot/SKILL.md) (the fourth-axis skill) possible: same protocol, applied per-step to the reasoning chain.
+**This is a cross-cutting discipline.** LDD has [four gradients](../../docs/theory.md) — code (inner), output (refinement), method (outer), thought (CoT) — and this skill fires on **all of them**. Every non-trivial recommendation, plan, diagnosis, or design trade-off on any axis passes through thesis → antithesis → synthesis before it is admissible output. The quantitative extension of this skill produces an `E[ΔL | thesis]` number that can be validated post-hoc — that is what makes [`dialectical-cot`](../dialectical-cot/SKILL.md) (the fourth-axis skill) possible: same protocol, applied per-step to the reasoning chain.
 
 First-pass reasoning tends to overfit to the framing of the prompt. A proposal that has not survived its own strongest counter-case is a **symptom patch at the reasoning layer** — it will look right and fail in production, code review, or the next conversation.
 
@@ -105,7 +105,7 @@ A good antithesis hits at least 3 of these:
 
 If you can check none of these, your antithesis is cosmetic. Try again.
 
-## The Quantitative Dialectic — gradient via dialectic (v0.7.0)
+## The Quantitative Dialectic — gradient via dialectic
 
 The three moves above are **qualitative**. v0.7.0 adds a **numeric protocol the agent walks in-head** during the synthesis step, turning dialectical reasoning from "I considered the alternatives" into "I computed and rejected alternative A because E[Δloss | A] > E[Δloss | B] by 0.44."
 
@@ -238,9 +238,9 @@ Scenario: in-flight task, streak=2 plateau, agent considering `retry-variant`.
 
 The numbers inform the **search direction**, not the **objective function**. The rubric still counts violations; the actual Δloss is measured post-hoc; what's different is that the agent's *proposed* direction is now guided by explicit, auditable priors rather than implicit gut-feel. Priors existed before — v0.7.0 only surfaces them, quantifies them, and calibrates them over time.
 
-If calibration degrades (prediction error widens), v0.7.0 tells the agent explicitly: "your priors are drifting; method-evolution." That's outer-loop, not loss-modification.
+If calibration degrades (prediction error widens), the skill tells the agent explicitly: "your priors are drifting; method-evolution." That's outer-loop, not loss-modification.
 
-## Memory-informed antithesis generation (v0.6.0)
+## Memory-informed antithesis generation
 
 SGD framing: dialectical reasoning is **local Hessian probing** — it discovers orthogonal directions in θ-space where the proposed gradient-step reacts non-monotonically. When a project has accumulated `.ldd/trace.log` and `.ldd/project_memory.json` (per `using-ldd` § "Persisted trace"), that memory provides **1st-moment statistical evidence** (past failure modes, plateau patterns, terminal distributions) that can sharpen antithesis generation — without biasing the loss function itself.
 

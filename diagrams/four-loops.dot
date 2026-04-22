@@ -1,13 +1,13 @@
-digraph three_loops {
+digraph four_loops {
   rankdir=LR;
   node [fontname="Helvetica", shape=box, style="rounded,filled"];
   edge [fontname="Helvetica", fontsize=10];
   labelloc="t";
-  label=<<b>LDD — Three orthogonal optimization loops</b><br/><font point-size="10">Each loop optimizes a different parameter; mixing them produces unstable gradients.</font>>;
+  label=<<b>LDD — Four orthogonal optimization loops</b><br/><font point-size="10">Each loop optimizes a different parameter; mixing them produces unstable gradients.</font>>;
   fontname="Helvetica";
 
   subgraph cluster_inner {
-    label=<<b>Inner Loop</b><br/><font point-size="9">θ = code of current task</font>>;
+    label=<<b>Inner Loop</b><br/><font point-size="9">θ = code of current task (∂L/∂code)</font>>;
     style="rounded,filled"; fillcolor="#e8f4fd"; color="#1f77b4";
     plan_i [label="plan\n(dialectical)", fillcolor="#ffffff"];
     code_i [label="code\n(one focused change)", fillcolor="#ffffff"];
@@ -18,7 +18,7 @@ digraph three_loops {
   }
 
   subgraph cluster_refine {
-    label=<<b>Refinement (y-axis)</b><br/><font point-size="9">θ = deliverable of a completed run</font>>;
+    label=<<b>Refinement Loop (y-axis)</b><br/><font point-size="9">y = deliverable of a completed run (∂L/∂output)</font>>;
     style="rounded,filled"; fillcolor="#fef4ea"; color="#ff7f0e";
     seed_r [label="seed run\n(already complete)", fillcolor="#ffffff"];
     grad_r [label="gradient =\ncritique defects +\ngate rejections +\neval deltas", fillcolor="#ffffff"];
@@ -31,7 +31,7 @@ digraph three_loops {
   }
 
   subgraph cluster_outer {
-    label=<<b>Outer Loop (θ-axis)</b><br/><font point-size="9">θ = skills / prompts / rubrics</font>>;
+    label=<<b>Outer Loop (m-axis)</b><br/><font point-size="9">m = skills / prompts / rubrics (∂L/∂method)</font>>;
     style="rounded,filled"; fillcolor="#f5ebfd"; color="#9467bd";
     suite_o [label="task suite\n(many unseen tasks)", fillcolor="#ffffff"];
     run_o [label="run each\ncollect loss", fillcolor="#ffffff"];
@@ -46,8 +46,22 @@ digraph three_loops {
     rollback_o -> suite_o;
   }
 
+  subgraph cluster_cot {
+    label=<<b>CoT Loop (t-axis)</b><br/><font point-size="9">t = reasoning chain / thought trajectory (∂L/∂thought)</font>>;
+    style="rounded,filled"; fillcolor="#e8f8ee"; color="#2ca02c";
+    step_c [label="propose next\nreasoning step\n(thesis + predicted_correctness)", fillcolor="#ffffff"];
+    anti_c [label="antithesis\n(primers from\nchain memory)", fillcolor="#ffffff"];
+    synth_c [label="synthesis\nE[step correct]", fillcolor="#ffffff"];
+    dec_c [label="commit ≥ threshold?\nrevise?\nbacktrack?", fillcolor="#ffffff", shape=diamond];
+    step_c -> anti_c -> synth_c -> dec_c;
+    dec_c -> step_c [label="next step"];
+    dec_c -> verify_c [label="chain ends"];
+    verify_c [label="ground-truth\nverification\n+ calibration", fillcolor="#e6fbe6"];
+    budget_c [label="per-chain max_steps\nbacktracks ≤ 3", shape=note, fillcolor="#fff9e6", color="#d4a017"];
+  }
+
   note_combined [
-    label=<<b>Rule:</b> treat the three axes as independent.<br/>Inner-loop edits on a weak deliverable are over-editing.<br/>Refinement edits on buggy code polish a broken output.<br/>Outer-loop edits without a suite are anecdotal skill drift.>,
+    label=<<b>Rule:</b> treat the four axes as independent.<br/>Inner-loop edits on a weak deliverable are over-editing.<br/>Refinement edits on buggy code polish a broken output.<br/>Outer-loop edits without a suite are anecdotal skill drift.<br/>CoT edits without ground-truth verification are plausibility-chasing.>,
     shape=note, fillcolor="#fff9e6", color="#d4a017"
   ];
 }

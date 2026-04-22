@@ -18,8 +18,8 @@ Loss-Driven Development (LDD) is **[Gradient Descent for Agents](../../docs/theo
 - **Inner** (`θ` = code, `∂L/∂code`) — [`reproducibility-first`](../reproducibility-first/SKILL.md), [`root-cause-by-layer`](../root-cause-by-layer/SKILL.md), [`loss-backprop-lens`](../loss-backprop-lens/SKILL.md), [`e2e-driven-iteration`](../e2e-driven-iteration/SKILL.md), [`loop-driven-engineering`](../loop-driven-engineering/SKILL.md)
 - **Refinement** (`y` = deliverable, `∂L/∂output`) — [`iterative-refinement`](../iterative-refinement/SKILL.md)
 - **Outer** (`m` = method, `∂L/∂method`) — [`method-evolution`](../method-evolution/SKILL.md), [`drift-detection`](../drift-detection/SKILL.md)
-- **CoT** (`t` = reasoning chain, `∂L/∂thought`, v0.8.0) — [`dialectical-cot`](../dialectical-cot/SKILL.md)
-- **Cross-cutting** — [`dialectical-reasoning`](../dialectical-reasoning/SKILL.md), [`docs-as-definition-of-done`](../docs-as-definition-of-done/SKILL.md), [`define-metric`](../define-metric/SKILL.md) (v0.9.0)
+- **CoT** (`t` = reasoning chain, `∂L/∂thought`) — [`dialectical-cot`](../dialectical-cot/SKILL.md)
+- **Cross-cutting** — [`dialectical-reasoning`](../dialectical-reasoning/SKILL.md), [`docs-as-definition-of-done`](../docs-as-definition-of-done/SKILL.md), [`define-metric`](../define-metric/SKILL.md)
 - **Opt-in** — [`architect-mode`](../architect-mode/SKILL.md) (5-phase greenfield discipline; reached via L3/L4 preset or explicit flag)
 
 ## Trigger phrases (user → skill mapping)
@@ -512,7 +512,7 @@ One line per iteration or close event. ISO-8601 UTC first. Space-separated key=v
 
 **Read.** At task start (before any new iteration), **if `.ldd/trace.log` exists in the project, read the last ~10 entries** via `python -m ldd_trace status --project <root>` or by tailing. This is how LDD recovers context across sessions — you cannot know what iteration `k` you are at, or what skills have already been tried, without reading prior state.
 
-**Tool.** `scripts/ldd_trace` (v0.5.1) is the reference implementation. Subcommands:
+**Tool.** `scripts/ldd_trace` is the reference implementation. Subcommands:
 
 ```bash
 python -m ldd_trace init --project . --task "one-line title" --loops inner,refine
@@ -564,7 +564,7 @@ LDD distinguishes **four optimization loops** across four parameter spaces (see 
 | **Inner** | `θ` = code | Code | Ordinary bug / feature / refactor |
 | **Refinement** | `y` = deliverable | A deliverable (doc, diff, design) | "Good enough, not great" — polish |
 | **Outer** | `m` = method | A skill / rubric | Same rubric violation across ≥3 tasks |
-| **CoT** *(v0.8.0)* | `t` = reasoning chain | Reasoning steps themselves | Verifiable multi-step reasoning (math / code / logic / proofs) |
+| **CoT** | `t` = reasoning chain | Reasoning steps themselves | Verifiable multi-step reasoning (math / code / logic / proofs) |
 
 If you cannot name which loop is active, stop and ask. Running the wrong loop wastes budget and can regress the artifact.
 

@@ -2,7 +2,7 @@
 
 **Twelve composable skills** for **loss-driven development** — a full optimization discipline for coding agents, organized as **gradient descent across four parameter spaces**. Platform-agnostic content; multiple distribution formats so the same skills work in Claude Code, Codex, Gemini CLI, Aider, Cursor, Copilot CLI, and any agent that reads project-level instruction files.
 
-**Anchor**: LDD is gradient descent for agents. Four gradients, four loops — code (`∂L/∂code`, inner), deliverable (`∂L/∂output`, refinement), method (`∂L/∂method`, outer), reasoning chain (`∂L/∂thought`, CoT v0.8.0). A step-size controller ([thinking-levels](./docs/ldd/thinking-levels.md), v0.10.1) picks HOW MUCH rigor to apply before any loop starts.
+**Anchor**: LDD is gradient descent for agents. Four gradients, four loops — code (`∂L/∂code`, inner), deliverable (`∂L/∂output`, refinement), method (`∂L/∂method`, outer), reasoning chain (`∂L/∂thought`, CoT). A step-size controller ([thinking-levels](./docs/ldd/thinking-levels.md)) picks HOW MUCH rigor to apply before any loop starts.
 
 **The metaphor in one paragraph**: imagine a climber on a cloud-shrouded mountain (the codebase). She can't see the summit (`L = 0`) — only her altimeter, the local slope, her log book of past climbs, and a fellow climber asking hostile questions. LDD encodes those four instruments as a reasoning discipline — *measure before every step*, *probe the slope from a hostile angle*, *consult the log book for patterns*, *calibrate predictions against observations* — and generalizes the same discipline across **four parameter spaces** instead of one. Full theory with metaphor → four-loop architecture → formulas: [`docs/theory.md`](./docs/theory.md).
 
@@ -71,8 +71,8 @@ Twelve skills (see [`docs/ldd/convergence.md`](./docs/ldd/convergence.md)).
 | `drift-detection` | outer | pattern | Periodic full-repo scan for cumulative drift |
 | `docs-as-definition-of-done` | closes every loop | discipline | Before committing any behavior / API / CLI / config change |
 | `architect-mode` | **opt-in** | discipline (5-phase protocol) | Greenfield design / architecture / structural-decomposition tasks; reached through the L3 / L4 presets of the thinking-levels auto-dispatch (see [`docs/ldd/thinking-levels.md`](./docs/ldd/thinking-levels.md)), or explicitly via inline `LDD[mode=architect]:` flag / `/ldd-architect` command / trigger phrases. Agent echoes the dispatch source and level in the trace header |
-| `dialectical-cot` | **thought** (4th loop, v0.8.0) | discipline | Verifiable multi-step reasoning tasks (math, code, logic, proofs). Applies the v0.7.0 quantitative dialectic at every step of a chain-of-thought. Uses per-task-type memory (`.ldd/cot_memory.json`) for primer generation. Requires ground-truth verification to close the calibration loop |
-| `define-metric` | **extensible foundation** (v0.9.0) | discipline | Introduce a new agent-defined metric (complexity, latency, custom rubric) as a first-class loss component. Registration → advisory-only → calibration (n≥5, MAE≤0.15) → load-bearing. Enforces gaming-guard (self-referential descriptions rejected) and bias-invariance (metric observations never modified by registry/calibrator activity) |
+| `dialectical-cot` | **thought** (4th loop) | discipline | Verifiable multi-step reasoning tasks (math, code, logic, proofs). Applies the quantitative dialectic at every step of a chain-of-thought. Uses per-task-type memory (`.ldd/cot_memory.json`) for primer generation. Requires ground-truth verification to close the calibration loop |
+| `define-metric` | **extensible foundation** | discipline | Introduce a new agent-defined metric (complexity, latency, custom rubric) as a first-class loss component. Registration → advisory-only → calibration (n≥5, MAE≤0.15) → load-bearing. Enforces gaming-guard (self-referential descriptions rejected) and bias-invariance (metric observations never modified by registry/calibrator activity) |
 
 ## The `LDD:` buzzword
 
@@ -84,13 +84,13 @@ Engineering with an AI agent is **gradient descent across four parameter spaces*
 
 Docs are the **regularizer** — they pin the conceptual model; drift raises generalization loss silently.
 
-LDD separates **four** optimization loops: **inner** (`θ` = code, `∂L/∂code`), **refinement** (`y` = deliverable, `∂L/∂output`), **outer** (`m` = skills / rubrics, `∂L/∂method`), **CoT** (`t` = reasoning chain, `∂L/∂thought`, v0.8.0). Mixing them is the single biggest cause of "iterative work that never converges." Three navigational instruments layer on top without modifying the loss function:
+LDD separates **four** optimization loops: **inner** (`θ` = code, `∂L/∂code`), **refinement** (`y` = deliverable, `∂L/∂output`), **outer** (`m` = skills / rubrics, `∂L/∂method`), **CoT** (`t` = reasoning chain, `∂L/∂thought`). Mixing them is the single biggest cause of "iterative work that never converges." Three navigational instruments layer on top without modifying the loss function:
 
-- **Project memory** (v0.5.2) — per-project aggregate at `.ldd/project_memory.json`; first-moment statistical priors over skill effectiveness
-- **Memory × dialectical coupling** (v0.6.0) — `prime-antithesis` surfaces memory-derived primers for the dialectical synthesis step; Bayesian-style `confidence(action) ∝ memory × dialectical × prior`
-- **Quantitative dialectic** (v0.7.0) — the synthesis step computes `E[Δloss | thesis]`, logs the prediction, and the aggregator computes `MAE` vs. observed Δloss; `drift_warning` when `MAE > 0.15` over `n ≥ 5`
+- **Project memory** — per-project aggregate at `.ldd/project_memory.json`; first-moment statistical priors over skill effectiveness
+- **Memory × dialectical coupling** — `prime-antithesis` surfaces memory-derived primers for the dialectical synthesis step; Bayesian-style `confidence(action) ∝ memory × dialectical × prior`
+- **Quantitative dialectic** — the synthesis step computes `E[Δloss | thesis]`, logs the prediction, and the aggregator computes `MAE` vs. observed Δloss; `drift_warning` when `MAE > 0.15` over `n ≥ 5`
 
-Full mental model: [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) (practitioner-facing) and [`docs/theory.md`](./docs/theory.md) (paper-style). Diagrams in [`diagrams/`](./diagrams/) — start with `four-axes-gradient-descent.svg` (the top-level picture), then `three-loops.svg` (code-axis detail), `dialectical-cot.svg` (CoT per-step protocol), `gradient-via-dialectic.svg`, `memory-dialectical-coupling.svg`, `calibration-feedback-loop.svg`.
+Full mental model: [`docs/ldd/convergence.md`](./docs/ldd/convergence.md) (practitioner-facing) and [`docs/theory.md`](./docs/theory.md) (paper-style). Diagrams in [`diagrams/`](./diagrams/) — start with `four-axes-gradient-descent.svg` (the top-level picture), then `four-loops.svg` (loop-nesting view across all four axes), `dialectical-cot.svg` (CoT per-step protocol), `gradient-via-dialectic.svg`, `memory-dialectical-coupling.svg`, `calibration-feedback-loop.svg`.
 
 ## Methodology
 

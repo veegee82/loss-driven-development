@@ -7,19 +7,19 @@ description: Use at the start of any non-trivial engineering task (feature, bugf
 
 ## The Metaphor
 
-**The flight controller guiding four nested loops.** LDD is [Gradient Descent for Agents](../../docs/theory.md) and this skill is the coordinator. The *inner loop* is the aircraft correcting pitch per second — direct edits to the code (`∂L/∂code`). The *refinement loop* is the approach pattern — polishing the landing without changing the aircraft (`∂L/∂output`). The *outer loop* is the training program that adjusts how pilots are taught — changing the skill itself (`∂L/∂method`). The *CoT loop* (v0.8.0) is the pilot's own step-by-step reasoning during the descent — each thought gated before it commits (`∂L/∂thought`). Each loop has its own budget, its own instruments, its own failure mode. The controller's first duty: *name which loop is active.* Confusion about which loop you're in is the canonical engineering error.
+**The flight controller guiding four nested loops.** LDD is [Gradient Descent for Agents](../../docs/theory.md) and this skill is the coordinator. The *inner loop* is the aircraft correcting pitch per second — direct edits to the code (`∂L/∂code`). The *refinement loop* is the approach pattern — polishing the landing without changing the aircraft (`∂L/∂output`). The *outer loop* is the training program that adjusts how pilots are taught — changing the skill itself (`∂L/∂method`). The *CoT loop* is the pilot's own step-by-step reasoning during the descent — each thought gated before it commits (`∂L/∂thought`). Each loop has its own budget, its own instruments, its own failure mode. The controller's first duty: *name which loop is active.* Confusion about which loop you're in is the canonical engineering error.
 
 ## Overview
 
-Engineering with an AI agent is **gradient descent across four parameter spaces**, not one. You plan, you try, you measure, you diagnose, you try again — on the **code axis** (inner loop, `θ`), the **deliverable axis** (refinement, `y`), the **method axis** (outer loop, `m`), and the **reasoning-chain axis** (CoT loop, `t`, v0.8.0). This skill is the entry-point and coordinator: it picks which loop is active for the current task, dispatches the specialists, enforces the budget, and closes the loop only when regularizers hold.
+Engineering with an AI agent is **gradient descent across four parameter spaces**, not one. You plan, you try, you measure, you diagnose, you try again — on the **code axis** (inner loop, `θ`), the **deliverable axis** (refinement, `y`), the **method axis** (outer loop, `m`), and the **reasoning-chain axis** (CoT loop, `t`). This skill is the entry-point and coordinator: it picks which loop is active for the current task, dispatches the specialists, enforces the budget, and closes the loop only when regularizers hold.
 
-The [thinking-levels auto-dispatch](../../docs/ldd/thinking-levels.md) (v0.10.1) runs *before* this skill and picks the rigor level (L0…L4) — that is the step-size scheduler for the whole optimizer. This skill runs *inside* the chosen level and orchestrates the actual descent.
+The [thinking-levels auto-dispatch](../../docs/ldd/thinking-levels.md) runs *before* this skill and picks the rigor level (L0…L4) — that is the step-size scheduler for the whole optimizer. This skill runs *inside* the chosen level and orchestrates the actual descent.
 
 **Core principle:** the loop closes when applicable gates are green **and** the doc-level mental model is current. Not when one test passes. Not when "it looks right." Not when the LLM sounds confident.
 
 This skill is a **flexible pattern**, not a rigid procedure. Use judgment; adapt the structure to the task. But the budget, the escalation rule, and the loop-separation rule are hard.
 
-See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) for the four-loop model in full, [`../../diagrams/four-axes-gradient-descent.svg`](../../diagrams/four-axes-gradient-descent.svg) for the top-level picture, and [`../../diagrams/three-loops.svg`](../../diagrams/three-loops.svg) for the code-axis detail.
+See [`../../docs/ldd/convergence.md`](../../docs/ldd/convergence.md) for the four-loop model in full, [`../../diagrams/four-axes-gradient-descent.svg`](../../diagrams/four-axes-gradient-descent.svg) for the top-level picture, and [`../../diagrams/four-loops.svg`](../../diagrams/four-loops.svg) for the loop-nesting view across all four axes.
 
 ## When to Use
 

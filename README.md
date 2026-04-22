@@ -26,7 +26,7 @@ Then prefix any message with `LDD:` — the agent announces which skill it's inv
 
 Full install for other agents (Codex · Gemini CLI · Aider · Cursor · …) below.
 
-### Zero-config thinking-levels — the step-size controller (v0.10.1+)
+### Zero-config thinking-levels — the step-size controller
 
 Before any of the four gradients starts descending, LDD picks **how much rigor to bring** to the task. Every non-trivial task is auto-scored onto a **5-step rigor ladder**: L0 reflex (typo fix) → L1 diagnostic (failing test) → L2 deliberate (default baseline) → L3 structural (cross-layer / architect) → L4 method (greenfield / inventive). This is the **learning-rate scheduler for the gradient descent**, not a fifth loop — it decides depth-of-deliberation before the first forward pass. You don't configure anything — the scorer reads the task text, picks a level, announces it:
 
@@ -41,7 +41,7 @@ Override with one token when you disagree: `LDD+:` (one level up), `LDD++:` (two
 
 ## Here's what an LDD session looks like
 
-Every non-trivial LDD task emits a visible **trace block** inline — re-rendered after every iteration (v0.5.0+) so you watch the loss descend in real time, not a single summary at the end:
+Every non-trivial LDD task emits a visible **trace block** inline — re-rendered after every iteration so you watch the loss descend in real time, not a single summary at the end:
 
 ```
 ╭─ LDD trace ─────────────────────────────────────────╮
@@ -90,7 +90,7 @@ Full format spec in [`skills/using-ldd/SKILL.md`](./skills/using-ldd/SKILL.md) �
 
 ![Four axes of gradient descent — code (θ), deliverable (y), method (m), reasoning chain (t) — with LDD as the optimizer](./diagrams/four-axes-gradient-descent.svg)
 
-![Three code-axis loops: inner (code), refinement (deliverable), outer (method)](./diagrams/three-loops.svg)
+![Four loops: the three code-axis loops (inner/refine/outer) plus the CoT loop on the thought-axis](./diagrams/four-loops.svg)
 
 ## The one-sentence pitch
 
@@ -142,7 +142,7 @@ The method axis (skills, prompts, rubrics). Fires when the same rubric violation
 | [**method-evolution**](./skills/method-evolution/SKILL.md) | Patching individual tasks when the method itself is the bug |
 | [**drift-detection**](./skills/drift-detection/SKILL.md) | Cumulative drift that no single commit introduced |
 
-### CoT loop — `∂L/∂thought` *(v0.8.0, fourth axis)*
+### CoT loop — `∂L/∂thought` (fourth axis)
 
 The reasoning-chain axis. Fires on verifiable multi-step reasoning tasks (math, code, logic, proofs).
 
@@ -159,7 +159,7 @@ Apply on every loop, at every step.
 | [**using-ldd**](./skills/using-ldd/SKILL.md) | Entry-point. Bootstraps the bundle and dispatches the others via trigger-phrase table; fires on `LDD:` prefix or any trigger match |
 | [**dialectical-reasoning**](./skills/dialectical-reasoning/SKILL.md) | One-sided recommendations that skip the counter-case |
 | [**docs-as-definition-of-done**](./skills/docs-as-definition-of-done/SKILL.md) | "I'll update docs in a follow-up PR" — closes every loop |
-| [**define-metric**](./skills/define-metric/SKILL.md) *(v0.9.0)* | Ad-hoc arithmetic on observations; agent-defined metrics used as load-bearing gates before calibration has passed |
+| [**define-metric**](./skills/define-metric/SKILL.md) | Ad-hoc arithmetic on observations; agent-defined metrics used as load-bearing gates before calibration has passed |
 | [**architect-mode**](./skills/architect-mode/SKILL.md) *(opt-in, not default)* | Free-form "design doc" without constraint table, without non-goals, without 3-candidate comparison, without scoring, without failing-test scaffold. Greenfield design under discipline — **largest Δloss in the bundle (+10/10)**. Activate via `LDD[mode=architect]:` or `/ldd-architect`, or via the thinking-levels auto-dispatch at L3/L4 |
 
 ## The philosophy in 60 seconds
@@ -185,9 +185,9 @@ Most "iterate on code" advice treats all edits the same. LDD separates **four or
 | **Inner** | `θ` = the code | `∂L/∂code` via failing-test signal | Every ordinary bug / feature / refactor |
 | **Refinement** (y-axis) | `y` = the deliverable (doc, diff, design) | `∂L/∂output` via rubric + critique | "Good enough, not great" — polish with a real gradient |
 | **Outer** (m-axis) | `m` = the skills / rubrics themselves | `∂L/∂method` via N-task mean loss | Same rubric violation across 3+ tasks |
-| **CoT** (t-axis) *(v0.8.0)* | `t` = the reasoning chain itself | `∂L/∂thought` via per-step verification | Verifiable multi-step reasoning (math / code / logic / proofs) |
+| **CoT** (t-axis) | `t` = the reasoning chain itself | `∂L/∂thought` via per-step verification | Verifiable multi-step reasoning (math / code / logic / proofs) |
 
-Mixing them is the single biggest reason "iterate on the problem" never converges. LDD forces the question *which parameter am I changing*. Pictures in [`diagrams/`](./diagrams/) — start with [`four-axes-gradient-descent.svg`](./diagrams/four-axes-gradient-descent.svg) for the top-level picture, then [`three-loops.svg`](./diagrams/three-loops.svg) for the code-axis detail and [`dialectical-cot.svg`](./diagrams/dialectical-cot.svg) for the CoT per-step protocol.
+Mixing them is the single biggest reason "iterate on the problem" never converges. LDD forces the question *which parameter am I changing*. Pictures in [`diagrams/`](./diagrams/) — start with [`four-axes-gradient-descent.svg`](./diagrams/four-axes-gradient-descent.svg) for the top-level picture, then [`four-loops.svg`](./diagrams/four-loops.svg) for the loop-nesting view across all four axes and [`dialectical-cot.svg`](./diagrams/dialectical-cot.svg) for the CoT per-step protocol.
 
 ## Installation
 
@@ -480,12 +480,12 @@ The agent echoes the active budget in every trace block header, so you never won
 
 ### Live trace — see the loop happen in real time
 
-Every non-trivial LDD task emits a **visible trace block** inline in the chat so you can audit what's running without reading the agent's mind. The block is re-emitted **after every iteration** (v0.5.0+) so you watch the loss descend in real time — not a single summary at the end of the task:
+Every non-trivial LDD task emits a **visible trace block** inline in the chat so you can audit what's running without reading the agent's mind. The block is re-emitted **after every iteration** so you watch the loss descend in real time — not a single summary at the end of the task:
 
 ```
 ╭─ LDD trace ─────────────────────────────────────────╮
 │ Task       : fix JSON parser bug across 3 functions
-│ Loops      : inner → refine → outer  (all three fired)
+│ Loops      : inner → refine → outer  (this task exercised 3 of the 4 loops)
 │ Loss-type  : normalized [0,1]  (raw counts in parens)
 │ Budget     : inner k=3/5 · refine k=2/3 · outer k=1/1
 │
@@ -496,7 +496,7 @@ Every non-trivial LDD task emits a **visible trace block** inline in the chat so
 │   0.25 ┤       ●
 │   0.00 ┤          ●  ●  ●
 │        └─i1─i2─i3─r1─r2─o1→  iter
-│        Phase prefixes: i=inner · r=refine · o=outer
+│        Phase prefixes: i=inner · r=refine · o=outer · c=cot
 │
 │ Iteration i1 (inner, reactive)    loss=0.500  (4/8)
 │   *reproducibility-first* + *root-cause-by-layer* → guard empty list, filter None values
@@ -520,7 +520,7 @@ Every non-trivial LDD task emits a **visible trace block** inline in the chat so
 
 #### Mental model — the four visible channels
 
-The numeric `loss_k = …` line gives the *value*. Four parallel channels, introduced in v0.5.0, make the *trajectory* AND the *work done per iteration* auditable at a glance:
+The numeric `loss_k = …` line gives the *value*. Four parallel channels make the *trajectory* AND the *work done per iteration* auditable at a glance:
 
 | Channel | When | What it shows |
 |---|---|---|
@@ -531,7 +531,7 @@ The numeric `loss_k = …` line gives the *value*. Four parallel channels, intro
 
 The sparkline and chart MUST agree on the final `loss_k`. The deterministic rendering recipe (sparkline indexing, chart snap, trend-arrow band) is specified in [`skills/using-ldd/SKILL.md`](./skills/using-ldd/SKILL.md) § Loss visualization so renders are reproducible across agents and sessions.
 
-**Measurement**: the v0.5.0 fixture at [`tests/fixtures/using-ldd-trace-visualization/`](./tests/fixtures/using-ldd-trace-visualization/) exercises three scenarios (monotonic inner loop, full three-loop run, non-monotonic regression-recovery). Captured at `deepseek/deepseek-chat-v3.1`, T=0.7, via OpenRouter. **Per-scenario Δloss: +2 / +4 / +4; bundle-normalized = 0.833** — RED never emits any of the four channels, GREEN consistently emits the mode+info line and sparkline, with the mini chart and trend arrow emitted on the longer scenarios. The non-monotonic scenario 3 validates that GREEN correctly applies the first-vs-last rule (`↓` end-to-end despite the local `↑` at i2).
+**Measurement**: the fixture at [`tests/fixtures/using-ldd-trace-visualization/`](./tests/fixtures/using-ldd-trace-visualization/) exercises three scenarios (monotonic inner loop, a run that exercises inner / refine / outer — three of the four loops — and a non-monotonic regression-recovery). Captured at `deepseek/deepseek-chat-v3.1`, T=0.7, via OpenRouter. **Per-scenario Δloss: +2 / +4 / +4; bundle-normalized = 0.833** — RED never emits any of the four channels, GREEN consistently emits the mode+info line and sparkline, with the mini chart and trend arrow emitted on the longer scenarios. The non-monotonic scenario 3 validates that GREEN correctly applies the first-vs-last rule (`↓` end-to-end despite the local `↑` at i2).
 
 In project directories, LDD also appends one line per skill invocation to `.ldd/trace.log`:
 
@@ -571,8 +571,8 @@ If you see none of these in an interaction where you expected them, LDD is insta
 - `scripts/capture-red-green.py` — paired RED/GREEN captures for multi-scenario fixtures (skill content prepended as system-message on GREEN)
 - `scripts/evolve-skill.sh` — scaffolds a RED/GREEN re-run for a skill against its fixture (terminal-driven)
 - `scripts/render-diagrams.sh` — regenerates SVGs from the `.dot` sources
-- `scripts/demo-trace-chart.py` — renders the v0.5.0 trace block (sparkline / mini chart / mode+info / trend arrow) from a hard-coded 6-iteration task. Pure renderer, no LLM calls.
-- `scripts/demo-e2e-trace.py` — executed E2E demo: optimizes a real `compute_average()` through all three loops, running actual rubric checks against actual compiled code and re-rendering the trace after each iteration.
+- `scripts/demo-trace-chart.py` — renders the trace block (sparkline / mini chart / mode+info / trend arrow) from a hard-coded 6-iteration task. Pure renderer, no LLM calls.
+- `scripts/demo-e2e-trace.py` — executed E2E demo: optimizes a real `compute_average()` through the inner / refine / outer loops (three of the four LDD axes), running actual rubric checks against actual compiled code and re-rendering the trace after each iteration. The fourth axis (CoT) has its own runnable example under [`skills/dialectical-cot/SKILL.md`](./skills/dialectical-cot/SKILL.md).
 
 Run them manually, wire them into CI, or ignore them. The skills don't depend on them.
 

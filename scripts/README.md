@@ -11,8 +11,8 @@ The skills in this bundle are **portable markdown** — they work in any agent t
 | `capture-red-green.py` | Paired RED/GREEN captures for multi-scenario fixtures (skill content prepended as system message on GREEN) | `method-evolution`, multi-scenario fixture measurement (e.g. `architect-mode-auto-dispatch`) |
 | `evolve-skill.sh` | RED/GREEN rerun of a skill against its fixture (terminal-driven) | `method-evolution` |
 | `render-diagrams.sh` | Regenerate SVG from `.dot` sources | (maintenance) |
-| `demo-trace-chart.py` | Render the v0.5.0 LDD trace block (sparkline, mini chart, per-iter bars, trend arrow) from a hard-coded 6-iteration task — pure renderer, no I/O, no LLM calls | `using-ldd` (trace visualization) |
-| `demo-e2e-trace.py` | Executed E2E demo: optimizes a real `compute_average()` through all three loops (inner / refine / outer), running actual rubric checks against actual code and re-rendering the trace after each iteration. `--fast` skips per-iter pauses | `using-ldd` + `loop-driven-engineering` |
+| `demo-trace-chart.py` | Render the LDD trace block (sparkline, mini chart, per-iter bars, trend arrow) from a hard-coded 6-iteration task — pure renderer, no I/O, no LLM calls | `using-ldd` (trace visualization) |
+| `demo-e2e-trace.py` | Executed E2E demo: optimizes a real `compute_average()` through the inner / refine / outer loops (three of the four LDD axes), running actual rubric checks against actual code and re-rendering the trace after each iteration. The fourth axis (CoT) has its own runnable example in [`skills/dialectical-cot/SKILL.md`](../skills/dialectical-cot/SKILL.md). `--fast` skips per-iter pauses | `using-ldd` + `loop-driven-engineering` |
 
 ## Requirements
 

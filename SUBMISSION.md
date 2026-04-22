@@ -26,7 +26,7 @@ LDD — Gradient Descent for Agents. Twelve portable skills across four paramete
 ```
 Loss-Driven Development is Gradient Descent for Agents. Every code change, every output revision, every skill edit, every reasoning step is an SGD step on one of four parameter spaces. The bundle installs a loss function, a gradient (5-Why-by-Layer), a step-size rule (local vs. architectural edit, picked per task by the thinking-levels auto-dispatch), and regularizers (contracts, layer boundaries, docs-as-DoD) so your agent's iteration converges instead of drifts.
 
-Twelve skills organized across four orthogonal optimization loops: inner (code, ∂L/∂code), refinement (deliverable, ∂L/∂output), outer (methodology, ∂L/∂method), CoT (reasoning chain, ∂L/∂thought, v0.8.0). Plus cross-cutting disciplines (dialectical-reasoning, docs-as-definition-of-done, define-metric v0.9.0), the opt-in architect-mode for greenfield design, and the using-ldd entry-point with a trigger-phrase table that dispatches the right skill for the task. Users prefix any message with "LDD:" to guarantee activation; the agent announces every skill invocation.
+Twelve skills organized across four orthogonal optimization loops: inner (code, ∂L/∂code), refinement (deliverable, ∂L/∂output), outer (methodology, ∂L/∂method), CoT (reasoning chain, ∂L/∂thought). Plus cross-cutting disciplines (dialectical-reasoning, docs-as-definition-of-done, define-metric), the opt-in architect-mode for greenfield design, and the using-ldd entry-point with a trigger-phrase table that dispatches the right skill for the task. Users prefix any message with "LDD:" to guarantee activation; the agent announces every skill invocation.
 
 Measured Δloss_bundle = 0.561 normalized (mean fraction of rubric violations each skill removes) across all 11 discipline skills; target ≥ 0.30 met with margin. Per-skill normalized Δloss ranges 0.250 → 1.000. All RED/GREEN rubric artifacts on disk in `tests/fixtures/`; inter-reviewer sampling, tier-3.9 E2E capture, and `capture-clean-baseline.py` + `capture-red-green.py` tooling included.
 
@@ -128,7 +128,7 @@ Verify all ticked before sending the form:
 - [x] **evaluation.md** — formal loss function + rubrics + measured Δloss_bundle = 0.561 normalized across all 11 discipline skills
 - [x] **Measured artifacts on disk** — `tests/fixtures/<skill>/runs/*` with raw RED / GREEN / score files
 - [x] **Twelve skills with portable-agent-skill-format frontmatter** — each `skills/<name>/SKILL.md` has `name` and `description` (10 reactive + `architect-mode` + `using-ldd`)
-- [x] **Seven SVG diagrams** (no `feDropShadow` — GitHub-renderer-safe): `diagrams/{three-loops,skills-overview,convergence-vs-divergence,code-drift-mechanism,skill-dispatch-flow,mental-model-ldd}.svg` + `docs/diagrams/architect-mental-model.svg`
+- [x] **Twelve SVG diagrams** (no `feDropShadow` — GitHub-renderer-safe): `diagrams/{four-axes-gradient-descent,four-loops,skills-overview,convergence-vs-divergence,code-drift-mechanism,skill-dispatch-flow,mental-model-ldd,dialectical-cot,gradient-via-dialectic,memory-dialectical-coupling,calibration-feedback-loop}.svg` + `docs/diagrams/architect-mental-model.svg`
 - [x] **`docs/ldd/`** — canonical methodology with task-type dispatch
 - [x] **No secrets, no hardcoded keys, no private URLs** — scanned clean
 - [x] **Drift-scan of the repo itself comes back clean** — `python scripts/drift-scan.py --repo .` only reports the intended rubric-drift warning

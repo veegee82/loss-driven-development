@@ -17,7 +17,7 @@ A climber without the probe-listen-commit rhythm is not faster than one with it.
 
 A Chain-of-Thought (CoT) is a trajectory in reasoning-space: `t_0 → t_1 → ... → t_N` where each `t_k` is the partial reasoning state after step `k`. Standard CoT is greedy-SGD on this trajectory — each step maximizes local plausibility, no gradient-check.
 
-Dialectical-CoT applies the LDD quantitative-dialectic protocol (v0.7.0) at *every step* in the chain. Each step:
+Dialectical-CoT applies the LDD quantitative-dialectic protocol at *every step* in the chain. Each step:
 
 1. **Thesis** — the LLM proposes the next reasoning move + a `predicted_step_correctness`
 2. **Antithesis** — primers from chain memory + forced-independent counter-cases probe orthogonal failure modes
@@ -25,7 +25,7 @@ Dialectical-CoT applies the LDD quantitative-dialectic protocol (v0.7.0) at *eve
 4. **Decision** — commit if `E[step correct] ≥ threshold`; revise if below; backtrack if fundamentally different branch dominates
 5. **Log** — step-level trace for chain-level calibration; aggregator learns per-task-type patterns
 
-This is how "gradient via dialectic" (v0.7.0) applied to actions becomes applicable to *thoughts*: the synthesis step produces a number the agent can act on and that can be validated post-hoc against ground truth.
+This is how "gradient via dialectic" applied to actions becomes applicable to *thoughts*: the synthesis step produces a number the agent can act on and that can be validated post-hoc against ground truth.
 
 ## When to Use
 
@@ -110,7 +110,7 @@ Dialectical-CoT extends LDD's project memory with a **task-type-aware layer** (`
 - `common_failure_modes[task_type]` — top-N failure patterns observed in prior chains of the same type (e.g., `math` commonly fails via `off_by_one`, `sign_error`, `unit_confusion`)
 - `calibration[task_type]` — MAE of predicted vs actual chain correctness per task-type; `drift_warning: true` if `MAE > 0.15` over `n ≥ 5`
 
-The `prime-antithesis` tool (v0.6.0) is extended to accept `--task-type` and `--chain-context` — it now surfaces:
+The `prime-antithesis` tool is extended to accept `--task-type` and `--chain-context` — it now surfaces:
 
 1. **Step-effectiveness primers**: "this step type has 0.52 success rate in math chains — what failure mode is most likely here?"
 2. **Failure-mode primers**: "last 3 chains of this type failed via `sign_error` — is this step susceptible?"

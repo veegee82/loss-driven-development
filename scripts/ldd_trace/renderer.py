@@ -23,6 +23,7 @@ class Iteration:
     skill_lines: List[str] = field(default_factory=list)
     mode: str = "reactive"        # "reactive" or "architect" (inner only)
     creativity: Optional[str] = None  # "standard" | "conservative" | "inventive"
+    timestamp: str = ""           # ISO-8601 — used for chronological sort
 
 
 @dataclass
@@ -128,6 +129,8 @@ def _format_mode(it: Iteration) -> str:
         if it.mode == "architect":
             return f"architect, {it.creativity or 'standard'}"
         return "inner, reactive"
+    if it.phase == "cot":
+        return "cot, dialectical"
     return it.phase
 
 
@@ -139,11 +142,13 @@ def render_trace(task: Task) -> str:
     lines.append(f"│ Task       : {task.title}")
     if task.loops_used:
         loops_str = " → ".join(task.loops_used)
-        extra = (
-            "  (all three fired)"
-            if set(task.loops_used) == {"inner", "refine", "outer"}
-            else ""
-        )
+        loops_set = set(task.loops_used)
+        if loops_set == {"inner", "refine", "outer", "cot"}:
+            extra = "  (all four fired)"
+        elif loops_set == {"inner", "refine", "outer"}:
+            extra = "  (all three fired)"
+        else:
+            extra = ""
         lines.append(f"│ Loops      : {loops_str}{extra}")
     lines.append("│ Loss-type  : normalized [0,1]  (raw counts per loop in parens)")
     if task.budgets:
@@ -167,7 +172,7 @@ def render_trace(task: Task) -> str:
     if len(task.iterations) >= 3:
         lines.append("│ Loss curve (auto-scaled, linear):")
         lines.extend(mini_chart(task.iterations))
-        lines.append("│        Phase prefixes: i=inner · r=refine · o=outer · p=architect-phase")
+        lines.append("│        Phase prefixes: i=inner · r=refine · o=outer · c=cot · p=architect-phase")
         lines.append("│")
 
     # Per-iteration detail — always.

@@ -5,6 +5,7 @@ Subcommands:
     append   Record one iteration close and print the full trace block.
     close    Record a loop-close event and print the final trace block.
     render   Read .ldd/trace.log and print the trace block.
+    ingest   Append ⟪LDD-TRACE-v1⟫ lines from pasted chat text to trace.log.
     status   Machine-readable status (next-k per loop, iteration counts).
 """
 from __future__ import annotations
@@ -30,7 +31,7 @@ from ldd_trace.retrieval import (
     similar_tasks,
     suggest_skills,
 )
-from ldd_trace.store import TraceStore
+from ldd_trace.store import TraceStore, ingest_magic_lines
 
 
 def _add_common_args(p: argparse.ArgumentParser) -> None:
@@ -344,6 +345,25 @@ def _cmd_prime_antithesis(args: argparse.Namespace) -> int:
     return 0 if material.has_signal else 0  # non-zero exit would be misleading
 
 
+def _cmd_ingest(args: argparse.Namespace) -> int:
+    """Promote Tier-2 (conversation-history) magic lines to Tier-0 (.ldd/trace.log).
+
+    Reads arbitrary text from `--input` (or stdin), scans for
+    `⟪LDD-TRACE-v1⟫`-prefixed lines emitted by a sandboxed agent,
+    and appends them to the project's `.ldd/trace.log` — deduplicating
+    against entries already present. Used when the user moves a task
+    from a chat host (ChatGPT, Claude Desktop) to a CLI agent.
+    """
+    store = TraceStore(Path(args.project))
+    if args.input == "-" or args.input is None:
+        text = sys.stdin.read()
+    else:
+        text = Path(args.input).read_text(encoding="utf-8")
+    appended = ingest_magic_lines(store, text)
+    print(f"ingested {appended} new entries → {store.trace_path}")
+    return 0
+
+
 def _cmd_render(args: argparse.Namespace) -> int:
     store = TraceStore(Path(args.project))
     if not store.exists():
@@ -392,7 +412,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Record one iteration and print the full trace block",
     )
     _add_common_args(p_app)
-    p_app.add_argument("--loop", required=True, choices=["inner", "refine", "outer", "architect"])
+    p_app.add_argument("--loop", required=True, choices=["inner", "refine", "outer", "architect", "cot"])
     p_app.add_argument("--k", type=int, default=None, help="Iteration index")
     p_app.add_argument("--auto-k", action="store_true", help="Derive k from trace.log")
     p_app.add_argument("--skill", required=True, help="Skill name that fired this iteration")
@@ -427,7 +447,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_close = sub.add_parser("close", help="Record loop close and print final block")
     _add_common_args(p_close)
-    p_close.add_argument("--loop", required=True, choices=["inner", "refine", "outer", "architect"])
+    p_close.add_argument("--loop", required=True, choices=["inner", "refine", "outer", "architect", "cot"])
     p_close.add_argument(
         "--terminal",
         required=True,
@@ -440,6 +460,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_r = sub.add_parser("render", help="Render current trace.log to stdout")
     _add_common_args(p_r)
     p_r.set_defaults(func=_cmd_render)
+
+    p_ing = sub.add_parser(
+        "ingest",
+        help="Append ⟪LDD-TRACE-v1⟫-prefixed lines from a pasted chat "
+        "transcript to .ldd/trace.log (idempotent; duplicates are skipped). "
+        "See skills/bootstrap-userspace/SKILL.md for the Tier-2 → Tier-0 "
+        "migration pattern.",
+    )
+    _add_common_args(p_ing)
+    p_ing.add_argument(
+        "--input",
+        default=None,
+        help="Path to a file to read (default: stdin, also accepts '-')",
+    )
+    p_ing.set_defaults(func=_cmd_ingest)
 
     p_s = sub.add_parser("status", help="Machine-readable status")
     _add_common_args(p_s)

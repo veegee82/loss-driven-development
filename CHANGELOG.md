@@ -2,6 +2,39 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.10.2] — 2026-04-22
+
+### Added — CoT-loop rendering, Tier-2 persistence, two new skills
+
+**1. CoT loop becomes first-class in the trace block.** The four-loop narrative that landed in docs in v0.10.1 is now implemented end-to-end in the renderer:
+
+- `renderer.Iteration.phase == "cot"` renders as `(cot, dialectical)` with phase-prefix `c` (alongside the existing `i` / `r` / `o` for inner / refine / outer).
+- `renderer.Iteration.timestamp` is preserved for chronological sorting across loops.
+- `render_trace()` header recognizes `{inner, refine, outer, cot}` and appends `(all four fired)`; the three-loop case keeps `(all three fired)`. A run that exercises only a subset gets no parenthetical (honest display).
+- `TraceStore.to_task()` reads `cot_entries` alongside the existing loop buckets.
+
+**2. `ldd_trace ingest` — Tier-2 → Tier-0 promotion.** New CLI subcommand that scans arbitrary text (stdin or a file) for `⟪LDD-TRACE-v1⟫`-prefixed lines and appends them to the project's `.ldd/trace.log`, deduplicating against entries already present. This is how a user moves a task from a sandboxed chat host (ChatGPT, Claude Desktop without MCP filesystem) to a CLI agent: paste the chat transcript, run `python -m ldd_trace ingest --project . --input chat.txt`, keep working. Implementation: `store.ingest_magic_lines()` + `cli._cmd_ingest()`.
+
+**3. Two new skills completing the cross-platform story.**
+
+- `skills/bootstrap-userspace/SKILL.md` — fires at session start when `.ldd/trace.log` cannot be written (read-only filesystem, sandboxed chat host). Detects the host's persistence surface via introspection and picks the most durable tier silently — **Tier 0** (filesystem) → **Tier 1** (artifact/canvas) → **Tier 2** (conversation-history with `⟪LDD-TRACE-v1⟫` magic lines) → **Tier 3** (memory-pointer to where the trace actually lives) → **Tier 4** (inline-only, ephemeral). The chosen tier is announced via a `│ Store : <scope>` line in the trace-block header. Makes LDD work on Claude Desktop, ChatGPT, Codex Web, and any other host without the user having to configure anything.
+- `skills/host-statusline/SKILL.md` — fires on Claude Code at session start in parallel with `bootstrap-userspace`. Auto-installs a permanent statusline that reads either `.ldd/trace.log` (Tier 0) or the session's JSONL transcript (Tier 2) and shows the current task / loop / iteration / loss / sparkline at the bottom of the console on every UI tick. Idempotent, merge-safe, project-local. Silently no-ops on non-Claude-Code hosts. Ships with `heartbeat.sh` and `statusline.sh`.
+
+### Changed — documentation flattening
+
+Three consecutive doc-only passes landed between the v0.10.1 tag and this entry — each a separate commit, all tagged under v0.10.2 for release:
+
+- **`7f572d9`** — reframed every top-level narrative file around **"Gradient Descent for Agents"** and replaced "three loops" with "four loops" throughout the prose. 41 files; no normative change.
+- **`128d391`** — four-loop cleanup pass: removed legacy version parentheticals (`(v0.5.0+)`, `(v0.7.0)`, `(v0.8.0)`, `(v0.9.0)`, `(v0.10.1)`) from non-historical prose, deleted `diagrams/three-loops.{dot,svg}` and replaced with `diagrams/four-loops.{dot,svg}` (four clusters: inner / refine / outer / CoT, each labeled with its parameter and gradient expression). The file name itself was a self-reinforcing legacy — as long as it existed, writers reflexively said "three loops."
+- **`b14ea7c`** — dropped the "Rule: …" annotation from `diagrams/four-axes-gradient-descent.svg`, flushed the last three hidden version-stamp labels that only surfaced on render (in `four-axes-gradient-descent.dot`, `skills-overview.dot`, `mental-model-ldd.dot`), updated the `.claude-plugin/{marketplace,plugin}.json` descriptions that still said "three reactive loops" to the four-parameter-space framing. README.md line 112 skills-overview caption had "three code-axis loops" — fixed to name all four.
+
+### Verification
+
+- `pytest scripts/`: **253 passed / 3 skipped** (unchanged baseline)
+- `scripts/render-diagrams.sh`: **12/12 SVGs rendered**, no errors, no `feDropShadow`
+- All 11 SVG references from `.md` files resolve to existing files
+- No new drift-scan findings beyond the two pre-existing ones
+
 ## [0.10.1] — 2026-04-22
 
 ### Added — Thinking-levels auto-dispatch

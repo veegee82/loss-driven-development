@@ -340,6 +340,7 @@ class TraceStore:
         inner_entries = [e for e in iteration_entries if e.loop == "inner"]
         refine_entries = [e for e in iteration_entries if e.loop == "refine"]
         outer_entries = [e for e in iteration_entries if e.loop == "outer"]
+        cot_entries = [e for e in iteration_entries if e.loop == "cot"]
 
         iterations: List[Iteration] = []
         for e in architect_entries:
@@ -354,12 +355,14 @@ class TraceStore:
                     skill_lines=[f"*{e.fields.get('skill', '')}* → {e.fields.get('action', '')}"],
                     mode="architect",
                     creativity=e.fields.get("creativity", "standard"),
+                    timestamp=e.timestamp,
                 )
             )
         for loop_entries, prefix, phase in (
             (inner_entries, "i", "inner"),
             (refine_entries, "r", "refine"),
             (outer_entries, "o", "outer"),
+            (cot_entries, "c", "cot"),
         ):
             for e in loop_entries:
                 k = e.get_int("k", 0)
@@ -374,8 +377,11 @@ class TraceStore:
                             f"*{e.fields.get('skill', '(baseline)')}* → {e.fields.get('action', '')}"
                         ],
                         mode="reactive",
+                        timestamp=e.timestamp,
                     )
                 )
+
+        iterations.sort(key=lambda it: it.timestamp)
 
         # Close block, if any close entry exists
         close_entries = [e for e in self.read_all() if e.kind == "close"]
@@ -384,20 +390,28 @@ class TraceStore:
         docs = close_entries[-1].fields.get("docs", "") if close_entries else ""
 
         budgets = {}
+        if architect_entries:
+            budgets["architect"] = (len(architect_entries), 5)
         if inner_entries:
             budgets["inner"] = (len(inner_entries), 5)
         if refine_entries:
             budgets["refine"] = (len(refine_entries), 3)
         if outer_entries:
             budgets["outer"] = (len(outer_entries), 1)
+        if cot_entries:
+            budgets["cot"] = (len(cot_entries), 8)
 
         loops_used = []
-        if architect_entries or inner_entries:
+        if architect_entries:
+            loops_used.append("architect")
+        if inner_entries:
             loops_used.append("inner")
         if refine_entries:
             loops_used.append("refine")
         if outer_entries:
             loops_used.append("outer")
+        if cot_entries:
+            loops_used.append("cot")
 
         # Layer string is stored as one blob; split on the first "·" only so
         # we can render `4:... · 5:...` patterns the caller may have provided.

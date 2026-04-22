@@ -6,6 +6,8 @@
 [![Skills: 12 on four gradients](https://img.shields.io/badge/skills-12%20on%20four%20gradients-blueviolet.svg)](./skills/)
 [![Theory](https://img.shields.io/badge/theory-%C2%A7%20gradient%20descent%20for%20agents-informational.svg)](./docs/theory.md)
 
+> ⚡ **New here? [Read the 60-second Gist](https://gist.github.com/veegee82/3b9fc46107905ec4c369de71c68efc84)** — six-file overview: pitch, install, trigger phrases, philosophy, evidence. Shareable single URL.
+
 > **LDD is gradient descent for coding agents.**
 > Twelve portable skills for any coding agent — **Claude Code · Codex · Gemini CLI · Aider · Cursor · Copilot CLI · Continue.dev** — that turn "the test is green, ship it" into a *measured optimization procedure* with a loss function, a gradient, a step-size rule, and a regularizer across **four parameter spaces**: code (`θ`), deliverable (`y`), method (`m`), and reasoning chain (`t`).
 

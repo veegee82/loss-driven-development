@@ -12,6 +12,7 @@ set -uo pipefail
 
 input=$(cat 2>/dev/null || echo "{}")
 tool=$(jq -r '.tool_name // "unknown"' <<<"$input" 2>/dev/null || echo "unknown")
+sid=$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null || echo "")
 
 # Resolve project root: prefer explicit cwd from hook input, fall back to pwd.
 cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null || true)
@@ -21,5 +22,11 @@ trace_dir="${cwd}/.ldd"
 [[ -d "$trace_dir" ]] || exit 0  # no LDD in this project — silent no-op
 
 ts=$(date -u +%s)
-printf '%s %s\n' "$ts" "$tool" > "${trace_dir}/heartbeat"
+# Line format: `<epoch> <tool_name> <session_id>`. Third column is new in
+# v0.12.0 and feeds the activity-gate in `ldd_trace mark_session_active`:
+# Claude Code does not set $CLAUDE_SESSION_ID in the bash environment, so
+# ldd_trace reads the real session id out of this file instead. Older
+# readers (statusline.sh pre-v0.12.0) only parse $1 and $2, so appending
+# the third field is backwards-compatible.
+printf '%s %s %s\n' "$ts" "$tool" "$sid" > "${trace_dir}/heartbeat"
 exit 0

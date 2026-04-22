@@ -21,31 +21,74 @@ BLOCKS=('▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
 input=$(cat)
 cwd=$(jq -r '.cwd // .workspace.current_dir // "."' <<<"$input" 2>/dev/null || echo ".")
 transcript=$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null || echo "")
+hook_sid=$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null || echo "")
 
 trace_file="${cwd}/.ldd/trace.log"
+marker_file="${cwd}/.ldd/session_active"
 task=""; loop=""; last_k=""; losses=""; source_tag=""
 level=""; level_name=""; creativity=""
+terminal=""  # v0.12.0 — show ✓/⚠/✗ when the current task closed
 
 k_max="${LDD_K_MAX:-5}"
 elapsed_label=""
 warning_label=""
 
-if [[ -f "$trace_file" ]]; then
-    task=$(grep -m1 -oP 'task="\K[^"]+' "$trace_file" 2>/dev/null || true)
+# Session gate — render the current LDD state only if LDD was actually used
+# in THIS Claude-Code session. Mirror of the stop-hook policy (scripts/
+# ldd_trace/session_gate.py). Without this, the statusline would keep
+# showing the last task's state across completely unrelated future sessions.
+#
+# Policy:
+#   no marker file                       → fall through to idle
+#   marker present, both sides empty     → allow (legacy / shell use)
+#   marker's session_id == hook's sid    → allow
+#   mismatch                             → fall through to idle
+gate_allows=0
+if [[ -f "$marker_file" ]]; then
+    marker_sid=$(head -1 "$marker_file" 2>/dev/null | grep -oP 'session_id=\K.*' || true)
+    if [[ -z "${marker_sid:-}" || -z "$hook_sid" ]]; then
+        gate_allows=1
+    elif [[ "$marker_sid" == "$hook_sid" ]]; then
+        gate_allows=1
+    fi
+fi
+
+if [[ -f "$trace_file" && "$gate_allows" == "1" ]]; then
+    # Extract just the CURRENT task section: everything from the last `meta`
+    # line onward. trace.log is append-only and accumulates tasks; reading
+    # the whole file mixes sparklines / task titles / losses across runs.
+    current_section=$(awk '
+        $2 == "meta" { buf = $0 ORS; next }
+        { buf = buf $0 ORS }
+        END { printf "%s", buf }
+    ' "$trace_file")
+
+    task=$(grep -m1 -oP 'task="\K[^"]+' <<<"$current_section" 2>/dev/null || true)
     # v0.11.0: loss field is `loss=`; accept legacy `loss_norm=` too for trace
     # files written by pre-v0.11.0 agents that still co-exist during rollout.
-    losses=$(grep -oE 'loss(_norm)?=[0-9.]+' "$trace_file" 2>/dev/null | sed -E 's/loss(_norm)?=//' | tail -30)
+    losses=$(grep -oE 'loss(_norm)?=[0-9.]+' <<<"$current_section" 2>/dev/null | sed -E 's/loss(_norm)?=//' | tail -30)
     # v0.11.0: `design` replaces `architect` on iter lines; accept both.
     # Filter out `close` lines — those carry `terminal=` but no `k=N`, so the
     # second grep for `k=[0-9]` keeps only iteration lines (including
     # `baseline` iters which still carry `k=0`).
-    last_line=$(grep -E '^\S+[[:space:]]+(design|architect|inner|refine|outer|cot)[[:space:]]' "$trace_file" 2>/dev/null | grep -E ' k=[0-9]+' | tail -1)
+    last_line=$(grep -E '^\S+[[:space:]]+(design|architect|inner|refine|outer|cot)[[:space:]]' <<<"$current_section" 2>/dev/null | grep -E ' k=[0-9]+' | tail -1)
     loop=$(awk '{print $2}' <<<"$last_line")
     # Normalize legacy `architect` loop name to `design` for display.
     [[ "$loop" == "architect" ]] && loop="design"
     last_k=$(grep -oP 'k=\K[0-9]+' <<<"$last_line" | head -1)
-    # Pull the level + name + creativity (if any) from the meta line.
-    meta_line=$(grep -E '^\S+[[:space:]]+meta[[:space:]]' "$trace_file" 2>/dev/null | tail -1)
+
+    # Terminal state — render ✓/⚠/✗ when the current task has closed AND no
+    # further iteration followed. The close line is the last non-blank line
+    # of the current section in the common case.
+    last_content=$(grep -vE '^[[:space:]]*$' <<<"$current_section" | tail -1)
+    if grep -qE '[[:space:]]close[[:space:]]' <<<"$last_content"; then
+        terminal=$(grep -oP 'terminal=\K\w+' <<<"$last_content" | head -1)
+    fi
+
+    # Pull the level + name + creativity from the current section's meta
+    # (which is its first line by construction — it is the latest meta in
+    # the whole trace.log).
+    meta_line=$(grep -E '^\S+[[:space:]]+meta[[:space:]]' <<<"$current_section" 2>/dev/null | tail -1)
     level=$(grep -oE 'L[0-4]/[a-z]+' <<<"$meta_line" | head -1)
     if [[ -n "$level" ]]; then
         level_name="${level#*/}"
@@ -197,6 +240,21 @@ if [[ -n "$last_k" ]]; then
     k_label=" ${k_prefix}${last_k}/${k_max}"
 fi
 
+# v0.12.0 — when the current task has closed, replace the live "loop k=N/K_MAX"
+# label with a terminal marker so the statusline does not keep pretending the
+# run is still progressing.
+if [[ -n "$terminal" ]]; then
+    case "$terminal" in
+        complete) loop_label="✓ complete" ;;
+        partial)  loop_label="⚠ partial"  ;;
+        failed)   loop_label="✗ failed"   ;;
+        aborted)  loop_label="✗ aborted"  ;;
+        handoff)  loop_label="→ handoff"  ;;
+        *)        loop_label="· ${terminal}" ;;
+    esac
+    k_label=""  # iteration counter loses meaning once closed
+fi
+
 last_fmt=$(awk -v v="$last" 'BEGIN{printf "%.3f", v+0}')
 
 # Heartbeat — shows "⚡ <age>s <tool>" if a tool fired in the last 60s.
@@ -235,6 +293,23 @@ if [[ -n "$creativity" ]]; then
 fi
 
 if [[ -n "$level_label" ]]; then
+    # When terminal is set, the "loop k=N/K_MAX" segment becomes just
+    # "loop_label" (already rewritten to ✓/⚠/✗ above); skip the k counters.
+    if [[ -n "$terminal" ]]; then
+        printf "LDD · %s%s · %s · loss=%s · %s · %s %s%s%s · %s%s" \
+            "$level_label" \
+            "$creativity_label" \
+            "$loop_label" \
+            "$last_fmt" \
+            "$task_short" \
+            "$sparkline" \
+            "$trend" \
+            "$elapsed_tail" \
+            "$warning_tail" \
+            "$source_tag" \
+            "$hb_suffix"
+        exit 0
+    fi
     printf "LDD · %s%s · %s k=%s/%s · loss=%s%s · %s · %s %s%s%s · %s%s" \
         "$level_label" \
         "$creativity_label" \

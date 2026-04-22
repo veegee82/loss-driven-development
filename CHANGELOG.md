@@ -4,6 +4,44 @@ All notable changes to this plugin are documented here. Format follows [Keep a C
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-04-22
+
+### Added — per-project display config + activity-gated Stop-hook
+
+New `.ldd/config.yaml` with a `display:` section controls what the Stop-hook renders at the end of each agent turn. Two knobs:
+
+- **`verbosity`** — one of `off | summary | full | debug`.
+    - `summary` (new default) emits a 5-7 line digest: task, loops touched, loss trajectory + sparkline, close verdict. Full trace stays reachable via `/ldd-trace` or `ldd_trace render --verbosity full`.
+    - `full` restores the pre-v0.12  30+ line block.
+    - `off` silences the hook entirely; statusline remains the live monitor.
+- **`gate_on_activity`** — default `true`; the Stop-hook only emits a block when LDD actually fired in this session. `.ldd/session_active` (written by `ldd_trace init|append|close`) is compared against the hook's `session_id`; mismatch → no render.
+
+The installer (`ldd_install.sh`) seeds `config.yaml` on **first** install only — an edited config is never overwritten on upgrade. Seed template lives at `skills/host-statusline/config.yaml.default` and is documented inline.
+
+Precedence for `verbosity`: `LDD[verbosity=…]:` inline → `$LDD_VERBOSITY` → `display.verbosity` → `summary` (hook) / `full` (plain CLI) defaults.
+
+### Added — statusline no longer shows stale state across runs / sessions
+
+Three longstanding bugs in `skills/host-statusline/statusline.sh` that together caused the bottom-of-screen monitor to display info from a previous LDD run:
+
+1. **Cross-task contamination**: the task-title grep used `grep -m1` (first match = oldest task in the append-only log), and `losses | tail -30` mixed loss values across all historical tasks. The sparkline and trend arrow were therefore computed over iterations that belonged to different runs.
+2. **Post-close live-marker**: after `ldd_trace close` wrote a terminal line, the statusline continued to render `<loop> k=N/K_MAX` as if the run were still progressing.
+3. **Session-stale state**: opening a new Claude-Code session in the same project showed the last session's closed task for hours, with no way to distinguish it from a live run.
+
+Fix:
+
+- `awk`-scoped parse extracts only the lines from the **last** `meta` line onward, so every read (task title, losses, meta line, last iter line) operates on the current task's section alone.
+- When a `close` line exists and is the last content line of the current section, the loop label is replaced with `✓ complete` / `⚠ partial` / `✗ failed` / `✗ aborted` / `→ handoff`, and the `k=N/K_MAX` suffix is dropped.
+- Session-ID gate (same policy as the Stop-hook): `.ldd/session_active` is compared against the `session_id` in the statusline's JSON input; mismatch → `LDD · idle`. Empty marker on either side falls through to "allow" so plain-shell / test-harness use is not blocked.
+
+### Added — `.ldd/heartbeat` carries session_id in third column
+
+`skills/host-statusline/heartbeat.sh` now writes `<epoch> <tool> <session_id>` on every PreToolUse event. This is the single source of truth for the current Claude-Code session id inside the project (Claude Code does not expose `$CLAUDE_SESSION_ID` as a shell env var), and `ldd_trace init|append|close` reads it to populate `.ldd/session_active`. Pre-v0.12 readers parse only `$1`/`$2`, so the extra column is backwards-compatible.
+
+### Added — `render_summary()` + `render(task, verbosity)` dispatcher
+
+`scripts/ldd_trace/renderer.py` gains a compact `render_summary()` (5-7 lines: header, one-line loop-count digest, loss trajectory with sparkline, layer/docs/terminal) and a `render(task, verbosity)` dispatcher. `render_trace()` itself is unchanged — the full block renders byte-identical to v0.11 when `verbosity=full`.
+
 ### Added — plugin-level auto-install on SessionStart + `/ldd-install`
 
 The plugin now ships `hooks/hooks.json` which registers a SessionStart hook running `hooks/ldd_install.sh`. Claude Code merges plugin-level hooks into the user's hook registry on plugin load, so **no manual install step is needed after plugin install or update** — the installer runs at the next SessionStart.

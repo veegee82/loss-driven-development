@@ -24,7 +24,12 @@ from ldd_trace.dialectical_prime import (
     format_antithesis_material,
     prime_antithesis,
 )
-from ldd_trace.renderer import render_trace
+from ldd_trace.renderer import render, render_trace
+from ldd_trace.session_gate import (
+    load_display_config,
+    mark_session_active,
+    session_gate_allows,
+)
 from ldd_trace.retrieval import (
     check_in_flight,
     format_health,
@@ -54,6 +59,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
         store_scope=args.store,
         dispatched=args.dispatched,
     )
+    mark_session_active(Path(args.project))
     print(f"trace.log initialized at {store.trace_path}")
     return 0
 
@@ -80,6 +86,7 @@ def _cmd_append(args: argparse.Namespace) -> int:
         baseline=args.baseline,
         predicted_delta=args.predicted_delta,
     )
+    mark_session_active(Path(args.project))
     print(render_trace(store.to_task()))
     return 0
 
@@ -92,6 +99,7 @@ def _cmd_close(args: argparse.Namespace) -> int:
         layer=args.layer,
         docs=args.docs,
     )
+    mark_session_active(Path(args.project))
     # Auto-aggregate on close (v0.5.2) — keeps project_memory.json fresh.
     # Cheap (<50ms for hundreds of entries) and prevents stale-read on next task.
     try:
@@ -375,9 +383,45 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
 def _cmd_render(args: argparse.Namespace) -> int:
     store = TraceStore(Path(args.project))
     if not store.exists():
-        print(f"no trace.log at {store.trace_path}", file=sys.stderr)
-        return 1
-    print(render_trace(store.to_task()))
+        # Stop-hook invocations pass --quiet-missing to avoid a stderr line on
+        # projects that have no LDD activity yet. Manual CLI use keeps the
+        # friendly error.
+        if not getattr(args, "quiet_missing", False):
+            print(f"no trace.log at {store.trace_path}", file=sys.stderr)
+        return 1 if not getattr(args, "quiet_missing", False) else 0
+
+    # Resolve verbosity. Precedence (highest → lowest):
+    #   1. --verbosity flag
+    #   2. $LDD_VERBOSITY env var
+    #   3. .ldd/config.yaml `display.verbosity` (only when --respect-config)
+    #   4. "summary" when --respect-config (hook-friendly default; also kicks
+    #      in when an older plugin that did not seed config.yaml is reloaded)
+    #   5. "full" for plain CLI use (backwards compat)
+    import os
+    verbosity = args.verbosity
+    if verbosity is None:
+        verbosity = os.environ.get("LDD_VERBOSITY") or ""
+    cfg = load_display_config(Path(args.project)) if args.respect_config else {}
+    if not verbosity and args.respect_config:
+        verbosity = cfg.get("verbosity") or "summary"
+    if not verbosity:
+        verbosity = "full"
+
+    # Activity-gate — used by the Stop-hook. Config key `gate_on_activity`
+    # (default true when --respect-config is set); explicit --activity-gate
+    # forces the gate regardless of config.
+    gate_active = args.activity_gate
+    if args.respect_config and cfg.get("gate_on_activity", True):
+        gate_active = True
+    if gate_active:
+        hook_session_id = os.environ.get("LDD_HOOK_SESSION_ID", "")
+        if not session_gate_allows(Path(args.project), hook_session_id):
+            # No LDD activity in this session → emit nothing, exit clean.
+            return 0
+
+    out = render(store.to_task(), verbosity=verbosity)
+    if out:
+        print(out)
     return 0
 
 
@@ -516,6 +560,30 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_r = sub.add_parser("render", help="Render current trace.log to stdout")
     _add_common_args(p_r)
+    p_r.add_argument(
+        "--verbosity",
+        default=None,
+        choices=["off", "summary", "full", "debug"],
+        help="Render variant. Precedence: flag > $LDD_VERBOSITY > "
+        ".ldd/config.yaml (with --respect-config) > 'full' (default).",
+    )
+    p_r.add_argument(
+        "--respect-config",
+        action="store_true",
+        help="Read verbosity + gate_on_activity from .ldd/config.yaml",
+    )
+    p_r.add_argument(
+        "--activity-gate",
+        action="store_true",
+        help="Only render if .ldd/session_active matches $LDD_HOOK_SESSION_ID. "
+        "Used by the Stop-hook to avoid rendering on turns where LDD never "
+        "fired.",
+    )
+    p_r.add_argument(
+        "--quiet-missing",
+        action="store_true",
+        help="Exit 0 silently when trace.log does not exist (hook-friendly).",
+    )
     p_r.set_defaults(func=_cmd_render)
 
     p_ing = sub.add_parser(

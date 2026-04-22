@@ -24,6 +24,7 @@ export LC_ALL=C
 input=$(cat 2>/dev/null || echo "{}")
 cwd=$(jq -r '.cwd // .workspace.current_dir // empty' <<<"$input" 2>/dev/null || true)
 [[ -z "$cwd" ]] && cwd="$PWD"
+session_id=$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null || true)
 
 trace_file="${cwd}/.ldd/trace.log"
 launcher="${cwd}/.ldd/ldd_trace"
@@ -33,7 +34,25 @@ if [[ ! -f "$trace_file" || ! -x "$launcher" ]]; then
     exit 0
 fi
 
-block=$("$launcher" render --project "$cwd" 2>/dev/null || true)
+# Activity gate + verbosity are enforced inside `ldd_trace render`:
+#   - --respect-config  reads .ldd/config.yaml (`display.verbosity`,
+#     `display.gate_on_activity`); both have safe defaults if the file is
+#     missing ("summary", gate=true).
+#   - --activity-gate   is a belt-and-suspenders: even without a config file,
+#     the hook refuses to render when LDD was not active in this session.
+#   - LDD_HOOK_SESSION_ID is the id we got from the hook input, compared
+#     against .ldd/session_active (written by ldd_trace init/append/close).
+#   - LDD_VERBOSITY       is a session-level env override (set via /ldd-set)
+#     that beats the config file but not an explicit --verbosity flag.
+#
+# Summary is the rendered default so the user gets a compact 6-line digest
+# when LDD is active, and silence on turns where no iteration was recorded.
+block=$(LDD_HOOK_SESSION_ID="$session_id" "$launcher" render \
+    --project "$cwd" \
+    --respect-config \
+    --activity-gate \
+    --quiet-missing \
+    2>/dev/null || true)
 if [[ -z "$block" ]]; then
     echo '{}'
     exit 0

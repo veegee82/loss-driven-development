@@ -66,11 +66,13 @@ tpl_launcher="$plugin_root/skills/bootstrap-userspace/ldd_trace"
 tpl_statusline="$plugin_root/skills/host-statusline/statusline.sh"
 tpl_heartbeat="$plugin_root/skills/host-statusline/heartbeat.sh"
 tpl_stop_render="$plugin_root/skills/host-statusline/stop_render.sh"
+tpl_config="$plugin_root/skills/host-statusline/config.yaml.default"
 
 missing=()
 for f in "$tpl_launcher" "$tpl_statusline" "$tpl_heartbeat" "$tpl_stop_render"; do
     [[ -f "$f" ]] || missing+=("$(basename "$f")")
 done
+# tpl_config is optional for pre-v0.12 plugin builds — do not abort if missing.
 if (( ${#missing[@]} > 0 )); then
     jq -n --arg v "$plugin_version" --arg m "${missing[*]}" '{
         hookSpecificOutput: {
@@ -120,6 +122,15 @@ install_file "$tpl_launcher"    "$ldd_dir/ldd_trace"
 install_file "$tpl_statusline"  "$ldd_dir/statusline.sh"
 install_file "$tpl_heartbeat"   "$hooks_dir/ldd_heartbeat.sh"
 install_file "$tpl_stop_render" "$hooks_dir/ldd_stop_render.sh"
+
+# Seed .ldd/config.yaml on FIRST install only — never overwrite a user's
+# edited config. The default template turns on `verbosity: summary` and
+# `gate_on_activity: true`, which matches the user-visible defaults
+# `stop_render.sh` relies on.
+if [[ -f "$tpl_config" && ! -f "$ldd_dir/config.yaml" ]]; then
+    cp -f "$tpl_config" "$ldd_dir/config.yaml"
+    chmod 0644 "$ldd_dir/config.yaml"
+fi
 
 # --- Merge .claude/settings.local.json safely -------------------------------
 settings_file="$claude_dir/settings.local.json"

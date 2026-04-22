@@ -161,6 +161,106 @@ def _header_mode_line(task: Task) -> Optional[str]:
     return None
 
 
+def render_summary(task: Task) -> str:
+    """Compact 5-7 line block: task, loops, loss trajectory, close verdict.
+
+    Target audience: the "stop-hook rendered a block for every turn and I only
+    wanted a tiny digest" case. Shows what happened without the mini-chart or
+    per-iteration info lines. Full block remains available via
+    `ldd_trace render --verbosity full` or the `/ldd-trace` command.
+    """
+    width = 82  # match render_trace frame width
+    inner_width = width - 2  # minus the two corner chars
+
+    lines: List[str] = []
+    lines.append("╭─ LDD summary " + "─" * (width - 15) + "╮")
+
+    terminal_tag = f"  ({task.terminal})" if task.terminal else "  (in-progress)"
+    title = task.title or "(no title)"
+    lines.append(f"│ Task    : {title}{terminal_tag}")
+
+    if task.loops_used:
+        # Count iterations per loop for a one-line "loops=design×5 · inner×4 …".
+        from collections import Counter
+        c = Counter(it.phase for it in task.iterations)
+        # Display order follows the canonical loop order, not first-seen.
+        order = ["design", "inner", "cot", "refine", "outer"]
+        parts = []
+        for loop in order:
+            # `design` iterations have phase="inner" and mode="architect" in
+            # this model — count via label prefix instead of phase.
+            if loop == "design":
+                n = sum(1 for it in task.iterations if it.label.startswith("p"))
+            else:
+                prefix = {"inner": "i", "cot": "c", "refine": "r", "outer": "o"}[loop]
+                n = sum(1 for it in task.iterations if it.label.startswith(prefix))
+            if n > 0:
+                parts.append(f"{loop}×{n}")
+        if parts:
+            loops_str = " · ".join(parts)
+            # Optional "(all N fired)" annotation — reuse render_trace logic.
+            loops_set = set(task.loops_used)
+            reactive_triple = {"inner", "refine", "outer"}
+            if reactive_triple | {"cot", "design"} == loops_set:
+                extra = "  (all five fired)"
+            elif reactive_triple | {"cot"} == loops_set:
+                extra = "  (all four fired)"
+            elif loops_set == reactive_triple:
+                extra = "  (all three fired)"
+            else:
+                extra = ""
+            lines.append(f"│ Loops   : {loops_str}{extra}")
+
+    values = [it.loss_norm for it in task.iterations]
+    if len(values) >= 2:
+        spark = sparkline(values)
+        arrow = trend_arrow(values)
+        lines.append(
+            f"│ Loss    : {values[0]:.3f} → {values[-1]:.3f}  {arrow}   {spark}"
+        )
+    elif len(values) == 1:
+        lines.append(f"│ Loss    : {values[0]:.3f}  (single data point)")
+
+    if task.terminal and task.terminal != "in-progress":
+        layer_str = " · ".join(
+            s for s in (task.fix_layer_4, task.fix_layer_5) if s
+        )
+        if layer_str:
+            lines.append(f"│ Layer   : {layer_str}")
+        if task.docs_synced:
+            lines.append(f"│ Docs    : {task.docs_synced}")
+
+    lines.append(f"│ {'':74}  full: /ldd-trace")
+    lines.append("╰" + "─" * width + "╯")
+    return "\n".join(lines)
+
+
+def render(task: Task, verbosity: str = "full") -> str:
+    """Dispatcher: pick rendering variant based on verbosity preset.
+
+    Presets:
+        off     — empty string (hook emits nothing)
+        summary — compact digest (render_summary)
+        full    — full trace block (render_trace) — legacy default
+        debug   — full + diagnostic footer
+    """
+    v = (verbosity or "full").strip().lower()
+    if v == "off":
+        return ""
+    if v == "summary":
+        return render_summary(task)
+    if v == "debug":
+        body = render_trace(task)
+        footer = (
+            f"\n[debug] iterations={len(task.iterations)}  "
+            f"loops={sorted(set(task.loops_used))}  "
+            f"terminal={task.terminal or 'in-progress'}"
+        )
+        return body + footer
+    # full (and any unknown value falls back to full — safest default)
+    return render_trace(task)
+
+
 def render_trace(task: Task) -> str:
     """Full trace block: header, sparkline, mini chart, per-iter detail, close."""
     lines: List[str] = []

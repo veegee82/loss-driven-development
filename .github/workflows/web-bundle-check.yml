@@ -1,0 +1,43 @@
+name: web-bundle-check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - skills/**
+      - docs/theory.md
+      - docs/ldd/**
+      - scripts/build_web_bundle.py
+      - scripts/test_build_web_bundle.py
+      - scripts/level_scorer.py
+      - dist/web-bundle/**
+      - .github/workflows/web-bundle-check.yml
+  pull_request:
+    paths:
+      - skills/**
+      - docs/theory.md
+      - docs/ldd/**
+      - scripts/build_web_bundle.py
+      - scripts/test_build_web_bundle.py
+      - scripts/level_scorer.py
+      - dist/web-bundle/**
+      - .github/workflows/web-bundle-check.yml
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: Drift check (committed bundle matches source)
+        run: python scripts/build_web_bundle.py --check
+
+      - name: Bundle test suite
+        run: python -m pytest scripts/test_build_web_bundle.py -v

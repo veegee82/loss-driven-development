@@ -2,6 +2,20 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added — Claude Web/Desktop skill bundle
+
+**1. `dist/web-bundle/ldd-skill.zip` — drag-and-drop Claude Web/Desktop install.** Claude Web and Desktop accept one `SKILL.md + references/*` skill per upload, not a 14-skill plugin directory. The bundle consolidates `using-ldd` as the top-level `SKILL.md` and the other 13 skills (plus `bootstrap-userspace`) as `references/*.md` loaded on demand via progressive disclosure. The four-channel trace block (sparkline · mini chart · mode+info line · trend arrow) and its per-iteration + end-of-message emission rules are preserved byte-identically, so inline LLM traces and the final Close block render the same way as on Claude Code.
+
+**2. `scripts/build_web_bundle.py` — deterministic bundle builder.** Reads `skills/using-ldd/SKILL.md`, the other included skills, the four referenced docs (`theory.md`, `thinking-levels.md`, `hyperparameters.md`, `convergence.md`), and `level_scorer.py`; rewrites cross-links to the flat bundle layout; emits the flat directory + a ZIP with a fixed mtime and sorted entries so the hash only changes when the content does. `--check` mode verifies the committed bundle matches the source; exit 1 on drift. `host-statusline` is excluded (Claude-Code-only).
+
+**3. `scripts/test_build_web_bundle.py` — 21-test suite.** Covers determinism, drift detection, frontmatter validity, that every bundled skill is named in the frontmatter description (so Claude Web's auto-trigger matches), that the load-bearing trace-block rules survive the transform (per-iteration emission, final Close block, four visualization channels, deterministic rendering recipe, red flags, bootstrap-userspace fallback), that all intra-bundle links resolve to files that exist, and that the ZIP has the correct drag-and-drop shape (`ldd/SKILL.md` at archive root).
+
+**4. `.githooks/pre-commit` — drift gate.** Blocks commits that ship an out-of-sync bundle. Activate once per clone via `git config core.hooksPath .githooks`. Only runs when a bundle-source file is staged, so unrelated commits stay fast.
+
+**5. `.github/workflows/web-bundle-check.yml` + `release.yml` — CI + release automation.** The check workflow runs drift-check + the full test suite on every push/PR that touches a bundle-source file. The release workflow fires on `v*` tags, re-verifies the bundle, and attaches both `ldd-skill.zip` (stable-name link) and `ldd-skill-${TAG}.zip` (versioned link) to the GitHub Release so `releases/latest/download/ldd-skill.zip` is always the current build.
+
 ## [0.10.2] — 2026-04-22
 
 ### Added — CoT-loop rendering, Tier-2 persistence, two new skills

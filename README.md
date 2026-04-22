@@ -245,11 +245,10 @@ gemini extensions install ./loss-driven-development
 
 ### Claude Web · Claude Desktop (via Skill upload)
 
-Claude Web and Desktop accept a single skill uploaded as a ZIP. A ready-to-upload bundle ships in the repo:
+Claude Web and Desktop accept a single skill uploaded as a ZIP. A ready-to-upload bundle ships in the repo and attached to every GitHub release:
 
-```
-dist/web-bundle/ldd-skill.zip
-```
+- **Latest release (stable link):** [`ldd-skill.zip`](https://github.com/veegee82/loss-driven-development/releases/latest/download/ldd-skill.zip)
+- **In-repo current build:** [`dist/web-bundle/ldd-skill.zip`](./dist/web-bundle/ldd-skill.zip)
 
 Drop it onto Claude Web's Skills upload area (or Claude Desktop's Skill import). The bundle is one consolidated skill — the dispatcher becomes `SKILL.md` and the other 13 skills become `references/*.md` loaded on demand via progressive disclosure. Trigger with the `LDD:` prefix or any of the natural-language signals documented in `SKILL.md`.
 

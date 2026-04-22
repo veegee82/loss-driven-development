@@ -1,0 +1,51 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Only one release run at a time per tag.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # needed to create the GitHub Release + upload assets
+
+jobs:
+  publish-web-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: Verify committed bundle matches source
+        run: python scripts/build_web_bundle.py --check
+
+      - name: Run bundle test suite
+        run: python -m pytest scripts/test_build_web_bundle.py -v
+
+      - name: Stage versioned zip artifact
+        id: stage
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          cp dist/web-bundle/ldd-skill.zip "ldd-skill-${TAG}.zip"
+          echo "zip=ldd-skill-${TAG}.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release with bundle asset
+        uses: softprops/action-gh-release@v2
+        with:
+          # Creates the release if missing, otherwise updates the existing
+          # one for this tag. Always (re-)uploads the bundle asset.
+          files: |
+            dist/web-bundle/ldd-skill.zip
+            ${{ steps.stage.outputs.zip }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Block commits that ship an out-of-sync Claude Web bundle.
+#
+# Runs the drift check only when a source file that feeds the bundle is
+# staged (skills/, docs/, scripts/level_scorer.py, scripts/build_web_bundle.py,
+# dist/web-bundle/ itself). Keeps unrelated commits fast.
+#
+# Activate once per clone:
+#   git config core.hooksPath .githooks
+#
+# Bypass for one commit (use sparingly):
+#   git commit --no-verify
+
+set -euo pipefail
+
+staged="$(git diff --cached --name-only)"
+
+needs_check=0
+while IFS= read -r path; do
+    case "$path" in
+        skills/*/SKILL.md \
+        | docs/theory.md \
+        | docs/ldd/thinking-levels.md \
+        | docs/ldd/hyperparameters.md \
+        | docs/ldd/convergence.md \
+        | scripts/level_scorer.py \
+        | scripts/build_web_bundle.py \
+        | dist/web-bundle/*)
+            needs_check=1
+            break
+            ;;
+    esac
+done <<< "$staged"
+
+if [[ "$needs_check" -eq 0 ]]; then
+    exit 0
+fi
+
+if ! python3 scripts/build_web_bundle.py --check; then
+    cat >&2 <<'EOF'
+
+[pre-commit] Web-bundle drift detected.
+
+A bundled source file changed without a matching rebuild. Fix:
+
+    python3 scripts/build_web_bundle.py
+    git add dist/web-bundle/
+    git commit
+
+EOF
+    exit 1
+fi
